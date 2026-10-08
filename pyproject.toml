@@ -7,7 +7,9 @@ authors = [
     { name = "gtun", email = "garytunak@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.0",
+]
 
 [project.scripts]
 wardrobe-ai = "wardrobe_ai:main"

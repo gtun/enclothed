@@ -11,5 +11,4 @@ wheels/
 .env
 
 # Local data
-*.db
-intake/
+data/
