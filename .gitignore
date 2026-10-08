@@ -1,0 +1,15 @@
+# Python / uv
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+
+# Secrets — never commit
+.env
+
+# Local data
+*.db
+intake/
