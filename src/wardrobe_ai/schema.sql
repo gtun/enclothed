@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS garments (
+    id INTEGER PRIMARY KEY NOT NULL,
+    category TEXT NOT NULL,
+    subcategory TEXT NOT NULL,
+    primary_color TEXT NOT NULL,
+    secondary_colors TEXT,
+    accent_colors TEXT,
+    formality INTEGER,
+    materials TEXT,
+    warmth INTEGER,
+    pattern TEXT,
+    country_of_origin TEXT,
+    style_tags TEXT,
+    notes TEXT,
+    label_text TEXT,
+    fit TEXT,
+    sheen TEXT,
+    brand TEXT,
+    photo_path TEXT,
+    label_photo_paths TEXT,
+    wear_count INTEGER NOT NULL DEFAULT 0,
+    last_worn TEXT
+)
