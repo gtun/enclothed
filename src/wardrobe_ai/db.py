@@ -12,10 +12,10 @@ def init_db(db_path:Path, schema_path:Path) -> None:
     
     return
 
-def add_garment(garment:Garment):
+def insert_garment(garment:Garment) -> int:
     
     pass
 
-def read_garment() -> Garment:
+def select_garment() -> Garment:
     
     pass

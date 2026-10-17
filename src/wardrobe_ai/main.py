@@ -1,11 +1,10 @@
 from wardrobe_ai import config
 from wardrobe_ai import db
 from wardrobe_ai import llm
-from pathlib import Path
 import argparse
-import os
 from dotenv import load_dotenv
 from anthropic import Anthropic
+from wardrobe_ai.intake import add_garment
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="wardrobe-ai")
@@ -26,7 +25,14 @@ def main() -> int:
     load_dotenv()
     client = Anthropic()
     
-    response = llm.call_llm(client)
-    print(response.content)
+    if not args.command:
+        parser.error("Missing command")
+    
+    if args.command == "add":
+        print("add invoked")
+        add_garment(args.photos)
+    
+    #response = llm.call_llm(client)
+    #print(response.content)
     
     return 0
