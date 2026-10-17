@@ -6,6 +6,8 @@ import requests
 import shutil
 from urllib.parse import urlparse
 from wardrobe_ai.db import insert_garment
+from anthropic import Anthropic
+from wardrobe_ai.llm import call_llm
 
 TEST_GARMENT = Garment(
     category="outerwear",
@@ -49,6 +51,8 @@ TEST_GARMENT = Garment(
 def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path):
     staged_paths = []
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_dir.mkdir()
+    
     for image_path in image_paths:
         scheme = urlparse(image_path).scheme
         print(f"{image_path} is scheme: {scheme or 'file path'}")
@@ -60,8 +64,8 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
             staged_paths.append(dest)
         
     #temporary hardcode
-    new_garment = TEST_GARMENT
-    new_garment_id = insert_garment(garment_db_path, new_garment)
+    #new_garment = TEST_GARMENT
+    #new_garment_id = insert_garment(garment_db_path, new_garment)
 
 def download_photo(url: str, dest_dir: Path, index: int) -> Path:
     response = requests.get(url, timeout=30)

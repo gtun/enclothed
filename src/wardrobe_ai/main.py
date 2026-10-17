@@ -18,10 +18,8 @@ def main() -> int:
     
     args = parser.parse_args()
     
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    
-    db.init_db(config.DB_PATH, config.SCHEMA_PATH)
     init_dirs()
+    db.init_db(config.DB_PATH, config.SCHEMA_PATH)
     
     if not args.command:
         parser.error("Missing command")
@@ -30,7 +28,7 @@ def main() -> int:
     client = Anthropic()
     
     if args.command == "add":
-        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR)
+        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, client)
     
     #response = llm.call_llm(client)
     #print(response.content)
