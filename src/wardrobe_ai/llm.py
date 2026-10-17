@@ -1,7 +1,7 @@
-import anthropic
+from anthropic import Anthropic
 from wardrobe_ai import config
 
-def call_llm(client:anthropic.Anthropic) -> str:
+def call_llm(client:Anthropic) -> list[TextBlock]:
     message = client.messages.create(
         model=config.CLAUDE_MODEL,
         max_tokens=1024,
