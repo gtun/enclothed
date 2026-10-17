@@ -15,28 +15,58 @@ Category = Literal["top", "bottom", "outerwear", "shoes", "accessory"]
 Fit = Literal["slim", "regular", "relaxed", "oversized"]
 Sheen = Literal["matte", "low", "high"]
 
+Category = Literal["top", "bottom", "one-piece", "outerwear", "shoes", "accessory"]
+
 SUBCATEGORIES: dict[Category, set[str]] = {
     "top": {
-        "t-shirt", "polo", "henley", "tank top", "oxford shirt",
-        "dress shirt", "casual shirt", "flannel shirt",
-        "sweatshirt", "hoodie", "sweater", "cardigan", "other",
+        "t-shirt", "long-sleeve t-shirt", "tank top", "polo", "rugby shirt",
+        "henley", "oxford shirt", "dress shirt", "casual shirt",
+        "camp-collar shirt", "band-collar shirt", "western shirt",
+        "flannel shirt", "blouse", "tunic", "smock",
+        "sweatshirt", "hoodie", "crewneck sweater", "v-neck sweater",
+        "turtleneck", "mock neck", "cardigan", "sweater vest", "other",
     },
     "bottom": {
-        "jeans", "chinos", "dress trousers", "wide trousers",
-        "cargo pants", "sweatpants", "shorts", "skirt", "other",
+        "jeans", "chinos", "dress trousers", "pleated trousers",
+        "wide trousers", "easy pants", "balloon pants", "sarouel pants",
+        "hakama pants", "work pants", "painter pants", "fatigue pants",
+        "cargo pants", "track pants", "joggers", "sweatpants",
+        "culottes", "shorts", "skirt", "leggings", "other",
+    },
+    "one-piece": {
+        "overalls", "jumpsuit", "coveralls", "dress", "other",
     },
     "outerwear": {
-        "blazer", "overcoat", "trench coat", "parka", "puffer jacket",
-        "chore coat", "denim jacket", "bomber jacket", "leather jacket",
-        "rain jacket", "fleece", "vest", "other",
+        # tailored / coats
+        "blazer", "sport coat", "overcoat", "trench coat", "pea coat",
+        "duffle coat",
+        # jackets
+        "trucker jacket", "shirt jacket", "chore coat", "work jacket",
+        "field jacket", "safari jacket", "coach jacket", "harrington jacket",
+        "bomber jacket", "varsity jacket", "track jacket", "leather jacket",
+        "quilted jacket", "liner jacket",
+        # Japanese / wrap
+        "noragi", "haori", "kimono jacket",
+        # technical / weather
+        "parka", "puffer jacket", "anorak", "windbreaker", "shell jacket",
+        "rain jacket", "fleece",
+        # sleeveless / draped
+        "vest", "poncho", "cape", "other",
     },
     "shoes": {
-        "sneakers", "running shoes", "loafers", "oxfords", "derbies",
-        "chelsea boots", "work boots", "sandals", "other",
+        "low-top sneakers", "high-top sneakers", "running shoes",
+        "loafers", "oxfords", "derbies", "monk straps", "boat shoes",
+        "moccasins", "chelsea boots", "chukka boots", "desert boots",
+        "lace-up boots", "engineer boots", "work boots", "hiking boots",
+        "sandals", "slides", "clogs", "mules", "espadrilles",
+        "tabi", "geta", "other",
     },
     "accessory": {
-        "belt", "hat", "cap", "beanie", "scarf", "tie", "socks",
-        "gloves", "bag", "watch", "sunglasses", "other",
+        "belt", "suspenders", "cap", "bucket hat", "beanie", "flat cap",
+        "fedora", "scarf", "stole", "bandana", "tie", "bow tie",
+        "pocket square", "socks", "gloves", "tote bag", "backpack",
+        "messenger bag", "crossbody bag", "waist bag", "wallet",
+        "watch", "glasses", "sunglasses", "jewelry", "other",
     },
 }
 
@@ -62,6 +92,7 @@ class Garment(BaseModel):
     country_of_origin: str | None = None
     style_tags: list[str] = []
     notes: str | None = None
+    styling_notes: str
     label_text: str | None = None
     fit: Fit | None = None
     sheen: Sheen | None = None

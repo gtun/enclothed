@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS garments (
     country_of_origin TEXT,
     style_tags TEXT,
     notes TEXT,
+    styling_notes TEXT NOT NULL,
     label_text TEXT,
     fit TEXT,
     sheen TEXT,
