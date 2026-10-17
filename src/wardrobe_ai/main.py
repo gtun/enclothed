@@ -21,20 +21,22 @@ def main() -> int:
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     
     db.init_db(config.DB_PATH, config.SCHEMA_PATH)
+    init_dirs()
     
     if not args.command:
         parser.error("Missing command")
     
-    if args.command == "add":
-        add_garment(args.photos, config.DB_PATH, config.GARMENTS_PATH, config.INTAKE_DIR)
-    
     load_dotenv()
     client = Anthropic()
+    
+    if args.command == "add":
+        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR)
+    
     #response = llm.call_llm(client)
     #print(response.content)
     
     return 0
 
 def init_dirs():
-    for directory in (config.GARMENTS_PATH, config.INTAKE_DIR):
+    for directory in (config.GARMENTS_DIR, config.INTAKE_DIR):
         directory.mkdir(parents=True, exist_ok=True)
