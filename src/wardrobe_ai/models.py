@@ -12,8 +12,8 @@ Color = Literal[
     "mustard", "yellow", "purple", "lavender",
 ]
 Category = Literal["top", "bottom", "outerwear", "shoes", "accessory"]
-Fit = Literal ["slim","regular","relaxed","oversized"]
-Sheen = Literal["matte","low","high"]
+Fit = Literal["slim", "regular", "relaxed", "oversized"]
+Sheen = Literal["matte", "low", "high"]
 
 SUBCATEGORIES: dict[Category, set[str]] = {
     "top": {
@@ -42,7 +42,7 @@ SUBCATEGORIES: dict[Category, set[str]] = {
 
 class Fiber(BaseModel):
     fiber: str
-    percent: int = Field(ge=0, le=100)
+    percent: int = Field(ge=1, le=100)
 
 class MaterialPart(BaseModel):
     part: str | None = None      # "shell", "lining", "fill"... None for a t-shirt
@@ -66,8 +66,6 @@ class Garment(BaseModel):
     fit: Fit | None = None
     sheen: Sheen | None = None
     brand: str | None = None
-    photo_path: str | None = None
-    label_photo_paths: list[str] = []
     wear_count: int = 0
     last_worn: date | None = None
 

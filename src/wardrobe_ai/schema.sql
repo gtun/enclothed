@@ -16,8 +16,6 @@ CREATE TABLE IF NOT EXISTS garments (
     fit TEXT,
     sheen TEXT,
     brand TEXT,
-    photo_path TEXT,
-    label_photo_paths TEXT,
     wear_count INTEGER NOT NULL DEFAULT 0,
     last_worn TEXT
 )
