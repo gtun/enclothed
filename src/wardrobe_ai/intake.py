@@ -1,5 +1,8 @@
 from wardrobe_ai.models import Garment, MaterialPart, Fiber
 from pathlib import Path
+import mimetypes
+import requests
+import shutil
 from urllib.parse import urlparse
 from wardrobe_ai.db import insert_garment
 
@@ -42,13 +45,33 @@ TEST_GARMENT = Garment(
     brand="nonnative x UNDERCOVER",
 )
 
-def add_garment(image_paths:list[str], garment_data_path:str):
-    # print(Garment.model_json_schema())
+def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path):
+    staged_paths = []
     for image_path in image_paths:
         scheme = urlparse(image_path).scheme
         print(f"{image_path} is scheme: {scheme or 'file path'}")
+        if scheme in ("http","https"):
+            staged_paths.append(download_photo(image_path, intake_dir, len(staged_paths)))
+        else:
+            shutil.copy2(image_path, intake_dir)
         
     #temporary hardcode
     new_garment = TEST_GARMENT
-    new_garment_id = insert_garment(garment_data_path, TEST_GARMENT)
-    print(new_garment_id)
+    new_garment_id = insert_garment(garment_db_path, new_garment)
+
+def download_photo(url: str, dest_dir: Path, index: int):
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    
+    content_type = response.headers.get("Content-Type","").split(";")[0].strip()
+    if not content_type.startswith("image/"):
+        raise ValueError(f"{url} is not an image (Content-Type: {content_type or 'missing'})")
+
+    ext = mimetypes.guess_extension(content_type) or ".img"
+    dest = dest_dir / f"url_{index}{ext}"
+    dest.write_bytes(response.content)
+    return dest
+
+def file_photos(staged: list[Path], garment_dir: Path) -> None:
+    
+    pass

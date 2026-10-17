@@ -100,6 +100,10 @@ class Garment(BaseModel):
     wear_count: SkipJsonSchema[int] = 0
     last_worn: SkipJsonSchema[date | None] = None
     date_added: SkipJsonSchema[date | None] = None
+    
+    @property
+    def name(self) -> str:
+        return " ".join(field for field in [self.brand, self.primary_color, self.subcategory] if field)
 
     @model_validator(mode="after")
     def check_subcategory(self):
