@@ -68,7 +68,12 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
                 shutil.copy2(image_path, dest)
                 staged_paths.append(dest)
         
-        call_llm(client)
+    #call_llm(client)
+        
+    print(Garment.model_json_schema())           
+        
+    # TODO: replace with real tagging call
+    new_garment = TEST_GARMENT
     
     new_garment_id = insert_garment(garment_db_path, new_garment)
 
