@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Literal
 from pydantic import BaseModel, Field, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 Color = Literal[
     # neutrals
@@ -11,10 +12,9 @@ Color = Literal[
     "forest green", "burgundy", "red", "pink", "orange", "rust",
     "mustard", "yellow", "purple", "lavender",
 ]
-Category = Literal["top", "bottom", "outerwear", "shoes", "accessory"]
+
 Fit = Literal["slim", "regular", "relaxed", "oversized"]
 Sheen = Literal["matte", "low", "high"]
-
 Category = Literal["top", "bottom", "one-piece", "outerwear", "shoes", "accessory"]
 
 SUBCATEGORIES: dict[Category, set[str]] = {
@@ -79,7 +79,7 @@ class MaterialPart(BaseModel):
     fibers: list[Fiber]
     
 class Garment(BaseModel):
-    id: int | None = None
+    id: SkipJsonSchema[int | None] = None
     category: Category
     subcategory: str
     primary_color: Color
@@ -91,14 +91,15 @@ class Garment(BaseModel):
     pattern: str | None = None
     country_of_origin: str | None = None
     style_tags: list[str] = []
-    notes: str | None = None
+    notes: SkipJsonSchema[str | None] = None
     styling_notes: str
     label_text: str | None = None
-    fit: Fit | None = None
+    fit: SkipJsonSchema[Fit | None] = None
     sheen: Sheen | None = None
     brand: str | None = None
-    wear_count: int = 0
-    last_worn: date | None = None
+    wear_count: SkipJsonSchema[int] = 0
+    last_worn: SkipJsonSchema[date | None] = None
+    date_added: SkipJsonSchema[date | None] = None
 
     @model_validator(mode="after")
     def check_subcategory(self):

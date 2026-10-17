@@ -29,8 +29,7 @@ def main() -> int:
         parser.error("Missing command")
     
     if args.command == "add":
-        print("add invoked")
-        add_garment(args.photos)
+        add_garment(args.photos, config.DB_PATH)
     
     #response = llm.call_llm(client)
     #print(response.content)
