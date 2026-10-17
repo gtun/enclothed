@@ -48,24 +48,29 @@ TEST_GARMENT = Garment(
     brand="nonnative x UNDERCOVER",
 )
 
-def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path):
-    staged_paths = []
+def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, client:Anthropic, is_test:bool):
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir()
     
-    for image_path in image_paths:
-        scheme = urlparse(image_path).scheme
-        print(f"{image_path} is scheme: {scheme or 'file path'}")
-        if scheme in ("http","https"):
-            staged_paths.append(download_photo(image_path, run_dir, len(staged_paths)))
-        else:
-            dest = run_dir / Path(image_path).name
-            shutil.copy2(image_path, dest)
-            staged_paths.append(dest)
+    new_garment = ""
+    
+    if is_test:
+        new_garment = TEST_GARMENT
+    else:
+        staged_paths = []
+        for image_path in image_paths:
+            scheme = urlparse(image_path).scheme
+            print(f"{image_path} is scheme: {scheme or 'file path'}")
+            if scheme in ("http","https"):
+                staged_paths.append(download_photo(image_path, run_dir, len(staged_paths)))
+            else:
+                dest = run_dir / Path(image_path).name
+                shutil.copy2(image_path, dest)
+                staged_paths.append(dest)
         
-    #temporary hardcode
-    #new_garment = TEST_GARMENT
-    #new_garment_id = insert_garment(garment_db_path, new_garment)
+        call_llm(client)
+    
+    new_garment_id = insert_garment(garment_db_path, new_garment)
 
 def download_photo(url: str, dest_dir: Path, index: int) -> Path:
     response = requests.get(url, timeout=30)
