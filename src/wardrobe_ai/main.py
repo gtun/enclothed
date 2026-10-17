@@ -1,7 +1,11 @@
 from wardrobe_ai import config
 from wardrobe_ai import db
+from wardrobe_ai import llm
 from pathlib import Path
 import argparse
+import os
+from dotenv import load_dotenv
+from anthropic import Anthropic
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="wardrobe-ai")
@@ -15,9 +19,18 @@ def main() -> int:
     
     args = parser.parse_args()
     
+    
     db.init_db(config.DB_PATH, config.SCHEMA_PATH)
     
+    load_dotenv()
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    client = Anthropic(api_key=api_key)
     
+    if not api_key:
+        raise RuntimeError("LLM API key not set. Check your .env file.")
+    
+    response = llm.call_llm(client);
+    print(response);
     
     return 0
 

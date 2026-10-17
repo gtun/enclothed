@@ -18,4 +18,4 @@ CREATE TABLE IF NOT EXISTS garments (
     brand TEXT,
     wear_count INTEGER NOT NULL DEFAULT 0,
     last_worn TEXT
-)
+);

@@ -8,4 +8,4 @@ SCHEMA_PATH = PKG_DIR / "schema.sql"
 
 CLAUDE_MODEL = "claude-sonnet-5-5"
 TEST_CLAUDE_MODEL = "claude-haiku-5-5"
-ADD_GARMENT_MAX_TAG_ATTEMPTS = 2
+MAX_LLM_ATTEMPTS = 2
