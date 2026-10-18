@@ -23,6 +23,16 @@ Rules:
 - styling_notes: 3-5 sentences on the piece's character, what styles it bridges,
   how its proportions behave, and what pairs well with it. Be specific, not generic.
 
+Photo roles:
+- Images are labeled "Image 0:", "Image 1:", etc. Return exactly one PhotoTag
+  per image, using that number as its index. Every image appears once.
+- front: the clearest full view of the garment's front. At most one image
+  is front; it becomes the main photo.
+- back: a full view of the garment's back.
+- detail: a close-up of part of the garment (pocket, buttons, fabric texture).
+- label: any tag or label (brand, size, care, fabric content).
+- other: anything else.
+
 Allowed subcategories by category:
 {SUBCATEGORY_TEXT}
 """
@@ -51,7 +61,10 @@ def image_block(path: Path) -> dict:
     }
     
 def tag_garment(client: Anthropic, photo_paths: list[Path]) -> Garment:
-    content = [image_block(p) for p in photo_paths]
+    content = []
+    for i, p in enumerate(photo_paths):
+        content.append({"type": "text", "text": f"Image {i}:"})
+        content.append(image_block(p))
     content.append({"type": "text", "text": "Tag this garment."})
 
     response = client.messages.parse(

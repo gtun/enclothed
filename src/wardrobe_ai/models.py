@@ -111,3 +111,12 @@ class Garment(BaseModel):
             raise ValueError(f"{self.subcategory!r} is not a valid {self.category} subcategory")
         return self
     
+PhotoRole = Literal["front", "back", "detail", "label", "other"]
+
+class PhotoTag(BaseModel):
+    index: int
+    role: PhotoRole
+
+class TaggingResult(BaseModel):
+    garment: Garment
+    photos: list[PhotoTag]
