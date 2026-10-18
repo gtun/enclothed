@@ -8,9 +8,11 @@ Color = Literal[
     "black", "charcoal", "gray", "light gray", "white", "cream",
     "beige", "khaki", "tan", "camel", "brown", "dark brown", "navy",
     # colors
-    "light blue", "blue", "indigo", "teal", "green", "olive",
+    "light blue", "slate blue", "blue", "indigo", "teal", "green", "olive",
     "forest green", "burgundy", "red", "pink", "orange", "rust",
-    "mustard", "yellow", "purple", "lavender",
+    "mustard", "yellow", "purple", "lavender", "cognac",
+    # metallics
+    "silver", "gold", "brass", "copper", "gunmetal"
 ]
 
 Fit = Literal["slim", "regular", "relaxed", "oversized"]
@@ -24,7 +26,7 @@ SUBCATEGORIES: dict[Category, set[str]] = {
         "camp-collar shirt", "band-collar shirt", "western shirt",
         "flannel shirt", "blouse", "tunic", "smock",
         "sweatshirt", "hoodie", "crewneck sweater", "v-neck sweater",
-        "turtleneck", "mock neck", "cardigan", "sweater vest", "other",
+        "turtleneck", "mock neck", "cardigan", "sweater vest", "other", "suit jacket",
     },
     "bottom": {
         "jeans", "chinos", "dress trousers", "pleated trousers",
