@@ -28,12 +28,11 @@ def main() -> int:
     if args.command == "add":
         
         load_dotenv()
-        client = Anthropic() if not args.test else None
-        
         if args.test:
             print("Running in testing mode. No requests to LLMs will be made")
         if not args.photos and not args.test:
             add_parser.error("At least one photo URL or filepath needed")
+        client = None if args.test else Anthropic()
         add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, client, args.test)
     
     return 0

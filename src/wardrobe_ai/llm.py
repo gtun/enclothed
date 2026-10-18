@@ -1,6 +1,6 @@
 from anthropic import Anthropic
 from wardrobe_ai import config
-from wardrobe_ai.models import SUBCATEGORIES, TaggingResult
+from wardrobe_ai.models import SUBCATEGORIES, TaggingResult, TokenUsage
 import base64
 import mimetypes
 from pathlib import Path
@@ -27,8 +27,7 @@ Rules:
 Photo roles:
 - Images are labeled "Image 0:", "Image 1:", etc. Return exactly one PhotoTag
   per image, using that number as its index. Every image appears once.
-- front: the clearest full view of the garment's front. At most one image
-  is front; it becomes the main photo.
+- front: a full view of the garment's front.
 - back: a full view of the garment's back.
 - detail: a close-up of part of the garment (pocket, buttons, fabric texture).
 - label: any tag or label (brand, size, care, fabric content).
@@ -46,7 +45,7 @@ def image_block(path: Path) -> dict:
         "source": {"type": "base64", "media_type": media_type, "data": data}
     }
     
-def tag_garment(client: Anthropic, photo_paths: list[Path]) -> TaggingResult:
+def tag_garment(client: Anthropic, photo_paths: list[Path]) -> tuple[TaggingResult, TokenUsage]:
     content = []
     for i, p in enumerate(photo_paths):
         content.append({"type": "text", "text": f"Image {i}:"})
@@ -60,8 +59,13 @@ def tag_garment(client: Anthropic, photo_paths: list[Path]) -> TaggingResult:
         messages=[{"role": "user", "content": content}],
         output_format=TaggingResult,
     )
-    print(f"tokens: in={response.usage.input_tokens} out={response.usage.output_tokens}")
+    usage = TokenUsage(
+        model=config.CLAUDE_MODEL,
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
+    )
+    print(f"tokens: in={usage.input_tokens} out={usage.output_tokens}")
 
     if response.parsed_output is None:
         raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")
-    return response.parsed_output
+    return response.parsed_output, usage

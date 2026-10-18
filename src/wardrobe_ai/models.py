@@ -122,3 +122,8 @@ class PhotoTag(BaseModel):
 class TaggingResult(BaseModel):
     garment: Garment
     photos: list[PhotoTag]
+    
+class TokenUsage(BaseModel):
+    model: str
+    input_tokens: int
+    output_tokens: int

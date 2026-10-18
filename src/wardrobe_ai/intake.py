@@ -1,13 +1,17 @@
-from wardrobe_ai.models import Garment, MaterialPart, Fiber, PhotoTag, TaggingResult
+from wardrobe_ai.models import Garment, MaterialPart, Fiber, PhotoTag, TaggingResult, TokenUsage
 from pathlib import Path
 from datetime import datetime
 import mimetypes
 import requests
 import shutil
+import json
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from wardrobe_ai.db import insert_garment
 from anthropic import Anthropic
 from wardrobe_ai.llm import tag_garment
+from collections import defaultdict
+from wardrobe_ai.config import TAGGING_LOG_PATH
 
 TEST_GARMENT = Garment(
     category="outerwear",
@@ -62,12 +66,16 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
             shutil.copy2(image_path, dest)
             staged_paths.append(dest)
     
-    wrapper = TaggingResult(garment=TEST_GARMENT, photos=[]) if is_test else tag_garment(client, staged_paths)
-    
-    (run_dir / "response.json").write_text(wrapper.model_dump_json(indent=2), encoding="utf-8")
-    
+    if is_test:
+        wrapper, usage = TaggingResult(garment=TEST_GARMENT, photos=[]), None
+    else:
+        wrapper, usage = tag_garment(client, staged_paths)
+
     new_garment_id = insert_garment(garment_db_path, wrapper.garment)
+    log_tagging(TAGGING_LOG_PATH, new_garment_id, wrapper, usage)
     file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
+    
+    run_dir.rmdir()
     
     print(f"new garment ID {new_garment_id} added")
 
@@ -85,11 +93,31 @@ def download_photo(url: str, dest_dir: Path, index: int) -> Path:
     return dest
 
 def file_photos(staged: list[Path], tagged: list[PhotoTag], garment_dir: Path) -> None:
-    print("staged:")
-    print(staged)
-    print("===============")
-    print("tagged")
-    print(tagged)
-    print("===============")
-    print(f"save to: {garment_dir}")
-    pass
+    filename_mapping = zip(staged, photo_filenames(staged, tagged), strict=True)
+    garment_dir.mkdir(parents=True, exist_ok=True)
+    for src, name in filename_mapping:
+        shutil.move(src, garment_dir / name)    
+
+def photo_filenames(staged: list[Path], tagged: list[PhotoTag]) -> list[str]:
+    if sorted(tag.index for tag in tagged) != list(range(len(staged))):
+        return [p.name for p in staged]
+    
+    ordered = sorted(tagged, key=lambda tag: tag.index)
+    
+    filenames = []
+    role_count = defaultdict(int)
+    for tag in ordered:
+        filenames.append(f"{tag.role}_{role_count[tag.role]:02d}{staged[tag.index].suffix}")
+        role_count[tag.role] += 1
+
+    return filenames
+    
+def log_tagging(log_path: Path, garment_id: int, result: TaggingResult, usage: TokenUsage | None) -> None:
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "garment_id": garment_id,
+        "usage": usage.model_dump() if usage else None,
+        "result": result.model_dump(mode="json"),
+    }
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
