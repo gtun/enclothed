@@ -33,7 +33,7 @@ def main() -> int:
         if not args.photos and not args.test:
             add_parser.error("At least one photo URL or filepath needed")
         client = None if args.test else Anthropic()
-        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, client, args.test)
+        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test)
     
     return 0
 

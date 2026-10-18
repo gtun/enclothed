@@ -1,6 +1,5 @@
 from wardrobe_ai.models import Garment, MaterialPart, Fiber, PhotoTag, TaggingResult, TokenUsage
 from pathlib import Path
-from datetime import datetime
 import mimetypes
 import requests
 import shutil
@@ -11,7 +10,6 @@ from wardrobe_ai.db import insert_garment
 from anthropic import Anthropic
 from wardrobe_ai.llm import tag_garment
 from collections import defaultdict
-from wardrobe_ai.config import TAGGING_LOG_PATH
 
 TEST_GARMENT = Garment(
     category="outerwear",
@@ -52,7 +50,7 @@ TEST_GARMENT = Garment(
     brand="nonnative x UNDERCOVER",
 )
 
-def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, client:Anthropic | None, is_test:bool):
+def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool):
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir()
     
@@ -62,7 +60,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
         if scheme in ("http","https"):
             staged_paths.append(download_photo(image_path, run_dir, len(staged_paths)))
         else:
-            dest = run_dir / Path(image_path).name
+            dest = run_dir / f"{len(staged_paths):02d}_{Path(image_path).name}"
             shutil.copy2(image_path, dest)
             staged_paths.append(dest)
     
@@ -72,7 +70,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
         wrapper, usage = tag_garment(client, staged_paths)
 
     new_garment_id = insert_garment(garment_db_path, wrapper.garment)
-    log_tagging(TAGGING_LOG_PATH, new_garment_id, wrapper, usage)
+    log_tagging(logging_path, new_garment_id, wrapper, usage)
     file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
     
     run_dir.rmdir()
