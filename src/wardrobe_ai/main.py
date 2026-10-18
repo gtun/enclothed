@@ -21,8 +21,7 @@ def main() -> int:
     
     args = parser.parse_args()
     
-    if args.test:
-        print("Running in testing mode. No requests to LLMs will be made")
+    
     
     init_dirs()
     db.init_db(config.DB_PATH, config.SCHEMA_PATH)
@@ -34,6 +33,8 @@ def main() -> int:
     client = Anthropic()
     
     if args.command == "add":
+        if args.test:
+            print("Running in testing mode. No requests to LLMs will be made")
         if not args.photos and not args.test:
             add_parser.error("At least one photo URL or filepath needed")
         add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, client, args.test)
