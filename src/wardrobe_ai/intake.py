@@ -7,7 +7,7 @@ import shutil
 from urllib.parse import urlparse
 from wardrobe_ai.db import insert_garment
 from anthropic import Anthropic
-from wardrobe_ai.llm import call_llm
+from wardrobe_ai.llm import tag_garment
 
 TEST_GARMENT = Garment(
     category="outerwear",
@@ -58,7 +58,6 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
         staged_paths = []
         for image_path in image_paths:
             scheme = urlparse(image_path).scheme
-            print(f"{image_path} is scheme: {scheme or 'file path'}")
             if scheme in ("http","https"):
                 staged_paths.append(download_photo(image_path, run_dir, len(staged_paths)))
             else:
@@ -66,12 +65,11 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
                 shutil.copy2(image_path, dest)
                 staged_paths.append(dest)
         
-        #call_llm(client)
-        new_garment = TEST_GARMENT   # TODO: replace with real tagging call
-        
-    print(Garment.model_json_schema())           
+        new_garment = tag_garment(client, staged_paths)
+        print(new_garment.model_dump_json(indent=2))
     
     new_garment_id = insert_garment(garment_db_path, new_garment)
+    print(f"new garment ID {new_garment_id} added")
 
 def download_photo(url: str, dest_dir: Path, index: int) -> Path:
     response = requests.get(url, timeout=30)
