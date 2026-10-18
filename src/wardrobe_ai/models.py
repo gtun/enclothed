@@ -85,11 +85,11 @@ class Garment(BaseModel):
     primary_color: Color
     secondary_colors: list[Color] = []
     accent_colors: list[Color] = []
-    formality: int | None = Field(default=None, ge=1, le=3,
-        description="1 = casual, 2 = smart casual, 3 = appropriate for business")
+    formality: int | None = Field(default=None, ge=1, le=4,
+        description="The most formal occasion it can serve. 1 = casual, 2 = smart casual, 3 = appropriate for business, 4 = formalwear")
     materials: list[MaterialPart] = []
     warmth: int | None = Field(default=None, ge=1, le = 5,
-        description="1 = summer-weight, 3 = mid-layer for 10-15°C, 5 = heavy winter coat")
+        description="1 = summer-weight, 25°C+, 2 = light, 18-25°C, mid-layer, 10-18°C, 4 = warm, 0-10°C, heavy winter, below 0°C")
     pattern: str | None = None
     country_of_origin: str | None = None
     style_tags: list[str] = []
