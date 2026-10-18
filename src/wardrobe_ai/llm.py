@@ -1,7 +1,7 @@
 from anthropic import Anthropic
 from anthropic.types import Message
 from wardrobe_ai import config
-from wardrobe_ai.models import Garment, SUBCATEGORIES
+from wardrobe_ai.models import Garment, SUBCATEGORIES, TaggingResult
 import base64
 import mimetypes
 from pathlib import Path
@@ -22,6 +22,8 @@ Rules:
 - If you cannot determine a field, leave it out rather than guessing.
 - styling_notes: 3-5 sentences on the piece's character, what styles it bridges,
   how its proportions behave, and what pairs well with it. Be specific, not generic.
+- style_tags are lowercase
+- Use accent_colors to describe trims, small panels, contrasting stitching, prominent buttons, and other design features, and not labels
 
 Photo roles:
 - Images are labeled "Image 0:", "Image 1:", etc. Return exactly one PhotoTag
@@ -60,19 +62,19 @@ def image_block(path: Path) -> dict:
         "source": {"type": "base64", "media_type": media_type, "data": data}
     }
     
-def tag_garment(client: Anthropic, photo_paths: list[Path]) -> Garment:
+def tag_garment(client: Anthropic, photo_paths: list[Path]) -> TaggingResult:
     content = []
     for i, p in enumerate(photo_paths):
         content.append({"type": "text", "text": f"Image {i}:"})
         content.append(image_block(p))
-    content.append({"type": "text", "text": "Tag this garment."})
+    content.append({"type": "text", "text": "Tag this garment and assign a role to each image."})
 
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=2048,
         system=TAG_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": content}],
-        output_format=Garment,
+        output_format=TaggingResult,
     )
     print(f"tokens: in={response.usage.input_tokens} out={response.usage.output_tokens}")
 

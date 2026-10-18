@@ -1,4 +1,4 @@
-from wardrobe_ai.models import Garment, MaterialPart, Fiber
+from wardrobe_ai.models import Garment, MaterialPart, Fiber, PhotoTag, TaggingResult
 from pathlib import Path
 from datetime import datetime
 import mimetypes
@@ -52,23 +52,21 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir()
     
-    if is_test:
-        new_garment = TEST_GARMENT
-    else:
-        staged_paths = []
-        for image_path in image_paths:
-            scheme = urlparse(image_path).scheme
-            if scheme in ("http","https"):
-                staged_paths.append(download_photo(image_path, run_dir, len(staged_paths)))
-            else:
-                dest = run_dir / Path(image_path).name
-                shutil.copy2(image_path, dest)
-                staged_paths.append(dest)
-        
-        new_garment = tag_garment(client, staged_paths)
-        print(new_garment.model_dump_json(indent=2))
+    staged_paths = []
+    for image_path in image_paths:
+        scheme = urlparse(image_path).scheme
+        if scheme in ("http","https"):
+            staged_paths.append(download_photo(image_path, run_dir, len(staged_paths)))
+        else:
+            dest = run_dir / Path(image_path).name
+            shutil.copy2(image_path, dest)
+            staged_paths.append(dest)
     
-    new_garment_id = insert_garment(garment_db_path, new_garment)
+    wrapper = TaggingResult(garment=TEST_GARMENT, photos=[]) if is_test else tag_garment(client, staged_paths)
+    
+    new_garment_id = insert_garment(garment_db_path, wrapper.garment)
+    file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
+    
     print(f"new garment ID {new_garment_id} added")
 
 def download_photo(url: str, dest_dir: Path, index: int) -> Path:
@@ -84,6 +82,12 @@ def download_photo(url: str, dest_dir: Path, index: int) -> Path:
     dest.write_bytes(response.content)
     return dest
 
-def file_photos(staged: list[Path], garment_dir: Path) -> None:
-    
+def file_photos(staged: list[Path], tagged: list[PhotoTag], garment_dir: Path) -> None:
+    print("staged:")
+    print(staged)
+    print("===============")
+    print("tagged")
+    print(tagged)
+    print("===============")
+    print(f"save to: {garment_dir}")
     pass
