@@ -26,9 +26,8 @@ def main() -> int:
     if not args.command:
         parser.error("Missing command")
     
-    if not args.test:
-        load_dotenv()
-        client = Anthropic()
+    load_dotenv()
+    client = Anthropic()
     
     if args.command == "add":
         if args.test:
@@ -36,9 +35,6 @@ def main() -> int:
         if not args.photos and not args.test:
             add_parser.error("At least one photo URL or filepath needed")
         add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, client, args.test)
-    
-    #response = llm.call_llm(client)
-    #print(response.content)
     
     return 0
 
