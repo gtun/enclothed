@@ -17,9 +17,9 @@ from a Claude chat subscription). Commands below are for macOS, Linux, or WSL.
    `curl -LsSf https://astral.sh/uv/install.sh | sh`
 2. Clone and install:
 
-git clone https://github.com/gtun/wardrobe-ai.git
-cd wardrobe-ai
-uv sync
+   git clone https://github.com/gtun/wardrobe-ai.git
+   cd wardrobe-ai
+   uv sync
 
 3. Add your key: `cp .env.example .env`, then edit `.env`.
 
