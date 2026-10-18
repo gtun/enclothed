@@ -52,5 +52,5 @@ def init_dirs():
         directory.mkdir(parents=True, exist_ok=True)
         
 def configure_logging(verbose: bool) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
     logging.getLogger("wardrobe_ai").setLevel(logging.DEBUG if verbose else logging.INFO)
