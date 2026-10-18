@@ -1,6 +1,5 @@
 from wardrobe_ai import config
 from wardrobe_ai import db
-from wardrobe_ai import llm
 import argparse
 from dotenv import load_dotenv
 from anthropic import Anthropic
@@ -26,10 +25,11 @@ def main() -> int:
     if not args.command:
         parser.error("Missing command")
     
-    load_dotenv()
-    client = Anthropic()
-    
     if args.command == "add":
+        
+        load_dotenv()
+        client = Anthropic() if not args.test else None
+        
         if args.test:
             print("Running in testing mode. No requests to LLMs will be made")
         if not args.photos and not args.test:
