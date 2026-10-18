@@ -3,6 +3,9 @@ from pathlib import Path
 from wardrobe_ai.models import Garment
 from contextlib import closing
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 DB_DEFAULT_FIELDS = {"id","wear_count","last_worn","date_added"}
 

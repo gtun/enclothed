@@ -4,6 +4,9 @@ from wardrobe_ai.models import SUBCATEGORIES, TaggingResult, TokenUsage
 import base64
 import mimetypes
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 SUBCATEGORY_TEXT = "\n".join(
     f"- {category}: {', '.join(sorted(subs))}" for category, subs in SUBCATEGORIES.items()
@@ -68,7 +71,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
     )
-    print(f"tokens: in={usage.input_tokens} out={usage.output_tokens}")
+    logger.debug(f"tokens: in={usage.input_tokens} out={usage.output_tokens}")
 
     if response.parsed_output is None:
         raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")

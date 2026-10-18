@@ -4,12 +4,16 @@ import mimetypes
 import requests
 import shutil
 import json
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from wardrobe_ai.db import insert_garment
 from anthropic import Anthropic
 from wardrobe_ai.llm import tag_garment
 from collections import defaultdict
+import logging
+
+logger = logging.getLogger(__name__)
 
 TEST_GARMENT = Garment(
     category="outerwear",
@@ -54,6 +58,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir()
     
+    logger.info("Staging your photos...")
     staged_paths = []
     for image_path in image_paths:
         scheme = urlparse(image_path).scheme
@@ -67,11 +72,19 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
     if is_test:
         wrapper, usage = TaggingResult(garment=TEST_GARMENT, photos=[]), None
     else:
+        logger.info(f"Sending {len(staged_paths)} photos for analysis...")
+        start = time.perf_counter()
         wrapper, usage = tag_garment(client, staged_paths, prompt_message)
+        elapsed = time.perf_counter() - start
+        logger.info(f"Tagged in {elapsed:.1f}s: {wrapper.garment.name}")
 
+    if notes:
+        wrapper.garment.notes = notes
+    
     new_garment_id = insert_garment(garment_db_path, wrapper.garment)
     log_tagging(logging_path, new_garment_id, wrapper, usage, prompt_message)
     file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
+    logger.debug(f'Photos filed to {garments_path / str(new_garment_id)}')
     
     run_dir.rmdir()
     
@@ -98,6 +111,10 @@ def file_photos(staged: list[Path], tagged: list[PhotoTag], garment_dir: Path) -
 
 def photo_filenames(staged: list[Path], tagged: list[PhotoTag]) -> list[str]:
     if sorted(tag.index for tag in tagged) != list(range(len(staged))):
+        logger.warning(
+            f"Photo roles didn't match the {len(staged)} staged photos "
+            f"(got indexes {sorted(tag.index for tag in tagged)}); keeping original filenames"
+        )
         return [p.name for p in staged]
     
     ordered = sorted(tagged, key=lambda tag: tag.index)
