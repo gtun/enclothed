@@ -50,7 +50,7 @@ TEST_GARMENT = Garment(
     brand="nonnative x UNDERCOVER",
 )
 
-def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool):
+def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str = None, notes:str = None):
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir()
     
@@ -67,7 +67,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
     if is_test:
         wrapper, usage = TaggingResult(garment=TEST_GARMENT, photos=[]), None
     else:
-        wrapper, usage = tag_garment(client, staged_paths)
+        wrapper, usage = tag_garment(client, staged_paths, prompt_message)
 
     new_garment_id = insert_garment(garment_db_path, wrapper.garment)
     log_tagging(logging_path, new_garment_id, wrapper, usage)

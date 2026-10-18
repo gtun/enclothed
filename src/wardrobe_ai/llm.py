@@ -21,6 +21,7 @@ Rules:
 - If you cannot determine a field, leave it out rather than guessing.
 - styling_notes: 3-5 sentences on the piece's character, what styles it bridges,
   how its proportions behave, and what pairs well with it. Be specific, not generic.
+- Read the user prompt, if provided, for additional details about the garment to adjust the styling_notes and style_tags. Any absolute details from the user take precedence over your evaluation; for example, if the message states the garment's primary color is black, accept it.
 - style_tags are lowercase
 - Use accent_colors to describe trims, small panels, contrasting stitching, prominent buttons, and other design features, and not labels
 
@@ -45,13 +46,15 @@ def image_block(path: Path) -> dict:
         "source": {"type": "base64", "media_type": media_type, "data": data}
     }
     
-def tag_garment(client: Anthropic, photo_paths: list[Path]) -> tuple[TaggingResult, TokenUsage]:
+def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str = None) -> tuple[TaggingResult, TokenUsage]:
     content = []
     for i, p in enumerate(photo_paths):
         content.append({"type": "text", "text": f"Image {i}:"})
         content.append(image_block(p))
     content.append({"type": "text", "text": "Tag this garment and assign a role to each image."})
-
+    if prompt_message:
+        content.append({"type": "text", "text": prompt_message})
+    
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=2048,

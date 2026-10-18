@@ -96,7 +96,7 @@ class Garment(BaseModel):
     notes: SkipJsonSchema[str | None] = None
     styling_notes: str
     label_text: str | None = None
-    fit: SkipJsonSchema[Fit | None] = None
+    fit: Fit | None = None
     sheen: Sheen | None = None
     brand: str | None = None
     wear_count: SkipJsonSchema[int] = 0

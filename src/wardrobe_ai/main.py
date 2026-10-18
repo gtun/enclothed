@@ -13,6 +13,8 @@ def main() -> int:
     add_parser = subparsers.add_parser("add", help="Tag and save a new garment")
     add_parser.add_argument("photos", type=str, nargs="*")
     add_parser.add_argument("-t","--test", action="store_true", help="Suppress actual LLM calls")
+    add_parser.add_argument("-p", "--prompt-message", type=str, help="Details about garment garment to fine-tune the LLM tagging")
+    add_parser.add_argument("-n", "--notes", type=str, help="Add personal notes about this garment")
     
     outfit_parser = subparsers.add_parser("outfit", help="Ask AI for help with an outfit in natural language.")
     outfit_parser.add_argument("prompt", type=str)
@@ -33,7 +35,7 @@ def main() -> int:
         if not args.photos and not args.test:
             add_parser.error("At least one photo URL or filepath needed")
         client = None if args.test else Anthropic()
-        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test)
+        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
     
     return 0
 
