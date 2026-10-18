@@ -54,7 +54,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
         content.append(image_block(p))
     content.append({"type": "text", "text": "Tag this garment and assign a role to each image."})
     if prompt_message:
-        content.append({"type": "text", "text": f"Additional context from the owner: {prompt_message}")
+        content.append({"type": "text", "text": f"Additional context from the owner: {prompt_message}"})
     
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,

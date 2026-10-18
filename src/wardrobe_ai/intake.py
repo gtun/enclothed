@@ -116,7 +116,7 @@ def log_tagging(log_path: Path, garment_id: int, result: TaggingResult, usage: T
         "garment_id": garment_id,
         "usage": usage.model_dump() if usage else None,
         "result": result.model_dump(mode="json"),
-        "prompt-message:": prompt_message,
+        "prompt_message:": prompt_message,
     }
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
