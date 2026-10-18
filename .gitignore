@@ -12,6 +12,7 @@ wheels/
 
 # Local data
 data/
+backups/
 
 # Test data
 *:Zone.Identifier

@@ -16,6 +16,9 @@ dependencies = [
 
 [project.scripts]
 wardrobe-ai = "wardrobe_ai.main:main"
+backup = "wardrobe_ai.maintenance:backup"
+restore = "wardrobe_ai.maintenance:restore"
+refresh = "wardrobe_ai.maintenance:refresh"
 
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13.0"]
