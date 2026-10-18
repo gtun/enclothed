@@ -41,13 +41,6 @@ in `data/tagging_log.jsonl`. Add `-v` for debug output.
 An outfit command to ask the LLM to create an outfit for you based on what's already in your warderobe.
 
 ## How it works
-TBD
-
-## Setup
-1. git clone …
-2. uv sync
-3. Copy .env.example to .env and add your ANTHROPIC_API_KEY
-4. uv run wardrobe-ai add photo1.jpg photo2.jpg
 
 ## Tech
 Python 3.13, uv, Anthropic API, Pydantic, SQLite
