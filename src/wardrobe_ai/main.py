@@ -13,7 +13,7 @@ def main() -> int:
     add_parser = subparsers.add_parser("add", help="Tag and save a new garment")
     add_parser.add_argument("photos", type=str, nargs="*")
     add_parser.add_argument("-t","--test", action="store_true", help="Suppress actual LLM calls")
-    add_parser.add_argument("-p", "--prompt-message", type=str, help="Details about garment garment to fine-tune the LLM tagging")
+    add_parser.add_argument("-p", "--prompt-message", type=str, help="Details about garment to fine-tune the LLM tagging")
     add_parser.add_argument("-n", "--notes", type=str, help="Add personal notes about this garment")
     
     outfit_parser = subparsers.add_parser("outfit", help="Ask AI for help with an outfit in natural language.")

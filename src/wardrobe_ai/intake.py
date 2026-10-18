@@ -50,7 +50,7 @@ TEST_GARMENT = Garment(
     brand="nonnative x UNDERCOVER",
 )
 
-def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str = None, notes:str = None):
+def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None):
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir()
     
@@ -70,7 +70,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
         wrapper, usage = tag_garment(client, staged_paths, prompt_message)
 
     new_garment_id = insert_garment(garment_db_path, wrapper.garment)
-    log_tagging(logging_path, new_garment_id, wrapper, usage)
+    log_tagging(logging_path, new_garment_id, wrapper, usage, prompt_message)
     file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
     
     run_dir.rmdir()
@@ -109,13 +109,14 @@ def photo_filenames(staged: list[Path], tagged: list[PhotoTag]) -> list[str]:
         role_count[tag.role] += 1
 
     return filenames
-    
-def log_tagging(log_path: Path, garment_id: int, result: TaggingResult, usage: TokenUsage | None) -> None:
+
+def log_tagging(log_path: Path, garment_id: int, result: TaggingResult, usage: TokenUsage | None, prompt_message: str | None) -> None:
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "garment_id": garment_id,
         "usage": usage.model_dump() if usage else None,
         "result": result.model_dump(mode="json"),
+        "prompt-message:": prompt_message,
     }
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
