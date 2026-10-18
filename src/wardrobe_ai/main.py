@@ -17,11 +17,8 @@ def main() -> int:
     
     outfit_parser = subparsers.add_parser("outfit", help="Ask AI for help with an outfit in natural language.")
     outfit_parser.add_argument("prompt", type=str)
-    
-    
+        
     args = parser.parse_args()
-    
-    
     
     init_dirs()
     db.init_db(config.DB_PATH, config.SCHEMA_PATH)
@@ -29,8 +26,9 @@ def main() -> int:
     if not args.command:
         parser.error("Missing command")
     
-    load_dotenv()
-    client = Anthropic()
+    if not args.test:
+        load_dotenv()
+        client = Anthropic()
     
     if args.command == "add":
         if args.test:

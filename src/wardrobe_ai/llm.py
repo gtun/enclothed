@@ -1,7 +1,6 @@
 from anthropic import Anthropic
-from anthropic.types import Message
 from wardrobe_ai import config
-from wardrobe_ai.models import Garment, SUBCATEGORIES, TaggingResult
+from wardrobe_ai.models import SUBCATEGORIES, TaggingResult
 import base64
 import mimetypes
 from pathlib import Path
@@ -38,21 +37,6 @@ Photo roles:
 Allowed subcategories by category:
 {SUBCATEGORY_TEXT}
 """
-
-def call_llm(client:Anthropic) -> Message:
-    message = client.messages.create(
-        model=config.CLAUDE_MODEL,
-        max_tokens=1024,
-        
-        messages=[
-            {
-                "role": "user",
-                "content": "Hello, Claude",
-            }
-        ],
-    )
-    
-    return message
 
 def image_block(path: Path) -> dict:
     media_type, _ = mimetypes.guess_type(path)
