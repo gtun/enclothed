@@ -33,7 +33,7 @@ SUBCATEGORIES: dict[Category, set[str]] = {
         "wide trousers", "easy pants", "balloon pants", "sarouel pants",
         "hakama pants", "work pants", "painter pants", "fatigue pants",
         "cargo pants", "track pants", "joggers", "sweatpants",
-        "culottes", "shorts", "skirt", "leggings", "other",
+        "culottes", "shorts", "skirt", "leggings", "five-pocket pants", "other",
     },
     "one-piece": {
         "overalls", "jumpsuit", "coveralls", "dress", "other",

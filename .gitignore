@@ -18,3 +18,7 @@ backups/
 *:Zone.Identifier
 /intake.sh
 /*.out
+
+# Demo
+/*.tar.gz
+/closet.html
