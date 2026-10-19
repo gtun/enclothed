@@ -17,9 +17,11 @@ from a Claude chat subscription). Commands below are for macOS, Linux, or WSL.
    `curl -LsSf https://astral.sh/uv/install.sh | sh`
 2. Clone and install:
 
+```bash
    git clone https://github.com/gtun/wardrobe-ai.git
    cd wardrobe-ai
    uv sync
+```
 
 3. Add your key: `cp .env.example .env`, then edit `.env`.
 
@@ -38,9 +40,14 @@ photos in `data/garments/<id>/`, and every tagging call (with token usage)
 in `data/tagging_log.jsonl`. Add `-v` for debug output.
 
 ## Upcoming features
-An outfit command to ask the LLM to create an outfit for you based on what's already in your warderobe.
+An outfit command to ask the LLM to create an outfit for you based on what's already in your wardrobe.
+A UI to show all garments in your wardrobe, and make any edits as necessary in case the LLM's tagging was off.
 
 ## How it works
+
+1. Give it URLs or paths of photos of a garment with the add command
+2. Photos are staged, and Claude tags them once into a structured Pydantic model.
+3. The record is saved in SQLite and the photos are filed by role.
 
 ## Tech
 Python 3.13, uv, Anthropic API, Pydantic, SQLite
