@@ -41,6 +41,10 @@ Allowed subcategories by category:
 {SUBCATEGORY_TEXT}
 """
 
+OUTFIT_SYSTEM_PROMPT = f"""
+
+"""
+
 def image_block(path: Path) -> dict:
     media_type, _ = mimetypes.guess_type(path)
     data = base64.standard_b64encode(path.read_bytes()).decode("utf-8")

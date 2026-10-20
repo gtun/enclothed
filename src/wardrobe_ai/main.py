@@ -19,7 +19,7 @@ def main() -> int:
     add_parser = subparsers.add_parser("add", parents=[common], help="Tag and save a new garment")
     add_parser.add_argument("photos", type=str, nargs="*")
     add_parser.add_argument("-t","--test", action="store_true", help="Suppress actual LLM calls")
-    add_parser.add_argument("-p", "--prompt-message", type=str, help="Details about garment to fine-tune the LLM tagging")
+    add_parser.add_argument("-p", "--prompt-message", help="Details about garment to fine-tune the LLM tagging")
     add_parser.add_argument("-n", "--notes", type=str, help="Add personal notes about this garment")
     
     list_parser = subparsers.add_parser("list", parents=[common], help="List all garments in your wardrobe")
@@ -32,7 +32,16 @@ def main() -> int:
     )
     
     outfit_parser = subparsers.add_parser("outfit", parents=[common], help="Ask AI for help with an outfit in natural language.")
-    outfit_parser.add_argument("prompt", type=str)
+    outfit_parser.add_argument("-p","--prompt-message", help="Details about what you are dressing up for")
+    outfit_parser.add_argument(
+        "-w","--with",
+        type=int,
+        action="append",
+        dest="anchors",
+        metavar="ID",
+        required=True,
+        help="Pass a garment ID to build an outfit around it (repeatable)",
+    )
 
     args = parser.parse_args()
 
@@ -65,6 +74,14 @@ def main() -> int:
                 if garment.category == category:
                     print(f"  {garment.id:>3}  {garment.name}")
     
+    elif args.command == "outfit":
+        wardrobe = {g.id: g for g in db.select_all_garments(config.DB_PATH)}
+        missing = [i for i in args.anchors if i not in wardrobe]
+        if missing:
+            outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
+        user_prompt = args.prompt_message or "everyday wear"
+        print(f"build a wardrobe for {user_prompt} around {[str(i)+', '+j.name for i, j in wardrobe.items() if i in args.anchors]}")
+            
     return 0
 
 def init_dirs():
