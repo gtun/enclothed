@@ -51,7 +51,6 @@ def select_all_garments(db_path: Path) -> list[Garment]:
             conn.row_factory = sqlite3.Row
             garments = conn.execute("SELECT * from garments ORDER BY id").fetchall()
             return [_row_to_garment(garment) for garment in garments]
-    return None
 
 def _row_to_garment(row:sqlite3.Row) -> Garment:
     garment_dict = dict(row)

@@ -1,8 +1,7 @@
 from datetime import date
-from typing import Literal
+from typing import Literal, get_args
 from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
-from typing import get_args
 
 Color = Literal[
     # neutrals
@@ -11,7 +10,7 @@ Color = Literal[
     # colors
     "light blue", "slate blue", "blue", "indigo", "teal", "green", "olive",
     "forest green", "burgundy", "red", "pink", "orange", "rust",
-    "mustard", "yellow", "eggplant", "lavender", "cognac",
+    "mustard", "yellow", "purple", "eggplant", "lavender", "cognac",
     # metallics
     "silver", "gold", "brass", "copper", "gunmetal"
 ]
@@ -72,6 +71,9 @@ SUBCATEGORIES: dict[Category, set[str]] = {
         "watch", "glasses", "sunglasses", "jewelry", "other",
     },
 }
+
+ALL_SUBCATEGORIES = set().union(*SUBCATEGORIES.values())
+LIST_FILTER_CHOICES = sorted(set(CATEGORY_ORDER) | ALL_SUBCATEGORIES)
 
 class Fiber(BaseModel):
     fiber: str

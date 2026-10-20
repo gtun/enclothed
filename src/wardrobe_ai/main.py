@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from anthropic import Anthropic
 from wardrobe_ai.intake import add_garment
 import logging
-from wardrobe_ai.models import CATEGORY_ORDER
+from wardrobe_ai.models import CATEGORY_ORDER, LIST_FILTER_CHOICES
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,13 @@ def main() -> int:
     add_parser.add_argument("-n", "--notes", type=str, help="Add personal notes about this garment")
     
     list_parser = subparsers.add_parser("list", parents=[common], help="List all garments in your wardrobe")
-    list_parser.add_argument("-c", "--category", action="append", help="List only garments of specified categories or subcategories")
+    list_parser.add_argument(
+        "-c", "--category",
+        action="append",
+        choices=LIST_FILTER_CHOICES,
+        metavar="CATEGORY",
+        help="List only these categories or subcategories (repeatable)",
+    )
     
     outfit_parser = subparsers.add_parser("outfit", parents=[common], help="Ask AI for help with an outfit in natural language.")
     outfit_parser.add_argument("prompt", type=str)
@@ -48,11 +54,13 @@ def main() -> int:
         logger.info('Adding your garment now. Please wait...')
         add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
     
-    if args.command == "list":
+    elif args.command == "list":
         garments = sorted(db.select_all_garments(config.DB_PATH), key=lambda garment: (CATEGORY_ORDER[garment.category], garment.subcategory, garment.id),)
         for category in CATEGORY_ORDER:
             print(f"{category.upper()} {'=' * (45 - len(category))}")
             for garment in garments:
+                if args.category and garment.subcategory not in args.category and category not in args.category:
+                    continue
                 if garment.category == category:
                     print(f"  {garment.id:>3}  {garment.name}")
     
