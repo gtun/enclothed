@@ -46,7 +46,7 @@ def test_select_rejects_out_of_range_formality(db_path):
     garment_id = insert_garment(db_path, TEST_GARMENT)
     with closing(sqlite3.connect(db_path)) as conn:
         with conn:
-            conn.execute("UPDATE garments SET formality=-5 WHERE id = :id;", {"id":garment_id})
+            conn.execute("UPDATE garments SET formality=8 WHERE id = :id;", {"id":garment_id})
     
     with pytest.raises(ValidationError):
         select_garment(db_path, garment_id)

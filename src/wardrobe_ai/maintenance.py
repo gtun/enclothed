@@ -24,3 +24,4 @@ def restore() -> None:
 def refresh() -> None:
     shutil.rmtree(config.DATA_DIR, ignore_errors=True)
     print(f"Deleted {config.DATA_DIR}")
+    
