@@ -17,8 +17,10 @@ logger = logging.getLogger(__name__)
 
 TEST_GARMENT = Garment(
     category="outerwear",
-    subcategory="trucker jacket",
-    primary_color="charcoal",
+    subcategory="blouson",
+    primary_color="black",
+    secondary_colors=["white"],
+    accent_colors=["gunmetal"],
     formality=2,
     materials=[
         MaterialPart(part="shell", fibers=[Fiber(fiber="cotton", percent=100)]),
@@ -30,9 +32,9 @@ TEST_GARMENT = Garment(
     warmth=2,
     pattern="solid",
     country_of_origin="Japan",
-    style_tags=["corduroy", "collarless", "double-breasted", "raglan sleeve",
-                "cropped", "workwear", "japanese designer", "collaboration"],
-    notes=None,
+    style_tags=["corduroy", "double-breasted", "raglan sleeve", "cropped",
+                "workwear", "japanese designer", "collaboration"],
+    notes="Test garment. Bought secondhand at 2nd Street; runs slightly short in the body.",
     styling_notes=(
         "A collarless, double-breasted take on the trucker jacket: chest yoke, welt "
         "pockets, and snap-adjustable waist tabs from workwear, with a wrap-style front "
@@ -49,7 +51,7 @@ TEST_GARMENT = Garment(
         "FRONT LINING POLYESTER 78% COTTON 22% / DO NOT TUMBLE DRY / made in Japan || "
         "表地 綿 100% / 前裏 ポリエステル 78% 綿 22% / 日本製"
     ),
-    fit=None,
+    fit="regular",
     sheen="matte",
     brand="nonnative x UNDERCOVER",
 )
