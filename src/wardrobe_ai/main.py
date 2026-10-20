@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from anthropic import Anthropic
 from wardrobe_ai.intake import add_garment
 import logging
+from wardrobe_ai.models import CATEGORY_ORDER
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ def main() -> int:
     add_parser.add_argument("-p", "--prompt-message", type=str, help="Details about garment to fine-tune the LLM tagging")
     add_parser.add_argument("-n", "--notes", type=str, help="Add personal notes about this garment")
     
+    list_parser = subparsers.add_parser("list", parents=[common], help="List all garments in your wardrobe")
+    list_parser.add_argument("-c", "--category", action="append", help="List only garments of specified categories or subcategories")
+    
     outfit_parser = subparsers.add_parser("outfit", parents=[common], help="Ask AI for help with an outfit in natural language.")
     outfit_parser.add_argument("prompt", type=str)
 
@@ -35,7 +39,6 @@ def main() -> int:
     db.init_db(config.DB_PATH, config.SCHEMA_PATH)
     
     if args.command == "add":
-        
         load_dotenv()
         if args.test:
             logger.info("Running in testing mode. No requests to LLMs will be made")
@@ -44,6 +47,14 @@ def main() -> int:
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
         add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
+    
+    if args.command == "list":
+        garments = sorted(db.select_all_garments(config.DB_PATH), key=lambda garment: (CATEGORY_ORDER[garment.category], garment.subcategory, garment.id),)
+        for category in CATEGORY_ORDER:
+            print(f"{category.upper()} {'=' * (45 - len(category))}")
+            for garment in garments:
+                if garment.category == category:
+                    print(f"  {garment.id:>3}  {garment.name}")
     
     return 0
 

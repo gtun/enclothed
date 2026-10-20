@@ -2,6 +2,7 @@ from datetime import date
 from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
+from typing import get_args
 
 Color = Literal[
     # neutrals
@@ -10,14 +11,14 @@ Color = Literal[
     # colors
     "light blue", "slate blue", "blue", "indigo", "teal", "green", "olive",
     "forest green", "burgundy", "red", "pink", "orange", "rust",
-    "mustard", "yellow", "purple", "lavender", "cognac",
+    "mustard", "yellow", "eggplant", "lavender", "cognac",
     # metallics
     "silver", "gold", "brass", "copper", "gunmetal"
 ]
-
 Fit = Literal["slim", "regular", "relaxed", "oversized"]
 Sheen = Literal["matte", "low", "high"]
 Category = Literal["top", "bottom", "one-piece", "outerwear", "shoes", "accessory"]
+CATEGORY_ORDER = {category: position for position, category in enumerate(get_args(Category))}
 
 SUBCATEGORIES: dict[Category, set[str]] = {
     "top": {
@@ -26,7 +27,7 @@ SUBCATEGORIES: dict[Category, set[str]] = {
         "camp-collar shirt", "band-collar shirt", "western shirt",
         "flannel shirt", "blouse", "tunic", "smock",
         "sweatshirt", "hoodie", "crewneck sweater", "v-neck sweater",
-        "turtleneck", "mock neck", "cardigan", "sweater vest", "other", "suit jacket",
+        "turtleneck", "mock neck", "cardigan", "sweater vest", "other",
     },
     "bottom": {
         "jeans", "chinos", "dress trousers", "pleated trousers",
@@ -41,12 +42,12 @@ SUBCATEGORIES: dict[Category, set[str]] = {
     "outerwear": {
         # tailored / coats
         "blazer", "sport coat", "overcoat", "trench coat", "pea coat",
-        "duffle coat",
+        "duffle coat", "suit jacket",
         # jackets
         "trucker jacket", "shirt jacket", "chore coat", "work jacket",
         "field jacket", "safari jacket", "coach jacket", "harrington jacket",
         "bomber jacket", "varsity jacket", "track jacket", "leather jacket",
-        "quilted jacket", "liner jacket", "blouson",
+        "quilted jacket", "liner jacket", "blouson", "no-collar jacket",
         # Japanese / wrap
         "noragi", "haori", "kimono jacket",
         # technical / weather

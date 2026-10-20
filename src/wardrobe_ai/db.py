@@ -41,9 +41,20 @@ def select_garment(db_path: Path, garment_id: int) -> Garment | None:
             conn.row_factory = sqlite3.Row
             garment_record = conn.execute("SELECT * from garments where id = :id", {"id":garment_id}).fetchone()
             if garment_record:
-                garment_dict = dict(garment_record)
-                for key in DB_JSON_COLUMNS:
-                    garment_dict[key] = json.loads(garment_dict[key])
-                return Garment.model_validate(garment_dict)
-            logger.debug(f'Garment ID {garment_id} not found for select_garment()')
+                return _row_to_garment(garment_record)
+            logger.debug("Garment ID %s not found", garment_id)
             return None #record with garment_id not found
+
+def select_all_garments(db_path: Path) -> list[Garment]:
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            conn.row_factory = sqlite3.Row
+            garments = conn.execute("SELECT * from garments ORDER BY id").fetchall()
+            return [_row_to_garment(garment) for garment in garments]
+    return None
+
+def _row_to_garment(row:sqlite3.Row) -> Garment:
+    garment_dict = dict(row)
+    for key in DB_JSON_COLUMNS:
+        garment_dict[key] = json.loads(garment_dict[key]) if garment_dict[key] is not None else None
+    return Garment.model_validate(garment_dict)

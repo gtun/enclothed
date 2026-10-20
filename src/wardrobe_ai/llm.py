@@ -17,8 +17,7 @@ You receive several photos of ONE garment: the garment itself plus, sometimes,
 its labels (brand, care, and fabric content, possibly in Japanese or another language).
 
 Rules:
-- subcategory describes shape and construction, never fabric. Fabric goes in materials.
-- Textures like corduroy, seersucker, or waffle knit go in style_tags, not pattern.
+- subcategory is the closest listed shape and construction. Put distinguishing details (closures like double-breasted, textures like corduroy) in style_tags and fabric in materials. Use "other" only when no listed shape fits.
 - Read fabric composition, brand, and country of origin from labels when visible.
   Translate them to English. Put the raw label text in label_text.
 - If you cannot determine a field, leave it out rather than guessing.
