@@ -2,6 +2,7 @@ import sqlite3
 from contextlib import closing
 
 import pytest
+from pydantic import ValidationError
 
 from wardrobe_ai.db import init_db, insert_garment, select_garment, DB_DEFAULT_FIELDS
 from wardrobe_ai.models import Garment
@@ -35,4 +36,26 @@ def test_insert_select_round_trip(db_path):
     assert new_garment is not None, f"Garment {garment_id} was not found"
     assert new_garment.id == garment_id
     assert TEST_GARMENT.model_dump(exclude=DB_DEFAULT_FIELDS) == new_garment.model_dump(exclude=DB_DEFAULT_FIELDS)
+
+def test_select_missing_id_returns_none(db_path):
+    new_garment = select_garment(db_path, -5)
     
+    assert new_garment is None
+
+def test_select_rejects_out_of_range_formality(db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            conn.execute("UPDATE garments SET formality=-5 WHERE id = :id;", {"id":garment_id})
+    
+    with pytest.raises(ValidationError):
+        select_garment(db_path, garment_id)
+        
+def test_select_rejects_null_accent_colors(db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            conn.execute("UPDATE garments SET accent_colors=NULL WHERE id = :id;", {"id":garment_id})
+    
+    with pytest.raises(ValidationError):
+        select_garment(db_path, garment_id)
