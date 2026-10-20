@@ -80,7 +80,7 @@ def main() -> int:
         if missing:
             outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
         user_prompt = args.prompt_message or "everyday wear"
-        print(f"build a wardrobe for {user_prompt} around {[str(i)+', '+j.name for i, j in wardrobe.items() if i in args.anchors]}")
+        print(f"build an outfit for {user_prompt} around {[str(i) + ": " + wardrobe[i].name + "; " for i in args.anchors]}")
             
     return 0
 

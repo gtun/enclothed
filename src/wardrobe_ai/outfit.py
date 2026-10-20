@@ -1,4 +1,4 @@
 
 
-def get_outfits()
-    
+def get_outfits():
+    pass
