@@ -56,11 +56,12 @@ def main() -> int:
     
     elif args.command == "list":
         garments = sorted(db.select_all_garments(config.DB_PATH), key=lambda garment: (CATEGORY_ORDER[garment.category], garment.subcategory, garment.id),)
+        if args.category:
+            garments = [garment for garment in garments if garment.category in args.category or garment.subcategory in args.category]
+            
         for category in CATEGORY_ORDER:
             print(f"{category.upper()} {'=' * (45 - len(category))}")
             for garment in garments:
-                if args.category and garment.subcategory not in args.category and category not in args.category:
-                    continue
                 if garment.category == category:
                     print(f"  {garment.id:>3}  {garment.name}")
     

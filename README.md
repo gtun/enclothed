@@ -39,6 +39,11 @@ Each run prints the new garment ID. Results are saved in `data/wardrobe.db`,
 photos in `data/garments/<id>/`, and every tagging call (with token usage)
 in `data/tagging_log.jsonl`. Add `-v` for debug output.
 
+## Commands
+
+- `add` adds a garment
+- `list` lists all existing garments
+
 ## Upcoming features
 An outfit command to ask the LLM to create an outfit for you based on what's already in your wardrobe.
 A UI to show all garments in your wardrobe, and make any edits as necessary in case the LLM's tagging was off.
