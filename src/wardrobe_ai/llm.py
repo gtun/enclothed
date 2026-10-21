@@ -80,21 +80,23 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
         raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")
     return response.parsed_output, usage
 
-def recommend_outfits(client: Anthropic, context: str):
-    response = client.messages.parse(
+def recommend_outfits(client: Anthropic, context: str) -> tuple[str, TokenUsage]:
+    response = client.messages.create(
         model=config.CLAUDE_MODEL,
         max_tokens=2048,
         system=OUTFIT_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": context}],
-        output_format=TaggingResult,
     )
+    
     usage = TokenUsage(
         model=config.CLAUDE_MODEL,
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
     )
     logger.debug(f"tokens: in={usage.input_tokens} out={usage.output_tokens}")
-
-    if response.parsed_output is None:
-        raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")
-    return response.parsed_output, usage
+    
+    text = "".join(block.text for block in response.content if block.type == "text")
+    
+    if response.stop_reason == "max_tokens":
+        logger.warning("Outfit response cut off at max_tokens (%s)", 2048)
+    return text, usage
