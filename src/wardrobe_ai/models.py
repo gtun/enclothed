@@ -82,7 +82,7 @@ class Fiber(BaseModel):
 class MaterialPart(BaseModel):
     part: str | None = None      # "shell", "lining", "fill"... None for a t-shirt
     fibers: list[Fiber]
-    
+
 class Garment(BaseModel):
     id: SkipJsonSchema[int | None] = None
     category: Category
@@ -107,7 +107,7 @@ class Garment(BaseModel):
     wear_count: SkipJsonSchema[int] = 0
     last_worn: SkipJsonSchema[date | None] = None
     date_added: SkipJsonSchema[date | None] = None
-    
+
     @property
     def name(self) -> str:
         return " ".join(field for field in [self.brand, self.primary_color, self.subcategory] if field)
@@ -117,7 +117,7 @@ class Garment(BaseModel):
         if self.subcategory not in SUBCATEGORIES[self.category]:
             raise ValueError(f"{self.subcategory!r} is not a valid {self.category} subcategory")
         return self
-    
+
 PhotoRole = Literal["front", "back", "detail", "label", "other"]
 
 class PhotoTag(BaseModel):
@@ -127,7 +127,7 @@ class PhotoTag(BaseModel):
 class TaggingResult(BaseModel):
     garment: Garment
     photos: list[PhotoTag]
-    
+
 class TokenUsage(BaseModel):
     model: str
     input_tokens: int

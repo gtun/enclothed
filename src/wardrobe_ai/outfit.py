@@ -45,17 +45,18 @@ Why: Tan, indigo and cognac are a natural earthy palette, and the black jacket a
 """
 
 
-def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client:Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1):
+def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> str:
+    # TODO: filters (ADR-039 08)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
-    
+
     logger.debug(json.dumps(prompt_wardrobe, ensure_ascii=False, indent=2))
-    
+
     anchors_text = ""
     if anchors:
         anchors_text = "\n<anchors>\n"
         anchors_text += "\n".join(f"{i}: {wardrobe[i].name}" for i in anchors)
         anchors_text += "\n</anchors>"
-    context:str = f"""<wardrobe>
+    context = f"""<wardrobe>
 {json.dumps(prompt_wardrobe, ensure_ascii=False)}
 </wardrobe>{anchors_text}
 <occasion>{prompt_message}</occasion>
@@ -63,13 +64,13 @@ def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging
 
     outfit_suggestions, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
     log_outfit(logging_path, anchors, outfit_suggestions, usage, context)
-    
+
     return outfit_suggestions
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS) for key, value in wardrobe.items()}
 
-def log_outfit(log_path: Path, anchors: list[int], result: str, usage: TokenUsage | None, context: str | None) -> None:
+def log_outfit(log_path: Path, anchors: list[int] | None, result: str, usage: TokenUsage | None, context: str) -> None:
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "anchors": anchors,

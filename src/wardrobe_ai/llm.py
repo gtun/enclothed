@@ -91,7 +91,7 @@ def image_block(path: Path) -> dict:
         "type": "image",
         "source": {"type": "base64", "media_type": media_type, "data": data}
     }
-    
+
 def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str | None = None) -> tuple[TaggingResult, TokenUsage]:
     content = []
     for i, p in enumerate(photo_paths):
@@ -100,7 +100,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
     content.append({"type": "text", "text": "Tag this garment and assign a role to each image."})
     if prompt_message:
         content.append({"type": "text", "text": f"Additional context from the owner: {prompt_message}"})
-    
+
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=config.TAG_TOKEN_CAP,
@@ -126,7 +126,7 @@ def recommend_outfits(client: Anthropic, context: str) -> tuple[str, TokenUsage]
         system=OUTFIT_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": context}],
     )
-    
+
     usage = TokenUsage(
         model=config.CLAUDE_MODEL,
         input_tokens=response.usage.input_tokens,
@@ -134,9 +134,9 @@ def recommend_outfits(client: Anthropic, context: str) -> tuple[str, TokenUsage]
     )
     logger.debug("tokens: in=%s out=%s", usage.input_tokens, usage.output_tokens)
     logger.debug("blocks: %s", [block.type for block in response.content])
-    
+
     text = "".join(block.text for block in response.content if block.type == "text")
-    
+
     if response.stop_reason == "max_tokens":
         logger.warning("Outfit response cut off at max_tokens (%s)", 2048)
     return text, usage

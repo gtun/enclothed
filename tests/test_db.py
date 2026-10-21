@@ -19,13 +19,13 @@ def test_garment_matches_table(db_path):
     # 1. Columns according to SQLite
     with closing(sqlite3.connect(db_path)) as conn:
         rows = conn.execute("PRAGMA table_info(garments)").fetchall()
-    
+
     table_columns = {col[1] for col in rows}
     model_fields = set(Garment.model_fields)
 
     only_in_model = model_fields - table_columns
     only_in_table = table_columns - model_fields
-    
+
     assert not only_in_model, f"Fields with no column: {only_in_model}"
     assert not only_in_table, f"Columns with no field: {only_in_table}"
 
@@ -39,7 +39,7 @@ def test_insert_select_round_trip(db_path):
 
 def test_select_missing_id_returns_none(db_path):
     new_garment = select_garment(db_path, -5)
-    
+
     assert new_garment is None
 
 def test_select_rejects_out_of_range_formality(db_path):
@@ -47,15 +47,15 @@ def test_select_rejects_out_of_range_formality(db_path):
     with closing(sqlite3.connect(db_path)) as conn:
         with conn:
             conn.execute("UPDATE garments SET formality=8 WHERE id = :id;", {"id":garment_id})
-    
+
     with pytest.raises(ValidationError):
         select_garment(db_path, garment_id)
-        
+
 def test_select_rejects_null_accent_colors(db_path):
     garment_id = insert_garment(db_path, TEST_GARMENT)
     with closing(sqlite3.connect(db_path)) as conn:
         with conn:
             conn.execute("UPDATE garments SET accent_colors=NULL WHERE id = :id;", {"id":garment_id})
-    
+
     with pytest.raises(ValidationError):
         select_garment(db_path, garment_id)

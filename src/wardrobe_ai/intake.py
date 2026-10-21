@@ -59,7 +59,7 @@ TEST_GARMENT = Garment(
 def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None):
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir()
-    
+
     logger.info("Staging your photos...")
     staged_paths = []
     for image_path in image_paths:
@@ -70,7 +70,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
             dest = run_dir / f"{len(staged_paths):02d}_{Path(image_path).name}"
             shutil.copy2(image_path, dest)
             staged_paths.append(dest)
-    
+
     if is_test:
         wrapper, usage = TaggingResult(garment=TEST_GARMENT, photos=[]), None
     else:
@@ -82,20 +82,20 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
 
     if notes:
         wrapper.garment.notes = notes
-    
+
     new_garment_id = insert_garment(garment_db_path, wrapper.garment)
     log_tagging(logging_path, new_garment_id, wrapper, usage, prompt_message)
     file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
     logger.debug(f'Photos filed to {garments_path / str(new_garment_id)}')
-    
+
     run_dir.rmdir()
-    
+
     print(f"new garment ID {new_garment_id} added")
 
 def download_photo(url: str, dest_dir: Path, index: int) -> Path:
     response = requests.get(url, timeout=30)
     response.raise_for_status()
-    
+
     content_type = response.headers.get("Content-Type","").split(";")[0].strip()
     if not content_type.startswith("image/"):
         raise ValueError(f"{url} is not an image (Content-Type: {content_type or 'missing'})")
@@ -109,7 +109,7 @@ def file_photos(staged: list[Path], tagged: list[PhotoTag], garment_dir: Path) -
     filename_mapping = zip(staged, photo_filenames(staged, tagged), strict=True)
     garment_dir.mkdir(parents=True, exist_ok=True)
     for src, name in filename_mapping:
-        shutil.move(src, garment_dir / name)    
+        shutil.move(src, garment_dir / name)
 
 def photo_filenames(staged: list[Path], tagged: list[PhotoTag]) -> list[str]:
     if sorted(tag.index for tag in tagged) != list(range(len(staged))):
@@ -118,9 +118,9 @@ def photo_filenames(staged: list[Path], tagged: list[PhotoTag]) -> list[str]:
             f"(got indexes {sorted(tag.index for tag in tagged)}); keeping original filenames"
         )
         return [p.name for p in staged]
-    
+
     ordered = sorted(tagged, key=lambda tag: tag.index)
-    
+
     filenames = []
     role_count = defaultdict(int)
     for tag in ordered:
