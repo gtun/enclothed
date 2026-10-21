@@ -62,7 +62,7 @@ def main() -> int:
             add_parser.error("At least one photo URL or filepath needed")
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
-        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.prompt_message, args.notes)
+        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
     
     elif args.command == "list":
         garments = sorted(db.select_all_garments(config.DB_PATH), key=lambda garment: (CATEGORY_ORDER[garment.category], garment.subcategory, garment.id),)
@@ -86,7 +86,7 @@ def main() -> int:
                 outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
         user_prompt = args.prompt_message or "everyday wear"
         client = None if args.test else Anthropic()
-        print(get_outfits(wardrobe, args.anchors, client, user_prompt))
+        get_outfits(wardrobe, args.anchors, client, user_prompt, args.test)
             
     return 0
 
