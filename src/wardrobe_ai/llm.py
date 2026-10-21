@@ -113,7 +113,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
     )
-    logger.debug(f"tokens: in={usage.input_tokens} out={usage.output_tokens}")
+    logger.debug("tokens: in=%s out=%s", usage.input_tokens, usage.output_tokens)
 
     if response.parsed_output is None:
         raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")
@@ -132,7 +132,7 @@ def recommend_outfits(client: Anthropic, context: str) -> tuple[str, TokenUsage]
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
     )
-    logger.debug(f"tokens: in={usage.input_tokens} out={usage.output_tokens}")
+    logger.debug("tokens: in=%s out=%s", usage.input_tokens, usage.output_tokens)
     logger.debug("blocks: %s", [block.type for block in response.content])
     
     text = "".join(block.text for block in response.content if block.type == "text")
