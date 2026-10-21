@@ -39,7 +39,6 @@ def main() -> int:
         action="append",
         dest="anchors",
         metavar="ID",
-        required=True,
         help="Pass a garment ID to build an outfit around it (repeatable)",
     )
 
@@ -75,12 +74,14 @@ def main() -> int:
                     print(f"  {garment.id:>3}  {garment.name}")
     
     elif args.command == "outfit":
+        if not args.anchors and not args.prompt_message:
+            outfit_parser.error("At least one of -p/--prompt-message or -w/--with required")
         wardrobe = {g.id: g for g in db.select_all_garments(config.DB_PATH)}
-        missing = [i for i in args.anchors if i not in wardrobe]
-        if missing:
-            outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
+        if args.anchors:
+            missing = [i for i in args.anchors if i not in wardrobe]
+            if missing:
+                outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
         user_prompt = args.prompt_message or "everyday wear"
-        print(f"build an outfit for {user_prompt} around {["; ".join(str(i) + ': ' + wardrobe[i].name) for i in args.anchors]}")
             
     return 0
 
