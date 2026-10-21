@@ -4,6 +4,7 @@ import argparse
 from dotenv import load_dotenv
 from anthropic import Anthropic
 from wardrobe_ai.intake import add_garment
+from wardrobe_ai.outfit import get_outfits
 import logging
 from wardrobe_ai.models import CATEGORY_ORDER, LIST_FILTER_CHOICES
 
@@ -32,6 +33,7 @@ def main() -> int:
     )
     
     outfit_parser = subparsers.add_parser("outfit", parents=[common], help="Ask AI for help with an outfit in natural language.")
+    outfit_parser.add_argument("-t","--test", action="store_true", help="Suppress actual LLM calls")
     outfit_parser.add_argument("-p","--prompt-message", help="Details about what you are dressing up for")
     outfit_parser.add_argument(
         "-w","--with",
@@ -60,7 +62,7 @@ def main() -> int:
             add_parser.error("At least one photo URL or filepath needed")
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
-        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
+        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.prompt_message, args.notes)
     
     elif args.command == "list":
         garments = sorted(db.select_all_garments(config.DB_PATH), key=lambda garment: (CATEGORY_ORDER[garment.category], garment.subcategory, garment.id),)
@@ -74,6 +76,7 @@ def main() -> int:
                     print(f"  {garment.id:>3}  {garment.name}")
     
     elif args.command == "outfit":
+        load_dotenv()
         if not args.anchors and not args.prompt_message:
             outfit_parser.error("At least one of -p/--prompt-message or -w/--with required")
         wardrobe = {g.id: g for g in db.select_all_garments(config.DB_PATH)}
@@ -82,6 +85,8 @@ def main() -> int:
             if missing:
                 outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
         user_prompt = args.prompt_message or "everyday wear"
+        client = None if args.test else Anthropic()
+        print(get_outfits(wardrobe, args.anchors, client, user_prompt))
             
     return 0
 

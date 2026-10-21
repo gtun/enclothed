@@ -132,3 +132,6 @@ class TokenUsage(BaseModel):
     model: str
     input_tokens: int
     output_tokens: int
+
+class Outfit(BaseModel):
+    pass

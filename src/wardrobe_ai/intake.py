@@ -56,7 +56,7 @@ TEST_GARMENT = Garment(
     brand="nonnative x UNDERCOVER",
 )
 
-def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None):
+def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, prompt_message:str | None = None, notes:str | None = None):
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir()
     
@@ -71,7 +71,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
             shutil.copy2(image_path, dest)
             staged_paths.append(dest)
     
-    if is_test:
+    if not client:
         wrapper, usage = TaggingResult(garment=TEST_GARMENT, photos=[]), None
     else:
         logger.info(f"Sending {len(staged_paths)} photos for analysis...")
