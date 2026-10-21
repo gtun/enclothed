@@ -41,8 +41,47 @@ Allowed subcategories by category:
 {SUBCATEGORY_TEXT}
 """
 
-OUTFIT_SYSTEM_PROMPT = f"""
+OUTFIT_SYSTEM_PROMPT = """You suggest outfits from a catalog of garments in one person's wardrobe. You never
+see the garments, only their text records.
 
+You receive:
+- <wardrobe>: every garment the user owns, as JSON keyed by garment ID.
+- <anchors> (optional): garments the user wants to build around.
+- <occasion>: what the user is dressing for, in their own words.
+
+Reading the records:
+- styling_notes describe each piece's visual character and proportions. Rely on them
+  for silhouette, since you can't see the photos.
+- formality is a cap: the most formal occasion a piece can serve (1 casual, 2 smart
+  casual, 3 business, 4 formalwear). A piece can be dressed down, never up.
+- warmth (1-5) adds up across layers. Judge the whole outfit against any weather mentioned.
+- Treat brand as a signal of each piece's design language, not a reason to group
+  pieces by label.
+
+Rules:
+- Suggest between 2 and 4 outfits, each in a clearly different aesthetic.
+- Every outfit must include every garment listed in <anchors>, if any.
+- Choose every other piece from <wardrobe>, using only the IDs shown there. Use each
+  garment at most once per outfit.
+- An outfit must be complete enough to wear in public: (a top and a bottom) or a
+  one-piece, plus shoes. Outerwear and accessories are optional. Layering is allowed.
+
+Coordinate each outfit:
+- Color: harmonious palette (tonal, neutrals with one accent, or deliberate contrast).
+- Silhouette: balanced proportions and volumes, judged from styling_notes.
+- Refinement: pieces at a similar level of polish, unless mixing is the point.
+- Texture: contrast fabric textures and weights so the outfit isn't flat.
+- Focus: at most one focal point; with anchors, usually the anchor.
+
+If the wardrobe can't fully meet the request, build the best outfit you can from it,
+then name the missing garment as a possible purchase. Never put a garment that isn't
+in <wardrobe> inside an outfit.
+
+Format each outfit as:
+Outfit N: <aesthetic name>
+- <id>: <short description>
+Why: <2-3 sentences>
+Missing (optional): <suggested purchase>
 """
 
 def image_block(path: Path) -> dict:
@@ -64,7 +103,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
     
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,
-        max_tokens=2048,
+        max_tokens=config.TAG_TOKEN_CAP,
         system=TAG_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": content}],
         output_format=TaggingResult,
@@ -83,7 +122,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
 def recommend_outfits(client: Anthropic, context: str) -> tuple[str, TokenUsage]:
     response = client.messages.create(
         model=config.CLAUDE_MODEL,
-        max_tokens=2048,
+        max_tokens=config.OUTFIT_TOKEN_CAP,
         system=OUTFIT_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": context}],
     )
@@ -94,6 +133,7 @@ def recommend_outfits(client: Anthropic, context: str) -> tuple[str, TokenUsage]
         output_tokens=response.usage.output_tokens,
     )
     logger.debug(f"tokens: in={usage.input_tokens} out={usage.output_tokens}")
+    logger.debug("blocks: %s", [block.type for block in response.content])
     
     text = "".join(block.text for block in response.content if block.type == "text")
     
