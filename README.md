@@ -1,4 +1,4 @@
-# wardrobe-ai
+# enclothed
 
 Take inventory of your wardrobe, using an LLM to visually identify its characteristics.
 
@@ -23,8 +23,8 @@ from a Claude chat subscription). Commands below are for macOS, Linux, or WSL.
 2. Clone and install:
 
    ```bash
-   git clone https://github.com/gtun/wardrobe-ai.git
-   cd wardrobe-ai
+   git clone https://github.com/gtun/enclothed.git
+   cd enclothed
    uv sync
    ```
 
@@ -35,19 +35,19 @@ from a Claude chat subscription). Commands below are for macOS, Linux, or WSL.
 No API key yet? Test mode runs everything except the AI call:
 
 ```bash
-uv run wardrobe-ai add -t tests/fixtures/*.jpg
+uv run enclothed add -t tests/fixtures/*.jpg
 ```
 
 With a key, tag the sample jacket for real:
 
 ```bash
-uv run wardrobe-ai add tests/fixtures/*.jpg -p "nonnative x Undercover blouson"
+uv run enclothed add tests/fixtures/*.jpg -p "nonnative x Undercover blouson"
 ```
 
 Each run prints the new garment ID. Then see what's in your wardrobe:
 
 ```bash
-uv run wardrobe-ai list
+uv run enclothed list
 ```
 
 Results are saved in `data/wardrobe.db`, photos in `data/garments/<id>/`, and

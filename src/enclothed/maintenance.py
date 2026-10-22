@@ -1,5 +1,5 @@
 import shutil
-from wardrobe_ai import config
+from enclothed import config
 
 GOLDEN = config.BACKUPS_DIR / "golden"   # make_archive adds ".tar.gz"
 
