@@ -46,7 +46,7 @@ Why: Tan, indigo and cognac are a natural earthy palette, and the black jacket a
 
 
 def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> str:
-    # TODO: filters (ADR-039 08)
+    # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
 
     logger.debug(json.dumps(prompt_wardrobe, ensure_ascii=False, indent=2))
