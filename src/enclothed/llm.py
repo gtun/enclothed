@@ -1,6 +1,6 @@
 from anthropic import Anthropic
-from wardrobe_ai import config
-from wardrobe_ai.models import SUBCATEGORIES, TaggingResult, TokenUsage
+from enclothed import config
+from enclothed.models import SUBCATEGORIES, TaggingResult, TokenUsage
 import base64
 import mimetypes
 from pathlib import Path

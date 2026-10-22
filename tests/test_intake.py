@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from wardrobe_ai.intake import photo_filenames
-from wardrobe_ai.models import PhotoTag
+from enclothed.intake import photo_filenames
+from enclothed.models import PhotoTag
 
 # Paths don't need to exist: photo_filenames only reads .name and .suffix.
 RUN = Path("data/intake/20261018-062504")

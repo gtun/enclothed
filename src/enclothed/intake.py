@@ -1,4 +1,4 @@
-from wardrobe_ai.models import Garment, MaterialPart, Fiber, PhotoTag, TaggingResult, TokenUsage
+from enclothed.models import Garment, MaterialPart, Fiber, PhotoTag, TaggingResult, TokenUsage
 from pathlib import Path
 import mimetypes
 import requests
@@ -7,9 +7,9 @@ import json
 import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
-from wardrobe_ai.db import insert_garment
+from enclothed.db import insert_garment
 from anthropic import Anthropic
-from wardrobe_ai.llm import tag_garment
+from enclothed.llm import tag_garment
 from collections import defaultdict
 import logging
 

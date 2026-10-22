@@ -1,12 +1,12 @@
-from wardrobe_ai import config
-from wardrobe_ai import db
+from enclothed import config
+from enclothed import db
 import argparse
 from dotenv import load_dotenv
 from anthropic import Anthropic
-from wardrobe_ai.intake import add_garment
-from wardrobe_ai.outfit import get_outfits
+from enclothed.intake import add_garment
+from enclothed.outfit import get_outfits
 import logging
-from wardrobe_ai.models import CATEGORY_ORDER, LIST_FILTER_CHOICES
+from enclothed.models import CATEGORY_ORDER, LIST_FILTER_CHOICES
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ def main() -> int:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("-v", "--verbose", action="store_true", help="show debug output")
 
-    parser = argparse.ArgumentParser(prog="wardrobe-ai")
+    parser = argparse.ArgumentParser(prog="enclothed")
     subparsers = parser.add_subparsers(dest="command", required=False)
 
     add_parser = subparsers.add_parser("add", parents=[common], help="Tag and save a new garment")
@@ -96,4 +96,4 @@ def init_dirs():
 
 def configure_logging(verbose: bool) -> None:
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
-    logging.getLogger("wardrobe_ai").setLevel(logging.DEBUG if verbose else logging.INFO)
+    logging.getLogger("enclothed").setLevel(logging.DEBUG if verbose else logging.INFO)

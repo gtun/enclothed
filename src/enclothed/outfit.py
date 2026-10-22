@@ -1,6 +1,6 @@
 from anthropic import Anthropic
-from wardrobe_ai.models import Garment, TokenUsage
-from wardrobe_ai.llm import recommend_outfits
+from enclothed.models import Garment, TokenUsage
+from enclothed.llm import recommend_outfits
 import logging
 import json
 from datetime import datetime, timezone

@@ -4,10 +4,10 @@ from contextlib import closing
 import pytest
 from pydantic import ValidationError
 
-from wardrobe_ai.db import init_db, insert_garment, select_garment, DB_DEFAULT_FIELDS
-from wardrobe_ai.models import Garment
-from wardrobe_ai.config import SCHEMA_PATH
-from wardrobe_ai.intake import TEST_GARMENT
+from enclothed.db import init_db, insert_garment, select_garment, DB_DEFAULT_FIELDS
+from enclothed.models import Garment
+from enclothed.config import SCHEMA_PATH
+from enclothed.intake import TEST_GARMENT
 
 @pytest.fixture
 def db_path(tmp_path):
