@@ -18,6 +18,7 @@ backups/
 *:Zone.Identifier
 /intake.sh
 /*.out
+*.log
 
 # Demo
 /*.tar.gz

@@ -82,7 +82,7 @@ def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging
     context = f"""<wardrobe>
 {json.dumps(prompt_wardrobe, ensure_ascii=False)}
 </wardrobe>{anchors_text}
-<occasion>{prompt_message}</occasion>
+<request>{prompt_message}</request>
 """
 
     wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
