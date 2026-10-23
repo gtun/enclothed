@@ -47,7 +47,7 @@ see the garments, only their text records.
 You receive:
 - <wardrobe>: every garment the user owns, as JSON keyed by garment ID.
 - <anchors> (optional): garments the user wants to build around.
-- <request>: any special requests for the outfits, in their own words.
+- <request>: what the user wants: an occasion, a vibe, or any other request, in their own words.
 
 Reading the records:
 - styling_notes describe each piece's visual character and proportions. Rely on them
