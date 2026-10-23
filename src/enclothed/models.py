@@ -138,10 +138,10 @@ class OutfitGarment(BaseModel):
     styling_advice: str = Field(description="One short phrase advising how to wear the garment.")
 
 class Outfit(BaseModel):
-    aesthetic: str = Field(description="A short name describing the outfit's aesthetic, for example, 'Workwear Americana' or 'laxed earth tones.'")
+    aesthetic: str = Field(description="A short name describing the outfit's aesthetic, for example, 'Workwear Americana' or 'relaxed earth tones.'")
     garments: list[OutfitGarment]
     explanation: str = Field(description="Your rationale for choosing the garments in this outfit")
-    missing: str | None = Field(default=None, description="Any garments that are not in the wardrobe that would complete the outfit, and why they would complement it.")
+    missing: str | None = Field(default=None, description="Garments not in the wardrobe that would complete this outfit, and the role each would fill that nothing in the wardrobe can.")
 
 class OutfitResult(BaseModel):
     outfits: list[Outfit]
