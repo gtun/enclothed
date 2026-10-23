@@ -76,8 +76,6 @@ def main() -> int:
                     print(f"  {garment.id:>3}  {garment.name}")
 
     elif args.command == "outfit":
-        if config.MIN_OUTFIT_SUGGESTIONS > config.MAX_OUTFIT_SUGGESTIONS:
-            raise ValueError(f"config MIN_OUTFIT_SUGGESTIONS must not be greater than MAX_OUTFIT_SUGGESTIONS")
         load_dotenv()
         if not args.anchors and not args.prompt_message:
             outfit_parser.error("At least one of -p/--prompt-message or -w/--with required")
