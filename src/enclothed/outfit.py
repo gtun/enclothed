@@ -68,7 +68,7 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> str:
+def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> OutfitResult:
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
 
@@ -85,10 +85,10 @@ def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging
 <occasion>{prompt_message}</occasion>
 """
 
-    outfit_suggestions, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
-    log_outfit(logging_path, anchors, outfit_suggestions, usage, context)
+    wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
+    log_outfit(logging_path, anchors, wrapper, usage, context)
 
-    return outfit_suggestions
+    return wrapper
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS) for key, value in wardrobe.items()}

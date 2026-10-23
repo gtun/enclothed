@@ -87,9 +87,9 @@ def main() -> int:
         user_prompt = args.prompt_message or "everyday wear"
         client = None if args.test else Anthropic()
         result = get_outfits(wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test)
-        print("outfit command result=================")
-        print(result.model_dump_json(indent=2))
-        print("end debug")
+        logger.debug("outfit command result=================")
+        logger.debug(result.model_dump_json(indent=2))
+        logger.debug("end debug")
 
     return 0
 

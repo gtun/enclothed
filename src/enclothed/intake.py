@@ -84,6 +84,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
         wrapper.garment.notes = notes
 
     new_garment_id = insert_garment(garment_db_path, wrapper.garment)
+    
     log_tagging(logging_path, new_garment_id, wrapper, usage, prompt_message)
     file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
     logger.debug(f'Photos filed to {garments_path / str(new_garment_id)}')

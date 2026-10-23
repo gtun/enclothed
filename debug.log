@@ -1,0 +1,1280 @@
+DEBUG {
+  "1": {
+    "category": "outerwear",
+    "subcategory": "blouson",
+    "primary_color": "black",
+    "secondary_colors": [],
+    "accent_colors": [
+      "silver"
+    ],
+    "formality": 1,
+    "materials": [
+      {
+        "part": "outer layer",
+        "fibers": [
+          {
+            "fiber": "cotton",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "front lining",
+        "fibers": [
+          {
+            "fiber": "polyester",
+            "percent": 78
+          },
+          {
+            "fiber": "cotton",
+            "percent": 22
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "corduroy",
+    "style_tags": [
+      "corduroy",
+      "collarless",
+      "double-breasted",
+      "snap closure",
+      "nonnative",
+      "undercover",
+      "collaboration",
+      "japanese designer",
+      "trucker-inspired",
+      "cropped",
+      "raglan sleeve",
+      "monk"
+    ],
+    "styling_notes": "This nonnative x Undercover collaboration reworks a trucker jacket into a collarless, double-breasted blouson with a V-shaped wrap front and silver snaps. The fine-wale black corduroy has a soft, slightly washed look that keeps it understated, while the raglan sleeves and pleated chest pockets add architectural detail. It ends at the top of the pelvis, so it sits cropped and works over slim or straight trousers without adding bulk. Wear it over a plain tee or fine knit with black or indigo denim and boots for a minimal, monochrome Japanese-casual look. The collarless neckline also layers cleanly under a longer overcoat in cooler weather.",
+    "fit": "regular",
+    "sheen": "matte",
+    "brand": "nonnative undercover"
+  },
+  "2": {
+    "category": "outerwear",
+    "subcategory": "varsity jacket",
+    "primary_color": "black",
+    "secondary_colors": [],
+    "accent_colors": [
+      "red"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": "shell",
+        "fibers": [
+          {
+            "fiber": "wool",
+            "percent": 90
+          },
+          {
+            "fiber": "nylon",
+            "percent": 10
+          }
+        ]
+      },
+      {
+        "part": "rib",
+        "fibers": [
+          {
+            "fiber": "wool",
+            "percent": 47
+          },
+          {
+            "fiber": "acrylic",
+            "percent": 47
+          },
+          {
+            "fiber": "nylon",
+            "percent": 5
+          },
+          {
+            "fiber": "polyurethane",
+            "percent": 1
+          }
+        ]
+      },
+      {
+        "part": "trim",
+        "fibers": [
+          {
+            "fiber": "synthetic leather",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "padding",
+        "fibers": [
+          {
+            "fiber": "polyester",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "lining",
+        "fibers": [
+          {
+            "fiber": "polyester",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 4,
+    "pattern": "flecked",
+    "style_tags": [
+      "japanese americana",
+      "shawl collar",
+      "ribbed cuffs",
+      "melton wool",
+      "button-front",
+      "faux leather pocket trim",
+      "padded",
+      "starry flecks",
+      "slit yarn"
+    ],
+    "styling_notes": "A Japanese-made take on the varsity jacket, built from dense wool melton with scattered silver slit-yarn flecks that read like a starry night sky up close and almost solid black from a distance. The chunky ribbed shawl collar and cuffs add a knitted, cozy contrast to the smooth, structured body, bridging varsity, naval and workwear references. The hip-length, regular cut sits straight with a clean button-front and faux leather-trimmed hand pockets, so it layers easily over sweaters and shirts. Pair it with indigo denim, chinos or heavy cotton trousers and boots or sneakers for a refined Americana look. A flash of red piping on the interior adds a subtle surprise.",
+    "fit": "regular",
+    "sheen": "matte",
+    "brand": "Blue Blue Japan"
+  },
+  "3": {
+    "category": "outerwear",
+    "subcategory": "trucker jacket",
+    "primary_color": "cream",
+    "secondary_colors": [],
+    "accent_colors": [
+      "dark brown",
+      "brass"
+    ],
+    "formality": 1,
+    "materials": [
+      {
+        "part": "shell",
+        "fibers": [
+          {
+            "fiber": "cotton",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "lining",
+        "fibers": [
+          {
+            "fiber": "nylon",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "stuffing",
+        "fibers": [
+          {
+            "fiber": "polyester",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "other",
+        "fibers": [
+          {
+            "fiber": "cotton",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 4,
+    "pattern": "solid",
+    "style_tags": [
+      "workwear",
+      "corduroy collar",
+      "snap front",
+      "insulated",
+      "patch pockets",
+      "cropped",
+      "thinsulate",
+      "minimal",
+      "japanese designer"
+    ],
+    "styling_notes": "A cream cotton duck trucker that borrows from classic chore and work jackets but comes out cleaner and more elevated thanks to the off-white shell and dark brown corduroy collar. The brass snaps and riveted patch pockets keep the workwear DNA obvious, while the Thinsulate padding makes it a real cold-weather layer without much bulk. The boxy, top-of-pelvis length keeps proportions short, so it sits well over high-rise trousers or straight jeans. Pair it with indigo denim, charcoal or olive trousers, and chunky knits or heavy tees; boots or sturdy sneakers keep the look grounded. The light color rewards dark, earthy bottoms for contrast.",
+    "fit": null,
+    "sheen": "matte",
+    "brand": "UNUSED"
+  },
+  "4": {
+    "category": "outerwear",
+    "subcategory": "haori",
+    "primary_color": "gray",
+    "secondary_colors": [
+      "charcoal",
+      "cream"
+    ],
+    "accent_colors": [
+      "black"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": null,
+        "fibers": [
+          {
+            "fiber": "wool",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "puppytooth",
+    "style_tags": [
+      "japanese",
+      "knit",
+      "open-front",
+      "shawl collar",
+      "mid-thigh",
+      "layering",
+      "textured",
+      "puppytooth"
+    ],
+    "styling_notes": "A knit take on the Japanese haori, this piece drapes in a soft shawl-collar silhouette with an open front and no closures. The puppytooth pattern in gray, charcoal and cream reads as a quiet texture from a distance, so it bridges workwear-inspired Japanese casual and smart casual tailoring. The relaxed, mid-thigh cut with dropped shoulders and wide sleeves falls loosely, which suits slimmer layers underneath. Wear it over a tee or fine-gauge sweater with tapered trousers or dark denim, or throw it over a collared shirt for a softer alternative to a blazer. Its light weight makes it a transitional layer rather than a winter coat.",
+    "fit": "relaxed",
+    "sheen": null,
+    "brand": "Blue Blue Japan"
+  },
+  "5": {
+    "category": "outerwear",
+    "subcategory": "field jacket",
+    "primary_color": "camel",
+    "secondary_colors": [
+      "cream"
+    ],
+    "accent_colors": [
+      "gunmetal",
+      "black"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": "shell and lining",
+        "fibers": [
+          {
+            "fiber": "shearling",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "applications",
+        "fibers": [
+          {
+            "fiber": "leather",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 5,
+    "pattern": "solid",
+    "style_tags": [
+      "shearling",
+      "field jacket",
+      "four-pocket",
+      "suede",
+      "heritage",
+      "rugged",
+      "winter",
+      "detachable-look collar",
+      "zip front",
+      "snap pockets"
+    ],
+    "styling_notes": "A rugged heritage field jacket in camel suede-finish lamb shearling with a plush cream shearling collar that frames the face and adds serious warmth. The four snap-flap pockets and gunmetal hardware keep it utilitarian, while the rich suede texture lifts it into smart-casual territory. Its hip-length, relaxed cut layers easily over chunky knits and hoodies without losing shape. Pair it with dark denim, charcoal wool trousers, or olive chinos and rugged boots for a cohesive winter look. The warm neutral tone works well with navy, grey, cream, and deep browns.",
+    "fit": "relaxed",
+    "sheen": "matte",
+    "brand": "Belstaff"
+  },
+  "6": {
+    "category": "outerwear",
+    "subcategory": "suit jacket",
+    "primary_color": "slate blue",
+    "secondary_colors": [
+      "gray",
+      "navy"
+    ],
+    "accent_colors": [
+      "black"
+    ],
+    "formality": 4,
+    "materials": [
+      {
+        "part": "outer",
+        "fibers": [
+          {
+            "fiber": "wool",
+            "percent": 99
+          },
+          {
+            "fiber": "cashmere",
+            "percent": 1
+          }
+        ]
+      },
+      {
+        "part": "sleeve lining",
+        "fibers": [
+          {
+            "fiber": "acetate",
+            "percent": 50
+          }
+        ]
+      }
+    ],
+    "warmth": 3,
+    "pattern": "glen plaid",
+    "style_tags": [
+      "tailored",
+      "single-breasted",
+      "two-button",
+      "notch lapel",
+      "single vent",
+      "flap pockets",
+      "suit",
+      "glen plaid",
+      "formalwear",
+      "two-piece suit"
+    ],
+    "styling_notes": "A Burberry London single-breasted two-button suit jacket in an airforce blue glen plaid, woven from a wool and cashmere blend. The muted blue-gray check reads classic and British while staying softer than a plain charcoal, so it suits business and formal settings. The notch lapels, flap pockets, and single vent give it a traditional, clean silhouette. Wear it as a full suit with a white or pale blue dress shirt, a navy knit tie, and black or dark brown oxfords. The jacket can also be worn separately over dark denim or gray trousers for a dressier smart-casual look.",
+    "fit": null,
+    "sheen": "low",
+    "brand": "Burberry"
+  },
+  "7": {
+    "category": "top",
+    "subcategory": "camp-collar shirt",
+    "primary_color": "black",
+    "secondary_colors": [
+      "cream",
+      "olive"
+    ],
+    "accent_colors": [],
+    "formality": 2,
+    "materials": [
+      {
+        "part": null,
+        "fibers": [
+          {
+            "fiber": "rayon",
+            "percent": 56
+          },
+          {
+            "fiber": "cupra",
+            "percent": 38
+          },
+          {
+            "fiber": "silk",
+            "percent": 6
+          }
+        ]
+      }
+    ],
+    "warmth": 1,
+    "pattern": "rooster print",
+    "style_tags": [
+      "camp collar",
+      "short sleeve",
+      "rooster print",
+      "tropical",
+      "summer",
+      "japanese heritage",
+      "hawaiian-inspired",
+      "open collar",
+      "chest pocket"
+    ],
+    "styling_notes": "A Japanese-made take on the vintage aloha shirt, with a bold rooster-and-bamboo print in cream and sage on a faded black ground. The open camp collar and drapey rayon-cupra-silk blend give it a fluid, relaxed drape that hangs loose through the body and sleeves. The tonal, muted print keeps it more refined than a typical Hawaiian shirt, so it bridges casual summer wear and smart casual. Wear it open over a white tee or buttoned alone with cream or khaki wide trousers, shorts, or washed black denim. Simple leather sandals or low-top sneakers let the print stay the focus.",
+    "fit": "relaxed",
+    "sheen": "low",
+    "brand": "Old Joe Brand"
+  },
+  "8": {
+    "category": "top",
+    "subcategory": "casual shirt",
+    "primary_color": "cream",
+    "secondary_colors": [
+      "navy"
+    ],
+    "accent_colors": [
+      "charcoal"
+    ],
+    "formality": 2,
+    "materials": [],
+    "warmth": 3,
+    "pattern": "geometric micro print",
+    "style_tags": [
+      "workwear",
+      "two-pocket",
+      "snap-front look",
+      "heavy cotton-feel",
+      "micro print",
+      "americana",
+      "smart casual"
+    ],
+    "styling_notes": "A workwear-influenced shirt with a dense navy micro cross print on a cream ground that reads as a soft textured neutral from a distance. The thick, heavy fabric gives it overshirt-like body, so it works as a standalone shirt in cool weather or as a light mid-layer under a jacket. Twin chest pockets, one flapped and one open, plus dark buttons keep the look rugged but tidy. It pairs well with dark indigo denim, olive or khaki chinos, and brown leather boots or sneakers, and layers under chore coats or waxed jackets.",
+    "fit": "regular",
+    "sheen": null,
+    "brand": "Taylor Stitch"
+  },
+  "9": {
+    "category": "top",
+    "subcategory": "other",
+    "primary_color": "tan",
+    "secondary_colors": [
+      "brown"
+    ],
+    "accent_colors": [
+      "cream"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": null,
+        "fibers": [
+          {
+            "fiber": "rayon",
+            "percent": 64
+          },
+          {
+            "fiber": "polyester",
+            "percent": 26
+          },
+          {
+            "fiber": "nylon",
+            "percent": 10
+          }
+        ]
+      }
+    ],
+    "warmth": 1,
+    "pattern": "geometric jacquard",
+    "style_tags": [
+      "needles",
+      "v-neck",
+      "collarless",
+      "button-front",
+      "jacquard",
+      "geometric",
+      "southwestern",
+      "summer",
+      "relaxed",
+      "japanese brand"
+    ],
+    "styling_notes": "A collarless V-neck button-front shirt with a tonal tan ground and woven diamond motifs in mauve-brown, reading as part cardigan and part shirt. The drapey rayon-blend jacquard hangs loosely, so the boxy, relaxed body and long sleeves stay airy for hot weather. The Southwestern-meets-Japanese pattern is busy but low-contrast, which lets it work as a statement piece over a plain white tee. Pair it with cream or olive wide trousers, simple chinos or washed denim, and leather sandals or low-top sneakers. It also layers open as a light overshirt in the shoulder seasons.",
+    "fit": "relaxed",
+    "sheen": "low",
+    "brand": "Needles"
+  },
+  "10": {
+    "category": "outerwear",
+    "subcategory": "no-collar jacket",
+    "primary_color": "brown",
+    "secondary_colors": [
+      "charcoal"
+    ],
+    "accent_colors": [],
+    "formality": 2,
+    "materials": [
+      {
+        "part": null,
+        "fibers": [
+          {
+            "fiber": "linen",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": null,
+    "style_tags": [
+      "double-breasted",
+      "notch lapel",
+      "patch pockets",
+      "gauzy linen",
+      "textured weave",
+      "relaxed tailoring",
+      "japanese",
+      "earthy",
+      "raglan sleeve",
+      "unlined"
+    ],
+    "styling_notes": "A loose, double-breasted jacket in a gauzy open-weave linen with a heathered espresso-brown tone. The notch lapels and two patch pockets keep it between a tailored blazer and a workwear chore jacket, so it dresses up or down easily. The oversized, boxy proportions and raglan sleeves drape softly and look best over slim or straight layers, such as a fitted tee or fine knit. It pairs well with wide cream or olive trousers, washed denim, or tapered black pants. The breezy weave suits spring and early autumn, and the earthy colour works with other natural tones.",
+    "fit": "oversized",
+    "sheen": "matte",
+    "brand": "Confect"
+  },
+  "11": {
+    "category": "top",
+    "subcategory": "band-collar shirt",
+    "primary_color": "rust",
+    "secondary_colors": [
+      "burgundy"
+    ],
+    "accent_colors": [],
+    "formality": 2,
+    "materials": [
+      {
+        "part": null,
+        "fibers": [
+          {
+            "fiber": "linen",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 1,
+    "pattern": "solid",
+    "style_tags": [
+      "band collar",
+      "linen",
+      "japanese",
+      "minimal",
+      "earth tone",
+      "summer",
+      "pullover-style placket",
+      "side vents"
+    ],
+    "styling_notes": "A rust-red linen band-collar shirt with a washed, crinkled texture that reads lived-in and artisanal. The collarless neckline and relaxed, boxy body with a longer, vented hem sit between smart casual and relaxed Japanese-minimal dressing. The single chest pocket and mother-of-pearl style buttons keep the details quiet, so the color does the work. Wear it open over a white tee or buttoned alone with cream or beige chinos, or with indigo or charcoal wide trousers for contrast. It layers well under an unstructured navy or olive jacket in shoulder seasons.",
+    "fit": "relaxed",
+    "sheen": "matte",
+    "brand": "Confect"
+  },
+  "12": {
+    "category": "outerwear",
+    "subcategory": "no-collar jacket",
+    "primary_color": "rust",
+    "secondary_colors": [],
+    "accent_colors": [
+      "dark brown"
+    ],
+    "formality": 3,
+    "materials": [
+      {
+        "part": "shell",
+        "fibers": [
+          {
+            "fiber": "wool",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "lining",
+        "fibers": [
+          {
+            "fiber": "cupra",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "interfacing",
+        "fibers": [
+          {
+            "fiber": "cotton",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "solid",
+    "style_tags": [
+      "collarless",
+      "v-neck",
+      "single-hook closure",
+      "flap pockets",
+      "drop shoulder",
+      "minimal",
+      "japanese designer",
+      "lined",
+      "tonal"
+    ],
+    "styling_notes": "A collarless V-neck jacket in a warm rust-brown wool with a soft, drapey hand, sitting between a blazer and a cardigan. The oversized, boxy body with dropped shoulders and a slightly curved, uneven hem gives it a relaxed silhouette that softens tailoring. A single tab-and-hook closure and flap pockets keep the front clean and minimal. Layer it over a white tee or fine-gauge knit with wide trousers or tapered chinos for a smart-casual look, or pair with cream and olive tones to lean into the earthy palette.",
+    "fit": "oversized",
+    "sheen": "matte",
+    "brand": "Dulcamara"
+  },
+  "13": {
+    "category": "outerwear",
+    "subcategory": "vest",
+    "primary_color": "charcoal",
+    "secondary_colors": [
+      "light gray"
+    ],
+    "accent_colors": [],
+    "formality": 2,
+    "materials": [
+      {
+        "part": null,
+        "fibers": [
+          {
+            "fiber": "hemp",
+            "percent": 80
+          },
+          {
+            "fiber": "cotton",
+            "percent": 20
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "fine vertical stripe",
+    "style_tags": [
+      "minimalist",
+      "japanese designer",
+      "textured",
+      "lightweight",
+      "layering piece",
+      "v-neck",
+      "button-front",
+      "hemp blend",
+      "relaxed drape"
+    ],
+    "styling_notes": "A lightweight hemp-cotton vest with a fine vertical pinstripe that gives a heathered charcoal look and a slubby, naturally crinkled texture. The deep V-neck, four-button front, and slash pockets nod to classic tailoring waistcoats, while the oversized, boxy cut and raw, workwear-like fabric keep it relaxed and avant-garde. Wear it over a plain white or black long-sleeve shirt or a crisp poplin shirt for an easy layered look, or over a tee in summer. It pairs well with wide trousers, easy pants, or cropped tapered pants in black, navy, or natural tones, and the roomy armholes leave space for voluminous sleeves underneath.",
+    "fit": "oversized",
+    "sheen": "matte",
+    "brand": "Issey Miyake Men"
+  },
+  "14": {
+    "category": "outerwear",
+    "subcategory": "parka",
+    "primary_color": "navy",
+    "secondary_colors": [],
+    "accent_colors": [
+      "brass"
+    ],
+    "formality": 1,
+    "materials": [
+      {
+        "part": "shell",
+        "fibers": [
+          {
+            "fiber": "cotton",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "lining",
+        "fibers": [
+          {
+            "fiber": "polyester",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "solid",
+    "style_tags": [
+      "japanese workwear",
+      "indigo",
+      "hooded",
+      "knee length",
+      "mod coat",
+      "zip and button closure",
+      "drawstring hem",
+      "raglan sleeves",
+      "utility",
+      "oversized"
+    ],
+    "styling_notes": "A knee-length hooded parka in faded indigo-navy cotton, drawing on military fishtail parka shapes but built light enough for spring and autumn. The raglan sleeves, large flap pockets and drawcord hem give it a relaxed, slightly draped silhouette that swallows layers and keeps a utilitarian character. Its soft, matte, lived-in finish suits Japanese americana and workwear outfits as well as clean, minimal ones. Pair it with slim or straight denim, chinos and boots, or with a hoodie and sneakers for a more streetwear feel. The long length also works over tailored trousers for an off-duty, rain-ready look.",
+    "fit": "oversized",
+    "sheen": "low",
+    "brand": "Blue Blue Japan"
+  },
+  "15": {
+    "category": "outerwear",
+    "subcategory": "pea coat",
+    "primary_color": "navy",
+    "secondary_colors": [],
+    "accent_colors": [
+      "black"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": "shell",
+        "fibers": [
+          {
+            "fiber": "wool",
+            "percent": 80
+          },
+          {
+            "fiber": "nylon",
+            "percent": 20
+          }
+        ]
+      },
+      {
+        "part": "trim",
+        "fibers": [
+          {
+            "fiber": "cow leather",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "body lining",
+        "fibers": [
+          {
+            "fiber": "polyester",
+            "percent": 65
+          },
+          {
+            "fiber": "cotton",
+            "percent": 35
+          }
+        ]
+      },
+      {
+        "part": "sleeve lining",
+        "fibers": [
+          {
+            "fiber": "acetate",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 5,
+    "pattern": "solid",
+    "style_tags": [
+      "double-breasted",
+      "melton wool",
+      "leather trim",
+      "thinsulate insulated",
+      "americana",
+      "heritage",
+      "naval",
+      "winter",
+      "wide lapels",
+      "leather cuff trim"
+    ],
+    "styling_notes": "A heavyweight navy melton pea coat with the classic double-breasted front, wide notch lapels and slanted hand-warmer pockets finished with distinctive triangular leather tabs. The leather-bound cuffs and Thinsulate insulation push it from traditional naval heritage toward a rugged, cold-weather workhorse. The oversized cut gives room for chunky knits and layering, with a boxy, roomy drape through the body and shoulders. Pair it with thick sweaters, selvedge denim or flannel-lined chinos, and leather boots for a heritage Americana look. It also dresses down well over a hoodie or up over a casual blazer for smart-casual winter outfits.",
+    "fit": "oversized",
+    "sheen": "matte",
+    "brand": "Golden Bear for Taylor Stitch"
+  },
+  "16": {
+    "category": "bottom",
+    "subcategory": "easy pants",
+    "primary_color": "indigo",
+    "secondary_colors": [
+      "blue"
+    ],
+    "accent_colors": [
+      "black"
+    ],
+    "formality": 1,
+    "materials": [
+      {
+        "part": null,
+        "fibers": [
+          {
+            "fiber": "cotton",
+            "percent": 55
+          },
+          {
+            "fiber": "linen",
+            "percent": 45
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "solid",
+    "style_tags": [
+      "indigo-dyed",
+      "cotton-linen",
+      "elastic waist",
+      "webbing belt",
+      "cropped",
+      "japanese",
+      "relaxed workwear",
+      "curved seams",
+      "summer"
+    ],
+    "styling_notes": "These indigo-dyed cotton-linen pants have a mottled, washed surface that reads somewhere between denim and chambray. The elastic back waist, integrated black webbing belt with a plastic buckle, and articulated curved leg seams give them a climbing-pant ease while the flap and welt back pockets keep a tailored-workwear feel. The mid-calf length with a regular, straight leg shows off footwear and suits warm weather. Pair with a white or cream linen shirt or boxy tee and sandals, loafers or low-top sneakers for a relaxed Japanese-casual look. The indigo tone also works with earthy neutrals like beige, olive and camel.",
+    "fit": "regular",
+    "sheen": "matte",
+    "brand": "quadro"
+  },
+  "17": {
+    "category": "bottom",
+    "subcategory": "wide trousers",
+    "primary_color": "gray",
+    "secondary_colors": [
+      "light blue"
+    ],
+    "accent_colors": [
+      "mustard",
+      "black"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": null,
+        "fibers": [
+          {
+            "fiber": "polyester",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "heathered",
+    "style_tags": [
+      "high-waisted",
+      "pleated",
+      "cropped",
+      "mid-calf",
+      "wide-leg",
+      "buckle waist",
+      "contrast stitching",
+      "avant-garde",
+      "japanese designer",
+      "denim-look"
+    ],
+    "styling_notes": "A high-waisted, pleated wide-leg trouser cropped at mid-calf, with a heathered gray chambray-like surface and a wrap-style waist strap closed by a black side-release buckle. The tonal fabric and mustard topstitching nod to workwear and denim, while the exaggerated volume and utilitarian buckle give it a distinctly Issey Miyake avant-garde edge. The relaxed, drapey proportions balance well with fitted or cropped tops, and a tucked-in tee or fine knit keeps the high rise defined. Pair with minimal low-profile sneakers, derbies, or sandals to show off the cropped hem. Works for smart casual and creative-office looks in layered monochrome outfits.",
+    "fit": "relaxed",
+    "sheen": "matte",
+    "brand": "Issey Miyake me"
+  },
+  "18": {
+    "category": "bottom",
+    "subcategory": "five-pocket pants",
+    "primary_color": "charcoal",
+    "secondary_colors": [],
+    "accent_colors": [
+      "purple"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": "body",
+        "fibers": [
+          {
+            "fiber": "polyester",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "embroidery",
+        "fibers": [
+          {
+            "fiber": "rayon",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "diagonal twill",
+    "style_tags": [
+      "twill",
+      "western-inspired",
+      "embroidered butterfly",
+      "straight leg",
+      "japanese brand",
+      "five-pocket",
+      "smart casual"
+    ],
+    "styling_notes": "These are charcoal twill five-pocket pants cut in a western-jean silhouette, with yoked, pointed back pockets and a brass top button. The dense polyester twill has a slight sheen and a clean drape that sits between jeans and trousers, so it works in smart casual and relaxed streetwear outfits. The small purple embroidered butterfly on the front right is the only decoration, which keeps the look understated while still carrying the brand's identity. The regular, straight leg gives a steady line that pairs well with chunky knits, oxford shirts, or boxy jackets. Try it with white or cream tops and leather or suede shoes so the purple accent stands out.",
+    "fit": "regular",
+    "sheen": "low",
+    "brand": "Needles"
+  },
+  "19": {
+    "category": "bottom",
+    "subcategory": "easy pants",
+    "primary_color": "navy",
+    "secondary_colors": [
+      "light gray",
+      "cream"
+    ],
+    "accent_colors": [
+      "black"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": null,
+        "fibers": [
+          {
+            "fiber": "cotton",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 3,
+    "pattern": "plaid",
+    "style_tags": [
+      "flannel",
+      "check",
+      "plaid",
+      "drawstring",
+      "elastic waist",
+      "japanese",
+      "relaxed-tailored",
+      "ombre check"
+    ],
+    "styling_notes": "These easy slacks blend tailored pants construction with a pajama-like comfort: an elastic waist with a drawstring, slanted front pockets and button-through back pockets. The large faded ombre plaid in navy and gray-cream gives the soft cotton flannel a lived-in, slightly vintage feel. The regular straight leg falls cleanly without clinging, so the pants sit between smart casual and loungewear. Pair them with a plain white or gray tee, a knit or a chore coat to let the pattern lead. Boots, loafers or low-top sneakers all work, and a solid navy or charcoal top keeps the check from competing.",
+    "fit": "regular",
+    "sheen": "matte",
+    "brand": "ANCELLM"
+  },
+  "20": {
+    "category": "bottom",
+    "subcategory": "joggers",
+    "primary_color": "charcoal",
+    "secondary_colors": [
+      "gray"
+    ],
+    "accent_colors": [
+      "black"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": "outer shell",
+        "fibers": [
+          {
+            "fiber": "cotton",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 3,
+    "pattern": "herringbone",
+    "style_tags": [
+      "herringbone",
+      "drawstring waist",
+      "elastic cuffs",
+      "tapered",
+      "jogger trousers",
+      "smart casual",
+      "textured",
+      "cropped"
+    ],
+    "styling_notes": "A tailored take on the jogger, this piece uses a charcoal herringbone cotton with a soft, brushed flannel-like texture that reads more refined than typical sweatpants. The drawstring waist, button fly and welt back pockets nod to trousers, while the elastic cuffs give a relaxed, tapered finish at a mid-calf length. The regular fit through the leg with a gathered hem shows off clean low-top sneakers, loafers or minimalist boots. Pair with a crewneck sweater, oxford shirt or unstructured jacket for smart casual looks, or a simple tee and bomber for weekend wear. The neutral charcoal tone is easy to mix with navy, cream, and earth tones.",
+    "fit": "regular",
+    "sheen": "matte",
+    "brand": "Massimo Dutti"
+  },
+  "21": {
+    "category": "shoes",
+    "subcategory": "hiking boots",
+    "primary_color": "navy",
+    "secondary_colors": [
+      "black",
+      "light gray"
+    ],
+    "accent_colors": [
+      "rust",
+      "silver"
+    ],
+    "formality": 1,
+    "materials": [
+      {
+        "part": "upper",
+        "fibers": [
+          {
+            "fiber": "nylon",
+            "percent": 60
+          },
+          {
+            "fiber": "leather",
+            "percent": 40
+          }
+        ]
+      }
+    ],
+    "warmth": 3,
+    "pattern": "speckled sole",
+    "style_tags": [
+      "outdoor",
+      "trail",
+      "waterproof",
+      "hiking",
+      "utilitarian",
+      "gorpcore",
+      "minimalist",
+      "lace-up",
+      "d-ring eyelets",
+      "rubber toe cap"
+    ],
+    "styling_notes": "A mid-height trail boot with a navy ballistic-textile and nubuck upper, black rubber toe and heel guards, and a light gray speckled sole. The wide, low-profile silhouette gives a grounded, athletic stance that reads as outdoorsy rather than rugged-formal. The navy and black palette keeps it versatile enough to pair with dark denim, canvas work pants, or tapered joggers. It suits layered utilitarian looks with fleece, shell jackets, or chore coats. The reflective-flecked black laces and D-ring eyelets add a technical detail without loud color.",
+    "fit": null,
+    "sheen": "matte",
+    "brand": "Lems Shoes"
+  },
+  "22": {
+    "category": "shoes",
+    "subcategory": "lace-up boots",
+    "primary_color": "brown",
+    "secondary_colors": [
+      "cognac"
+    ],
+    "accent_colors": [
+      "silver",
+      "dark brown",
+      "cream"
+    ],
+    "formality": 1,
+    "materials": [
+      {
+        "part": "upper",
+        "fibers": [
+          {
+            "fiber": "leather",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 3,
+    "pattern": "solid",
+    "style_tags": [
+      "heritage",
+      "workwear",
+      "cap toe",
+      "rugged",
+      "americana",
+      "goodyear welt",
+      "lace-up",
+      "distressed leather"
+    ],
+    "styling_notes": "Classic American work boots in amber oilskin-style leather that has developed a rich, scuffed patina with lighter copper tones at the cap toe and creases. The cap toe with triple-row stitching, speed-hook and eyelet lacing, and chunky welted sole give them a sturdy, slightly rounded silhouette that sits at the ankle. They bridge workwear, heritage, and smart casual, handling everyday wear with ease rather than dressy occasions. They look best with selvedge or dark raw denim, chinos, or canvas work pants, with the hem stacked or cuffed to show off the boot shaft. Pair with flannel, chore coats, waxed cotton jackets, or heavy knits for an earthy, autumnal palette.",
+    "fit": null,
+    "sheen": null,
+    "brand": "Red Wing"
+  },
+  "23": {
+    "category": "shoes",
+    "subcategory": "derbies",
+    "primary_color": "black",
+    "secondary_colors": [],
+    "accent_colors": [
+      "red"
+    ],
+    "formality": 3,
+    "materials": [
+      {
+        "part": "upper",
+        "fibers": [
+          {
+            "fiber": "leather",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": null,
+    "pattern": "solid",
+    "style_tags": [
+      "minimalist",
+      "matte leather",
+      "two-eyelet lacing",
+      "round toe",
+      "low profile",
+      "smart casual",
+      "european"
+    ],
+    "styling_notes": "A stripped-back black derby in matte leather with a rounded toe and a slim, low profile. The matte finish keeps it less severe than polished dress shoes, so it bridges smart casual and business-casual dressing. A tiny red stitch accent at the collar and the embossed heel tab are the only flourishes. The slim sole and compact shape suit tapered trousers, dark denim, or chinos, and the shoes also work under a wool suit for a relaxed office look. Pair with a charcoal knit and slim dark jeans for a clean, modern outfit.",
+    "fit": null,
+    "sheen": null,
+    "brand": "Camper"
+  },
+  "24": {
+    "category": "shoes",
+    "subcategory": "low-top sneakers",
+    "primary_color": "cognac",
+    "secondary_colors": [
+      "cream",
+      "brown"
+    ],
+    "accent_colors": [
+      "burgundy",
+      "olive",
+      "white"
+    ],
+    "formality": 2,
+    "materials": [
+      {
+        "part": "upper",
+        "fibers": [
+          {
+            "fiber": "leather",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "solid",
+    "style_tags": [
+      "leather sneakers",
+      "smart casual",
+      "court sneaker",
+      "cupsole",
+      "contrast stitching",
+      "brandy",
+      "spanish"
+    ],
+    "styling_notes": "A court-style leather sneaker in a warm brandy tan, with a cream cupsole, flat cream laces and a burgundy heel tab. The smooth leather, tonal stitching and suede-look side panel make it dressier than a canvas or athletic sneaker. It bridges casual and smart-casual wardrobes, and its low profile and slim toe box keep the proportions neat. It pairs well with navy or olive chinos, dark denim, and unstructured jackets or knitwear. The warm tan also complements cream, gray and earth tones.",
+    "fit": null,
+    "sheen": null,
+    "brand": "Pikolinos"
+  },
+  "25": {
+    "category": "shoes",
+    "subcategory": "low-top sneakers",
+    "primary_color": "yellow",
+    "secondary_colors": [
+      "tan",
+      "dark brown"
+    ],
+    "accent_colors": [
+      "white",
+      "black"
+    ],
+    "formality": 1,
+    "materials": [
+      {
+        "part": "upper",
+        "fibers": [
+          {
+            "fiber": "nylon",
+            "percent": 100
+          }
+        ]
+      },
+      {
+        "part": "overlays",
+        "fibers": [
+          {
+            "fiber": "suede",
+            "percent": 100
+          }
+        ]
+      }
+    ],
+    "warmth": 2,
+    "pattern": "colorblock",
+    "style_tags": [
+      "retro runner",
+      "vintage running",
+      "suede overlays",
+      "nylon upper",
+      "colorblock",
+      "chunky sole",
+      "statement sneaker",
+      "sporty"
+    ],
+    "styling_notes": "A retro runner-inspired sneaker that mixes bright golden-yellow nylon with tan suede overlays and dark brown swooping side panels. The cream midsole and gum-toned outsole give it a vintage, slightly chunky profile that grounds the saturated color. It bridges casual streetwear and sporty heritage styling, and works as the focal point of an otherwise muted outfit. Pair with neutral denim, olive or khaki chinos, or charcoal and cream separates to let the yellow stand out. The striped yellow-and-black laces add extra visual energy, so keep the rest of the outfit simple.",
+    "fit": null,
+    "sheen": null,
+    "brand": "Lejan"
+  }
+}
+DEBUG tokens: in=13554 out=2198
+DEBUG blocks: ['thinking', 'text']
+DEBUG outfit command result=================
+DEBUG {
+  "outfits": [
+    {
+      "aesthetic": "Earthy Japanese minimal",
+      "garments": [
+        {
+          "garment_id": 14,
+          "styling_advice": "Wear open and loose as the long navy outer shape"
+        },
+        {
+          "garment_id": 11,
+          "styling_advice": "Leave untucked so the rust hem shows below the front"
+        },
+        {
+          "garment_id": 20,
+          "styling_advice": "Let the tapered cuffs sit above the sneakers"
+        },
+        {
+          "garment_id": 24,
+          "styling_advice": "Keep laces neat for a clean, warm finish"
+        }
+      ],
+      "explanation": "Rust against faded navy is a deliberate warm-cool contrast, and charcoal and cognac keep everything else quiet. The parka's volume is balanced by tapered herringbone joggers, which narrow toward the ankle. The crinkled linen, brushed cotton, matte cotton shell and smooth leather give enough texture variety to feel handmade and artisanal rather than flat.",
+      "missing": null
+    },
+    {
+      "aesthetic": "Quiet avant-garde monochrome",
+      "garments": [
+        {
+          "garment_id": 14,
+          "styling_advice": "Wear unzipped and slouchy over the layers"
+        },
+        {
+          "garment_id": 8,
+          "styling_advice": "Tuck into the high waist to define the rise"
+        },
+        {
+          "garment_id": 17,
+          "styling_advice": "Let the wide cropped hems show the shoes"
+        },
+        {
+          "garment_id": 23,
+          "styling_advice": "Wear with no-show socks or dark socks to keep the line clean"
+        }
+      ],
+      "explanation": "This is a restrained palette of navy, cream and heathered gray with a black shoe. It leans on shape rather than color, which suits a creative look. The tucked cream micro-print shirt gives the high-waisted, pleated wide trousers a defined top half against the oversized parka. The matte black derbies keep the lower half sleek and polished enough for a gallery or studio.",
+      "missing": null
+    },
+    {
+      "aesthetic": "Indigo workwear artisan",
+      "garments": [
+        {
+          "garment_id": 14,
+          "styling_advice": "Wear open to show the shirt underneath"
+        },
+        {
+          "garment_id": 9,
+          "styling_advice": "Wear untucked as the patterned layer"
+        },
+        {
+          "garment_id": 16,
+          "styling_advice": "Wear cropped to show the boot tops"
+        },
+        {
+          "garment_id": 22,
+          "styling_advice": "Wear scuffed and worn-in for grounding contrast"
+        }
+      ],
+      "explanation": "Navy parka over indigo pants makes a tonal blue base, and the tan jacquard shirt and amber boots add a warm earthy contrast. The shirt's low-contrast Southwestern-Japanese diamond pattern gives a handcrafted, collected feel. The loose shirt and parka are balanced by the straight, cropped pants. Together the washed cotton-linen, drapey jacquard and rugged leather give a lived-in, painterly workwear look.",
+      "missing": null
+    }
+  ]
+}
+DEBUG end debug

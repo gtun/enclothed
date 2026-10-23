@@ -130,8 +130,6 @@ def recommend_outfits(client: Anthropic, context: str) -> tuple[OutfitResult, To
     logger.debug("tokens: in=%s out=%s", usage.input_tokens, usage.output_tokens)
     logger.debug("blocks: %s", [block.type for block in response.content])
 
-    text = "".join(block.text for block in response.content if block.type == "text")
-
     if response.stop_reason == "max_tokens":
         logger.warning("Outfit response cut off at max_tokens (%s)", config.OUTFIT_TOKEN_CAP)
     if response.parsed_output is None:
