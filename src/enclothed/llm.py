@@ -1,6 +1,6 @@
 from anthropic import Anthropic
 from enclothed import config
-from enclothed.models import SUBCATEGORIES, TaggingResult, TokenUsage
+from enclothed.models import SUBCATEGORIES, TaggingResult, TokenUsage, OutfitResult
 import base64
 import mimetypes
 from pathlib import Path
@@ -74,14 +74,8 @@ Coordinate each outfit:
 - Focus: at most one focal point; with anchors, usually the anchor.
 
 If the wardrobe can't fully meet the request, build the best outfit you can from it,
-then name the missing garment as a possible purchase. Never put a garment that isn't
+then name any missing garments as possible purchases. Never put a garment that isn't
 in <wardrobe> inside an outfit.
-
-Format each outfit as:
-Outfit N: <aesthetic name>
-- <id>: <short description>
-Why: <2-3 sentences>
-Missing (optional): <suggested purchase>
 """
 
 def image_block(path: Path) -> dict:
@@ -119,12 +113,13 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
         raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")
     return response.parsed_output, usage
 
-def recommend_outfits(client: Anthropic, context: str) -> tuple[str, TokenUsage]:
-    response = client.messages.create(
+def recommend_outfits(client: Anthropic, context: str) -> tuple[OutfitResult, TokenUsage]:
+    response = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=config.OUTFIT_TOKEN_CAP,
         system=OUTFIT_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": context}],
+        output_format=OutfitResult,
     )
 
     usage = TokenUsage(
@@ -139,4 +134,6 @@ def recommend_outfits(client: Anthropic, context: str) -> tuple[str, TokenUsage]
 
     if response.stop_reason == "max_tokens":
         logger.warning("Outfit response cut off at max_tokens (%s)", config.OUTFIT_TOKEN_CAP)
-    return text, usage
+    if response.parsed_output is None:
+        raise RuntimeError(f"No outfits in response (stop_reason={response.stop_reason})")
+    return response.parsed_output, usage

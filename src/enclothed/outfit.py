@@ -18,31 +18,54 @@ OUTFIT_INCLUDE_FIELDS = {
     "fit","sheen","formality",
 }
 
-TEST_OUTFITS = """Outfit 1: Workwear Americana
-- 1: nonnative x Undercover black corduroy blouson, worn as the focal piece
-- 8: cream and navy micro-print heavy cotton shirt, worn buttoned as the mid layer
-- 18: charcoal twill five-pocket pants with the small purple butterfly
-- 22: Red Wing cap-toe boots in scuffed amber leather
-
-Why: Black, cream and charcoal make a neutral base, and the brown boots add warmth. The cropped jacket sits above the shirt hem, and the straight-leg pants stack cleanly over the boots. Soft corduroy, thick shirting, slick twill and rugged leather give plenty of texture contrast.
-Missing (optional): A plain white or grey heavy tee would give a quieter layer under the blouson than the patterned shirt.
-
-Outfit 2: Japanese Minimal
-- 1: black corduroy blouson
-- 11: rust linen band-collar shirt, worn untucked
-- 17: Issey Miyake me heathered gray wide-leg trousers, high-waisted and cropped
-- 23: Camper black matte derbies
-
-Why: The cropped, collarless jacket balances the high-waisted wide trousers. The longer vented linen hem peeks out below it, and the rust shirt is the single colour note against black and grey. The collarless jacket, band collar and matte derbies keep the look quiet and clean. The crinkled linen and fine corduroy give contrast without extra pattern.
-
-Outfit 3: Relaxed Earth-Tone Casual
-- 1: black corduroy blouson
-- 9: Needles tan jacquard collarless shirt, worn buttoned and loose
-- 16: quadro indigo cotton-linen easy pants
-- 24: Pikolinos cognac leather low-top sneakers
-
-Why: Tan, indigo and cognac are a natural earthy palette, and the black jacket anchors it as the darkest tone. The jacquard is low-contrast, so it adds richness without competing with the jacket. The mid-calf pants and low sneakers keep the lower half light against the boxy, drapey shirt.
-"""
+TEST_OUTFITS = OutfitResult.model_validate({
+    "outfits": [
+        {
+            "aesthetic": "Workwear Americana",
+            "garments": [
+                {"garment_id": 1, "styling_advice": "nonnative x Undercover black corduroy blouson, worn as the focal piece"},
+                {"garment_id": 8, "styling_advice": "cream and navy micro-print heavy cotton shirt, worn buttoned as the mid layer"},
+                {"garment_id": 18, "styling_advice": "charcoal twill five-pocket pants with the small purple butterfly"},
+                {"garment_id": 22, "styling_advice": "Red Wing cap-toe boots in scuffed amber leather"},
+            ],
+            "explanation": (
+                "Black, cream and charcoal make a neutral base, and the brown boots add warmth. "
+                "The cropped jacket sits above the shirt hem, and the straight-leg pants stack cleanly over the boots. "
+                "Soft corduroy, thick shirting, slick twill and rugged leather give plenty of texture contrast."
+            ),
+            "missing": "A plain white or grey heavy tee would give a quieter layer under the blouson than the patterned shirt.",
+        },
+        {
+            "aesthetic": "Japanese Minimal",
+            "garments": [
+                {"garment_id": 1, "styling_advice": "black corduroy blouson"},
+                {"garment_id": 11, "styling_advice": "rust linen band-collar shirt, worn untucked"},
+                {"garment_id": 17, "styling_advice": "Issey Miyake me heathered gray wide-leg trousers, high-waisted and cropped"},
+                {"garment_id": 23, "styling_advice": "Camper black matte derbies"},
+            ],
+            "explanation": (
+                "The cropped, collarless jacket balances the high-waisted wide trousers. "
+                "The longer vented linen hem peeks out below it, and the rust shirt is the single colour note against black and grey. "
+                "The collarless jacket, band collar and matte derbies keep the look quiet and clean. "
+                "The crinkled linen and fine corduroy give contrast without extra pattern."
+            ),
+        },
+        {
+            "aesthetic": "Relaxed Earth-Tone Casual",
+            "garments": [
+                {"garment_id": 1, "styling_advice": "black corduroy blouson"},
+                {"garment_id": 9, "styling_advice": "Needles tan jacquard collarless shirt, worn buttoned and loose"},
+                {"garment_id": 16, "styling_advice": "quadro indigo cotton-linen easy pants"},
+                {"garment_id": 24, "styling_advice": "Pikolinos cognac leather low-top sneakers"},
+            ],
+            "explanation": (
+                "Tan, indigo and cognac are a natural earthy palette, and the black jacket anchors it as the darkest tone. "
+                "The jacquard is low-contrast, so it adds richness without competing with the jacket. "
+                "The mid-calf pants and low sneakers keep the lower half light against the boxy, drapey shirt."
+            ),
+        },
+    ]
+})
 
 
 def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> str:
@@ -70,13 +93,12 @@ def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS) for key, value in wardrobe.items()}
 
-def log_outfit(log_path: Path, anchors: list[int] | None, result: str, usage: TokenUsage | None, context: str) -> None:
+def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str) -> None:
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "anchors": anchors,
         "usage": usage.model_dump() if usage else None,
-        #"result": result.model_dump(mode="json"),
-        "result": result,
+        "result": result.model_dump(mode="json"),
         "context": context,
     }
     with log_path.open("a", encoding="utf-8") as f:

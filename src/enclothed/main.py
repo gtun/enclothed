@@ -86,7 +86,10 @@ def main() -> int:
                 outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
         user_prompt = args.prompt_message or "everyday wear"
         client = None if args.test else Anthropic()
-        print(get_outfits(wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test))
+        result = get_outfits(wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test)
+        print("outfit command result=================")
+        print(result.model_dump_json(indent=2))
+        print("end debug")
 
     return 0
 
