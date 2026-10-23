@@ -1,5 +1,5 @@
 from anthropic import Anthropic
-from enclothed.models import Garment, TokenUsage
+from enclothed.models import Garment, TokenUsage, OutfitSuggestion
 from enclothed.llm import recommend_outfits
 import logging
 import json

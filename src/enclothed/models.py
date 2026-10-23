@@ -133,5 +133,15 @@ class TokenUsage(BaseModel):
     input_tokens: int
     output_tokens: int
 
+class OutfitGarment(BaseModel):
+    garment_id: int = Field(description="The ID of the suggested garment.")
+    styling_advice: str = Field(description="One short phrase advising how to wear the garment.")
+
 class Outfit(BaseModel):
-    pass
+    aesthetic: str = Field(description="A short name describing the outfit's aesthetic, for example, 'Workwear Americana' or 'Relaxed earth tones.'")
+    garments: list[OutfitGarment]
+    explanation: str = Field(description="Your rationale for choosing the garments in this outfit")
+    missing: str | None = Field(default=None, description="A garment that is not in the wardrobe that would complete the outfit.")
+
+class OutfitResult(BaseModel):
+    outfits: list[Outfit]

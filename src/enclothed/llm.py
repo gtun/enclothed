@@ -41,7 +41,7 @@ Allowed subcategories by category:
 {SUBCATEGORY_TEXT}
 """
 
-OUTFIT_SYSTEM_PROMPT = """You suggest outfits from a catalog of garments in one person's wardrobe. You never
+OUTFIT_SYSTEM_PROMPT = f"""You suggest outfits from a catalog of garments in one person's wardrobe. You never
 see the garments, only their text records.
 
 You receive:
@@ -59,7 +59,7 @@ Reading the records:
   pieces by label.
 
 Rules:
-- Suggest between 2 and 4 outfits, each in a clearly different aesthetic.
+- Suggest between {config.MIN_OUTFIT_SUGGESTIONS} and {config.MAX_OUTFIT_SUGGESTIONS} outfits, each in a clearly different aesthetic.
 - Every outfit must include every garment listed in <anchors>, if any.
 - Choose every other piece from <wardrobe>, using only the IDs shown there. Use each
   garment at most once per outfit.
