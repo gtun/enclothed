@@ -56,7 +56,7 @@ TEST_GARMENT = Garment(
     brand="nonnative x UNDERCOVER",
 )
 
-def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None):
+def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None) -> int:
     run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir()
 
@@ -91,7 +91,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
 
     run_dir.rmdir()
 
-    print(f"new garment ID {new_garment_id} added")
+    return new_garment_id
 
 def download_photo(url: str, dest_dir: Path, index: int) -> Path:
     response = requests.get(url, timeout=30)

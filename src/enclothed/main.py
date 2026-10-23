@@ -62,7 +62,8 @@ def main() -> int:
             add_parser.error("At least one photo URL or filepath needed")
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
-        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
+        new_garment_id = add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
+        print(f"new garment ID {new_garment_id} added")
 
     elif args.command == "list":
         garments = sorted(db.select_all_garments(config.DB_PATH), key=lambda garment: (CATEGORY_ORDER[garment.category], garment.subcategory, garment.id),)
