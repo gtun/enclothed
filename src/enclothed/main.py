@@ -73,6 +73,8 @@ def main() -> int:
         if args.category:
             wardrobe = [garment for garment in wardrobe if garment.category in args.category or garment.subcategory in args.category]
 
+        wardrobe = sorted(wardrobe, key=lambda garment: (CATEGORY_ORDER[garment.category], garment.name, garment.id),)
+
         print(format_list(wardrobe))
 
     elif args.command == "outfit":
