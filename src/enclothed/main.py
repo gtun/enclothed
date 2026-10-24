@@ -64,18 +64,16 @@ def main() -> int:
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
         new_garment_id = add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
-        print(f"new garment ID {new_garment_id} added")
+
+        print(format_new_garment(db.select_garment(config.DB_PATH, new_garment_id)))
 
     elif args.command == "list":
-        garments = sorted(db.select_all_garments(config.DB_PATH), key=lambda garment: (CATEGORY_ORDER[garment.category], garment.subcategory, garment.id),)
-        if args.category:
-            garments = [garment for garment in garments if garment.category in args.category or garment.subcategory in args.category]
+        wardrobe = db.select_all_garments(config.DB_PATH)
 
-        for category in CATEGORY_ORDER:
-            print(f"{category.upper()} {'=' * (45 - len(category))}")
-            for garment in garments:
-                if garment.category == category:
-                    print(f"  {garment.id:>3}  {garment.name}")
+        if args.category:
+            wardrobe = [garment for garment in wardrobe if garment.category in args.category or garment.subcategory in args.category]
+
+        print(format_list(wardrobe))
 
     elif args.command == "outfit":
         load_dotenv()
