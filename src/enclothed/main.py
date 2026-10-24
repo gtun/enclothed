@@ -6,7 +6,7 @@ from anthropic import Anthropic
 from enclothed.intake import add_garment
 from enclothed.outfit import get_outfits
 import logging
-from enclothed.models import CATEGORY_ORDER, LIST_FILTER_CHOICES
+from enclothed.models LIST_FILTER_CHOICES
 from enclothed.cli_display import format_list, format_new_garment, format_outfit_result
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,11 @@ def main() -> int:
         logger.info('Adding your garment now. Please wait...')
         new_garment_id = add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
 
-        print(format_new_garment(db.select_garment(config.DB_PATH, new_garment_id)))
+        new_garment = db.select_garment(config.DB_PATH, new_garment_id)
+        if new_garment is None:
+            raise RuntimeError(f"Garment {new_garment_id} not found after insert")
+        else:
+            print(format_new_garment(new_garment))
 
     elif args.command == "list":
         wardrobe = db.select_all_garments(config.DB_PATH)
@@ -73,9 +77,8 @@ def main() -> int:
         if args.category:
             wardrobe = [garment for garment in wardrobe if garment.category in args.category or garment.subcategory in args.category]
 
-        wardrobe = sorted(wardrobe, key=lambda garment: (CATEGORY_ORDER[garment.category], garment.name, garment.id),)
-
-        print(format_list(wardrobe))
+        list = format_list(wardrobe)
+        print(list if list else f"No matches found for '{", ".join(args.category)}'")
 
     elif args.command == "outfit":
         load_dotenv()

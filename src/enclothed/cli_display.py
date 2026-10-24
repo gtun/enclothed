@@ -1,23 +1,26 @@
 from enclothed.models import Garment, Outfit, OutfitGarment, OutfitResult, CATEGORY_ORDER
-from enum import Enum
 
-def format_garment_id_name(garment: Garment) -> str:
+def format_garment_id_name(garment: Garment) -> str | None:
     return f"{garment.id:>3}  {garment.name}"
 
 def format_list(wardrobe: list[Garment]) -> str:
-    list_str_array = []
+    line = []
     current_category = ""
+
+    wardrobe = sorted(wardrobe, key=lambda garment: (CATEGORY_ORDER[garment.category], garment.name.casefold(), garment.id),)
 
     for garment in wardrobe:
         if garment.category != current_category:
+            if current_category != "":
+                line.append("")
             current_category = garment.category
-            list_str_array.append((f"\n{garment.category.upper()} {'=' * (45 - len(garment.category))}"))
-        list_str_array.append(f"  {format_garment_id_name(garment)}")
+            line.append(f"{garment.category.upper()} {'=' * (45 - len(garment.category))}")
+        line.append(f"  {format_garment_id_name(garment)}")
 
-    return "\n".join(list_str_array)
+    return "\n".join(line) if line else None
 
 def format_new_garment(garment: Garment) -> str:
-    return f"\nnew garment added:\n  {format_garment_id_name(garment)}"
+    return f"new garment added:\n  {format_garment_id_name(garment)}"
 
 def format_outfit():
     pass
