@@ -23,3 +23,8 @@ backups/
 # Demo
 /*.tar.gz
 /closet.html
+
+# Rebuild
+/intake/
+photo_files.txt
+intake*.sh
