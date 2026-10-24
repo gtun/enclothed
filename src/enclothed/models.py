@@ -135,7 +135,7 @@ class TokenUsage(BaseModel):
 
 class OutfitGarment(BaseModel):
     garment_id: int = Field(description="The ID of the suggested garment.")
-    styling_advice: str = Field(description="One short phrase advising how to wear the garment.")
+    styling_advice: str | None = Field(description="One short phrase advising how to wear the garment. Do not refer to the garment by name or description.", default=None)
 
 class Outfit(BaseModel):
     aesthetic: str = Field(description="A short name describing the outfit's aesthetic, for example, 'Workwear Americana' or 'relaxed earth tones.'")

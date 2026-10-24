@@ -6,7 +6,8 @@ from anthropic import Anthropic
 from enclothed.intake import add_garment
 from enclothed.outfit import get_outfits
 import logging
-from enclothed.models import CATEGORY_ORDER, LIST_FILTER_CHOICES
+from enclothed.models import LIST_FILTER_CHOICES
+from enclothed.cli_display import format_list, format_new_garment, format_outfit_result
 
 logger = logging.getLogger(__name__)
 
@@ -62,18 +63,25 @@ def main() -> int:
             add_parser.error("At least one photo URL or filepath needed")
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
-        add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
+        new_garment_id = add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
+
+        new_garment = db.select_garment(config.DB_PATH, new_garment_id)
+        if new_garment is None:
+            raise RuntimeError(f"Garment {new_garment_id} not found after insert")
+
+        print(format_new_garment(new_garment))
 
     elif args.command == "list":
-        garments = sorted(db.select_all_garments(config.DB_PATH), key=lambda garment: (CATEGORY_ORDER[garment.category], garment.subcategory, garment.id),)
-        if args.category:
-            garments = [garment for garment in garments if garment.category in args.category or garment.subcategory in args.category]
+        wardrobe = db.select_all_garments(config.DB_PATH)
+        if not wardrobe:
+            print("Sorry, you have no items in your wardrobe to list. Go shopping and add something with: enclothed add <photos>")
+            return 0
 
-        for category in CATEGORY_ORDER:
-            print(f"{category.upper()} {'=' * (45 - len(category))}")
-            for garment in garments:
-                if garment.category == category:
-                    print(f"  {garment.id:>3}  {garment.name}")
+        if args.category:
+            wardrobe = [garment for garment in wardrobe if garment.category in args.category or garment.subcategory in args.category]
+
+        output = format_list(wardrobe)
+        print(output if output is not None else f"No matches found for '{', '.join(args.category)}'")
 
     elif args.command == "outfit":
         load_dotenv()
@@ -87,7 +95,7 @@ def main() -> int:
         user_prompt = args.prompt_message or "everyday wear"
         client = None if args.test else Anthropic()
         result = get_outfits(wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test)
-        print(result.model_dump_json(indent=2))
+        print(format_outfit_result(result, wardrobe))
 
     return 0
 
