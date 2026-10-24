@@ -42,7 +42,7 @@ def format_outfit(outfit: Outfit, wardrobe: dict[int, Garment]) -> str:
     lines.append(textwrap.fill(outfit.explanation, width=80, initial_indent="  ", subsequent_indent="  "))
     if outfit.missing:
         lines.append("")
-        Ilines.append(textwrap.fill(f"Consider: {outfit.missing}", width=80, initial_indent="  ", subsequent_indent="  "))
+        lines.append(textwrap.fill(f"Consider: {outfit.missing}", width=80, initial_indent="  ", subsequent_indent="  "))
 
     return "\n".join(lines)
 
