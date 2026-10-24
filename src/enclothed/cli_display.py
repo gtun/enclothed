@@ -1,4 +1,4 @@
-from enclothed.models import Garment, Outfit, OutfitGarment, OutfitResult, CATEGORY_ORDER
+from enclothed.models import Garment, Outfit, OutfitResult, CATEGORY_ORDER
 import textwrap
 
 def format_garment_id_name(garment: Garment) -> str:
@@ -41,7 +41,7 @@ def format_outfit(outfit: Outfit, wardrobe: dict[int, Garment]) -> str:
     lines.append(textwrap.fill(outfit.explanation, width=80, initial_indent="  ", subsequent_indent="  "))
     if outfit.missing:
         lines.append("")
-        lines.append(f"  Consider: {outfit.missing}")
+        lines.append(textwrap.fill(f"Consider: {outfit.missing}", width=80, initial_indent="  ", subsequent_indent="  "))
 
     return "\n".join(lines)
 
