@@ -65,6 +65,7 @@ Rules:
   garment at most once per outfit.
 - An outfit must be complete enough to wear in public: (a top and a bottom) or a
   one-piece, plus shoes. Outerwear and accessories are optional. Layering is allowed.
+- For styling_advice, give advice only. Do not refer to the garment by name or descrpition.
 
 Coordinate each outfit:
 - Color: harmonious palette (tonal, neutrals with one accent, or deliberate contrast).

@@ -1,4 +1,5 @@
 from enclothed.models import Garment, Outfit, OutfitGarment, OutfitResult, CATEGORY_ORDER
+import textwrap
 
 def format_garment_id_name(garment: Garment) -> str:
     return f"{garment.id:>3}  {garment.name}"
@@ -22,25 +23,31 @@ def format_list(wardrobe: list[Garment]) -> str | None:
 def format_new_garment(garment: Garment) -> str:
     return f"new garment added:\n  {format_garment_id_name(garment)}"
 
-def format_outfit(outfit:Outfit, wardrobe:list[Garment]) -> str:
+def format_outfit(outfit: Outfit, wardrobe: dict[int, Garment]) -> str:
     lines = []
 
     lines.append(f"{outfit.aesthetic.upper()} {'=' * (65 - len(outfit.aesthetic))}")
-    for garment in outfit.garments:
-        lines.append(f"  -{format_garment_id_name(wardrobe[garment.garment_id])}")
-        lines.append(f"        {garment.styling_advice}")
+
+    for outfit_garment in outfit.garments:
+        garment = wardrobe.get(outfit_garment.garment_id)
+        if garment is None:
+            label = f"{outfit_garment.garment_id:>3}  (not in wardrobe)"
+        else:
+            label = format_garment_id_name(garment)
+        lines.append(f"  -{label}")
+        lines.append(textwrap.fill(outfit_garment.styling_advice, width=80, initial_indent="        ", subsequent_indent="        "))
+
     lines.append("")
-    lines.append(f"  {outfit.explanation}")
-    lines.append("")
+    lines.append(textwrap.fill(outfit.explanation, width=80, initial_indent="  ", subsequent_indent="  "))
     if outfit.missing:
-        lines.append(f"  Consider: {outfit.missing}")
         lines.append("")
+        lines.append(f"  Consider: {outfit.missing}")
 
     return "\n".join(lines)
 
-def format_outfit_result(outfit_result: OutfitResult, wardrobe: dict[Garment]) -> str | None:
+def format_outfit_result(outfit_result: OutfitResult, wardrobe: dict[int, Garment]) -> str:
     lines = []
     for outfit in outfit_result.outfits:
         lines.append(format_outfit(outfit, wardrobe))
 
-    return "\n".join(lines) if lines else None
+    return "\n\n".join(lines)
