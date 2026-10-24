@@ -45,7 +45,7 @@ def select_garment(db_path: Path, garment_id: int) -> Garment | None:
             logger.debug("Garment ID %s not found", garment_id)
             return None #record with garment_id not found
 
-def select_all_garments(db_path: Path) -> list[Garment] | None:
+def select_all_garments(db_path: Path) -> list[Garment]:
     with closing(sqlite3.connect(db_path)) as conn:
         with conn:
             conn.row_factory = sqlite3.Row

@@ -35,13 +35,14 @@ def format_outfit(outfit: Outfit, wardrobe: dict[int, Garment]) -> str:
         else:
             label = format_garment_id_name(garment)
         lines.append(f"  -{label}")
-        lines.append(textwrap.fill(outfit_garment.styling_advice, width=80, initial_indent="        ", subsequent_indent="        "))
+        if outfit_garment.styling_advice:
+            lines.append(textwrap.fill(outfit_garment.styling_advice, width=80, initial_indent="        ", subsequent_indent="        "))
 
     lines.append("")
     lines.append(textwrap.fill(outfit.explanation, width=80, initial_indent="  ", subsequent_indent="  "))
     if outfit.missing:
         lines.append("")
-        lines.append(textwrap.fill(f"Consider: {outfit.missing}", width=80, initial_indent="  ", subsequent_indent="  "))
+        Ilines.append(textwrap.fill(f"Consider: {outfit.missing}", width=80, initial_indent="  ", subsequent_indent="  "))
 
     return "\n".join(lines)
 
