@@ -73,7 +73,7 @@ def main() -> int:
 
     elif args.command == "list":
         wardrobe = db.select_all_garments(config.DB_PATH)
-        if wardrobe is None:
+        if not wardrobe:
             print("Sorry, you have no items in your wardrobe to list. Go shopping and add it with: enclothed add <photos>")
             return 0
 
@@ -81,7 +81,7 @@ def main() -> int:
             wardrobe = [garment for garment in wardrobe if garment.category in args.category or garment.subcategory in args.category]
 
         output = format_list(wardrobe)
-        print(output if output else f"No matches found for '{', '.join(args.category)}'")
+        print(output if output is not None else f"No matches found for '{', '.join(args.category)}'")
 
     elif args.command == "outfit":
         load_dotenv()
