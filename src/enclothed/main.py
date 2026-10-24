@@ -68,19 +68,20 @@ def main() -> int:
         new_garment = db.select_garment(config.DB_PATH, new_garment_id)
         if new_garment is None:
             raise RuntimeError(f"Garment {new_garment_id} not found after insert")
-        else:
-            print(format_new_garment(new_garment))
+
+        print(format_new_garment(new_garment))
 
     elif args.command == "list":
         wardrobe = db.select_all_garments(config.DB_PATH)
-        if not wardrobe:
-            raise RuntimeError("Sorry, you have no items in your wardrobe to list. Go shopping!")
+        if wardrobe is None:
+            print("Sorry, you have no items in your wardrobe to list. Go shopping and add it with: enclothed add <photos>")
+            return 0
 
         if args.category:
             wardrobe = [garment for garment in wardrobe if garment.category in args.category or garment.subcategory in args.category]
 
-        list = format_list(wardrobe)
-        print(list if list else f"No matches found for '{', '.join(args.category)}'")
+        output = format_list(wardrobe)
+        print(output if output else f"No matches found for '{', '.join(args.category)}'")
 
     elif args.command == "outfit":
         load_dotenv()
