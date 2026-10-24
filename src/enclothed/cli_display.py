@@ -22,8 +22,25 @@ def format_list(wardrobe: list[Garment]) -> str | None:
 def format_new_garment(garment: Garment) -> str:
     return f"new garment added:\n  {format_garment_id_name(garment)}"
 
-def format_outfit():
-    pass
+def format_outfit(outfit:Outfit, wardrobe:list[Garment]) -> str:
+    lines = []
 
-def format_outfit_result():
-    pass
+    lines.append(f"{outfit.aesthetic.upper()} {'=' * (65 - len(outfit.aesthetic))}")
+    for garment in outfit.garments:
+        lines.append(f"  -{format_garment_id_name(wardrobe[garment.garment_id])}")
+        lines.append(f"        {garment.styling_advice}")
+    lines.append("")
+    lines.append(f"  {outfit.explanation}")
+    lines.append("")
+    if outfit.missing:
+        lines.append(f"  Consider: {outfit.missing}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+def format_outfit_result(outfit_result: OutfitResult, wardrobe: dict[Garment]) -> str | None:
+    lines = []
+    for outfit in outfit_result.outfits:
+        lines.append(format_outfit(outfit, wardrobe))
+
+    return "\n".join(lines) if lines else None

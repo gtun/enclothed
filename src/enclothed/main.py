@@ -74,7 +74,7 @@ def main() -> int:
     elif args.command == "list":
         wardrobe = db.select_all_garments(config.DB_PATH)
         if not wardrobe:
-            print("Sorry, you have no items in your wardrobe to list. Go shopping and add it with: enclothed add <photos>")
+            print("Sorry, you have no items in your wardrobe to list. Go shopping and add something with: enclothed add <photos>")
             return 0
 
         if args.category:
@@ -95,7 +95,9 @@ def main() -> int:
         user_prompt = args.prompt_message or "everyday wear"
         client = None if args.test else Anthropic()
         result = get_outfits(wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test)
-        print(result.model_dump_json(indent=2))
+
+
+        print(format_outfit_result(result, wardrobe))
 
     return 0
 
