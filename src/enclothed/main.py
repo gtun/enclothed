@@ -6,7 +6,7 @@ from anthropic import Anthropic
 from enclothed.intake import add_garment
 from enclothed.outfit import get_outfits
 import logging
-from enclothed.models LIST_FILTER_CHOICES
+from enclothed.models import LIST_FILTER_CHOICES
 from enclothed.cli_display import format_list, format_new_garment, format_outfit_result
 
 logger = logging.getLogger(__name__)
