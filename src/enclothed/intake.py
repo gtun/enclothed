@@ -12,6 +12,7 @@ from anthropic import Anthropic
 from enclothed.llm import tag_garment
 from collections import defaultdict
 import logging
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -57,41 +58,38 @@ TEST_GARMENT = Garment(
 )
 
 def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None) -> int:
-    run_dir = intake_dir / datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_dir.mkdir()
-
     logger.info("Staging your photos...")
-    staged_paths = []
-    for image_path in image_paths:
-        scheme = urlparse(image_path).scheme
-        if scheme in ("http","https"):
-            staged_paths.append(download_photo(image_path, run_dir, len(staged_paths)))
+    with tempfile.TemporaryDirectory(dir=intake_dir, ignore_cleanup_errors=True, prefix="staging-") as tmp:
+        run_dir = Path(tmp)
+        staged_paths = []
+        for image_path in image_paths:
+            scheme = urlparse(image_path).scheme
+            if scheme in ("http","https"):
+                staged_paths.append(download_photo(image_path, run_dir, len(staged_paths)))
+            else:
+                dest = run_dir / f"{len(staged_paths):02d}_{Path(image_path).name}"
+                shutil.copy2(image_path, dest)
+                staged_paths.append(dest)
+
+        if is_test:
+            wrapper, usage = TaggingResult(garment=TEST_GARMENT, photos=[]), None
         else:
-            dest = run_dir / f"{len(staged_paths):02d}_{Path(image_path).name}"
-            shutil.copy2(image_path, dest)
-            staged_paths.append(dest)
+            logger.info(f"Sending {len(staged_paths)} photos for analysis...")
+            start = time.perf_counter()
+            wrapper, usage = tag_garment(client, staged_paths, prompt_message)
+            elapsed = time.perf_counter() - start
+            logger.info(f"Tagged in {elapsed:.1f}s: {wrapper.garment.name}")
 
-    if is_test:
-        wrapper, usage = TaggingResult(garment=TEST_GARMENT, photos=[]), None
-    else:
-        logger.info(f"Sending {len(staged_paths)} photos for analysis...")
-        start = time.perf_counter()
-        wrapper, usage = tag_garment(client, staged_paths, prompt_message)
-        elapsed = time.perf_counter() - start
-        logger.info(f"Tagged in {elapsed:.1f}s: {wrapper.garment.name}")
+        if notes:
+            wrapper.garment.notes = notes
 
-    if notes:
-        wrapper.garment.notes = notes
+        new_garment_id = insert_garment(garment_db_path, wrapper.garment)
 
-    new_garment_id = insert_garment(garment_db_path, wrapper.garment)
+        log_tagging(logging_path, new_garment_id, wrapper, usage, prompt_message)
+        file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
+        logger.debug(f'Photos filed to {garments_path / str(new_garment_id)}')
 
-    log_tagging(logging_path, new_garment_id, wrapper, usage, prompt_message)
-    file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
-    logger.debug(f'Photos filed to {garments_path / str(new_garment_id)}')
-
-    run_dir.rmdir()
-
-    return new_garment_id
+        return new_garment_id
 
 def download_photo(url: str, dest_dir: Path, index: int) -> Path:
     response = requests.get(url, timeout=30)
