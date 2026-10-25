@@ -1,10 +1,12 @@
 from anthropic import Anthropic
-from enclothed.models import Garment, TokenUsage, OutfitResult
+from enclothed.models import Garment, TokenUsage, Outfit, OutfitResult, Category
 from enclothed.llm import recommend_outfits
+from enclothed import config
 import logging
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import get_args
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,7 @@ TEST_OUTFITS = OutfitResult.model_validate({
             "aesthetic": "Workwear Americana",
             "garments": [
                 {"garment_id": 1, "styling_advice": "nonnative x Undercover black corduroy blouson, worn as the focal piece"},
-                {"garment_id": 8, "styling_advice": "cream and navy micro-print heavy cotton shirt, worn buttoned as the mid layer"},
+                {"garment_id": 7, "styling_advice": "cream and navy micro-print heavy cotton shirt, worn buttoned as the mid layer"},
                 {"garment_id": 18, "styling_advice": "charcoal twill five-pocket pants with the small purple butterfly"},
                 {"garment_id": 22, "styling_advice": "Red Wing cap-toe boots in scuffed amber leather"},
             ],
@@ -86,20 +88,75 @@ def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging
 """
 
     wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
-    log_outfit(logging_path, anchors, wrapper, usage, context)
+
+    problems = validate_outfits(wrapper, wardrobe, anchors)
+    for problem in problems:
+        logger.warning("Validation: %s", problem)
+
+    log_outfit(logging_path, anchors, wrapper, usage, context, problems)
 
     return wrapper
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS) for key, value in wardrobe.items()}
 
-def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str) -> None:
+def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str]) -> None:
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "anchors": anchors,
         "usage": usage.model_dump() if usage else None,
         "result": result.model_dump(mode="json"),
         "context": context,
+        "problems": problems,
     }
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors: list[int] | None) -> list[str]:
+    problems = []
+
+    count = len(result.outfits)
+    if not config.MIN_OUTFIT_SUGGESTIONS <= count <= config.MAX_OUTFIT_SUGGESTIONS:
+        problems.append(
+            f"{count} outfit(s) returned, expected "
+            f"{config.MIN_OUTFIT_SUGGESTIONS}-{config.MAX_OUTFIT_SUGGESTIONS}"
+        )
+
+    for number, outfit in enumerate(result.outfits, start=1):
+        for problem in validate_outfit(outfit, wardrobe, anchors):
+            problems.append(f"Outfit {number}: {problem}")
+
+    return problems
+
+def validate_outfit(outfit: Outfit, wardrobe: dict[int, Garment], anchors: list[int] | None) -> list[str]:
+    problems = []
+    outfit_ids = {g.garment_id for g in outfit.garments}
+    missing = set(anchors or []) - outfit_ids
+    if missing:
+        problems.append(f"anchor(s) {sorted(missing)} missing")
+
+    if len(outfit_ids) < len(outfit.garments):
+        problems.append("duplicate garments found in outfit")
+
+    unknown = outfit_ids - wardrobe.keys()
+
+    if unknown:
+        problems.append(f"unknown garment id(s) {sorted(unknown)}")
+    category_counts = count_categories(outfit_ids - unknown, wardrobe)
+
+    if not ((category_counts["top"] and category_counts["bottom"]) or category_counts["one-piece"]):
+        problems.append("body is not covered by a top and a bottom or a one-piece")
+
+    if not category_counts["shoes"]:
+        problems.append("outfit has no footwear suggestion")
+
+    if category_counts["shoes"] > 1:
+        problems.append("outfit suggests multiple shoes")
+
+    return problems
+
+def count_categories(garment_ids: set[int], wardrobe: dict[int, Garment]) -> dict[str, int]:
+    counter = dict.fromkeys(get_args(Category), 0)
+    for garment_id in garment_ids:
+        counter[wardrobe[garment_id].category] += 1
+    return counter
