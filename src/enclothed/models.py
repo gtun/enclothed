@@ -47,6 +47,7 @@ SUBCATEGORIES: dict[Category, set[str]] = {
         "field jacket", "safari jacket", "coach jacket", "harrington jacket",
         "bomber jacket", "varsity jacket", "track jacket", "leather jacket",
         "quilted jacket", "liner jacket", "blouson", "no-collar jacket",
+        "baseball jacket",
         # Japanese / wrap
         "noragi", "haori", "kimono jacket",
         # technical / weather
