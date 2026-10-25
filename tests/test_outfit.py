@@ -199,13 +199,13 @@ def test_bottom_without_top_is_not_covered():
 
 def test_missing_shoes_is_reported():
     problems = validate_outfit(outfit_of(TOP, BOTTOM), VALIDATION_WARDROBE, None)
-    assert problems == ["no footwear"]
+    assert problems == ["outfit has no footwear suggestion"]
 
 
 def test_unknown_id_does_not_count_toward_coverage():
     # 999 might "be" shoes, but code can't know that, so shoes are still missing.
     problems = validate_outfit(outfit_of(TOP, BOTTOM, 999), VALIDATION_WARDROBE, None)
-    assert "no footwear" in problems
+    assert "outfit has no footwear suggestion" in problems
 
 
 def test_several_problems_are_all_reported():
@@ -233,7 +233,7 @@ def test_too_many_outfits_is_reported():
 
 def test_problems_are_numbered_from_one():
     result = OutfitResult(outfits=[outfit_of(TOP, BOTTOM, SHOES), outfit_of(TOP, BOTTOM)])
-    assert validate_outfits(result, VALIDATION_WARDROBE, None) == ["Outfit 2: no footwear"]
+    assert validate_outfits(result, VALIDATION_WARDROBE, None) == ["Outfit 2: outfit has no footwear suggestion"]
 
 
 def test_validate_outfits_does_not_mutate_input():
