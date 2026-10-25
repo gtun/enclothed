@@ -53,12 +53,25 @@ uv run enclothed list
 Results are saved in `data/wardrobe.db`, photos in `data/garments/<id>/`, and
 every tagging call (with token usage) in `data/tagging_log.jsonl`.
 
+Ask for an outfit recommendation. Test it with:
+
+```bash
+uv run enclothed outfit -t -w 1
+```
+
+Or, once your wardrobe is filled out, with a real request to the LLM:
+
+```bash
+uv run enclothed outfit -p "17 degrees celsius. Out for a burger and beer lunch with friend and former coworker"
+```
+
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `add <photos…>` | Tags a garment from one or more local photo paths or URLs (quote URLs) and saves it |
 | `list` | Lists all garments, grouped by category |
+| `outfit` | Gets 2-4 outfit recommendations from the LLM based on a request or anchor pieces |
 
 Options for `add`:
 
@@ -69,6 +82,11 @@ Options for `add`:
 Options for `list`:
 
 - `-c`, `--category NAME`: show only this category (e.g. `outerwear`) or subcategory (e.g. `jeans`); repeat to combine, e.g. `-c jeans -c chinos`
+
+Options for `outfit`:
+
+- `-p`, `--prompt-message`: have a special occasion? Weather getting kind of chilly? Specify it here so the LLM can tailor the outfit to your needs.
+- `-w`, `--with`: add an anchor piece, or multiple, by its ID, and the suggested outfits will include them
 
 Every command accepts `-v`, `--verbose` for debug output.
 
@@ -87,7 +105,6 @@ uv run pytest
 
 ## Upcoming features
 
-- An `outfit` command that asks the LLM to put together an outfit from what's already in your wardrobe.
 - A way to review and edit a garment's tags in case the LLM got something wrong.
 - A UI to browse all garments in your wardrobe.
 
