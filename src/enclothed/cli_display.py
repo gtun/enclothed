@@ -4,7 +4,10 @@ import textwrap
 def format_garment_id_name(garment: Garment) -> str:
     return f"{garment.id:>3}  {garment.name}"
 
-def format_list(wardrobe: list[Garment]) -> str | None:
+def format_list(wardrobe: list[Garment]) -> str:
+    if not wardrobe:
+        raise ValueError("no garments in list passed to format_list()")
+
     lines = []
     current_category = ""
 
@@ -18,7 +21,10 @@ def format_list(wardrobe: list[Garment]) -> str | None:
             lines.append(f"{garment.category.upper()} {'=' * (45 - len(garment.category))}")
         lines.append(f"  {format_garment_id_name(garment)}")
 
-    return "\n".join(lines) if lines else None
+    lines.append("")
+    lines.append(f"{len(wardrobe)} garment{'s' if len(wardrobe) > 1 else ''} found")
+
+    return "\n".join(lines)
 
 def format_new_garment(garment: Garment) -> str:
     return f"new garment added:\n  {format_garment_id_name(garment)}"

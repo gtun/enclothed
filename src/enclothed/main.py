@@ -80,8 +80,10 @@ def main() -> int:
         if args.category:
             wardrobe = [garment for garment in wardrobe if garment.category in args.category or garment.subcategory in args.category]
 
-        output = format_list(wardrobe)
-        print(output if output is not None else f"No matches found for '{', '.join(args.category)}'")
+        if not wardrobe:
+            print(f"No matches found for '{', '.join(args.category)}'")
+        else:
+            print(format_list(wardrobe))
 
     elif args.command == "outfit":
         load_dotenv()

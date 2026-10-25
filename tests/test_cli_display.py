@@ -67,7 +67,9 @@ def test_list_groups_sorts_and_skips_empty_categories():
         "    2  Taylor Stitch cream casual shirt\n"
         "\n"
         "SHOES ========================================\n"
-        "    3  Camper black derbies"
+        "    3  Camper black derbies\n"
+        "\n"
+        "3 garments found"
     )
     assert format_list(garments) == expected
 
@@ -80,7 +82,26 @@ def test_list_sorts_names_case_insensitively():
         garment(3, "outerwear", "blouson", "Belstaff", "camel"),
     ]
     lines = format_list(garments).splitlines()
-    assert [line.split()[1] for line in lines[1:]] == ["Belstaff", "nonnative", "UNUSED"]
+    garment_lines = lines[1:4]  # skip the header; stop before the blank line and count
+    assert [line.split()[1] for line in garment_lines] == ["Belstaff", "nonnative", "UNUSED"]
+
+
+def test_list_count_is_singular_for_one_garment():
+    assert format_list([WARDROBE[1]]).endswith("\n\n1 garment found")
+
+
+def test_list_count_is_plural_for_several_garments():
+    assert format_list([WARDROBE[1], WARDROBE[2]]).endswith("\n\n2 garments found")
+
+
+def test_list_count_covers_every_category():
+    # Two tops and one pair of shoes: the count is the total, not the last group's size.
+    garments = [
+        garment(1, "top", "casual shirt", "Taylor Stitch", "cream"),
+        garment(2, "top", "camp-collar shirt", "Old Joe Brand", "black"),
+        garment(3, "shoes", "derbies", "Camper", "black"),
+    ]
+    assert format_list(garments).splitlines()[-1] == "3 garments found"
 
 
 def test_list_does_not_mutate_input():
