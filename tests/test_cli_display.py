@@ -1,6 +1,8 @@
 # tests/test_cli_display.py
 # The formatters are pure: fixed models in, a string out. No DB, no Claude.
 # Each test picks one input shape Claude (or the DB) could produce and pins the layout.
+import pytest
+
 from enclothed.cli_display import (
     format_garment_id_name,
     format_list,
@@ -50,8 +52,10 @@ def test_id_is_right_aligned_to_width_3():
 
 # --- format_list -------------------------------------------------------------
 
-def test_list_empty_returns_none():
-    assert format_list([]) is None
+def test_list_empty_raises():
+    # main checks for an empty list first, so reaching here is a bug.
+    with pytest.raises(ValueError):
+        format_list([])
 
 
 def test_list_groups_sorts_and_skips_empty_categories():
