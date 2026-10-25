@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from enclothed.intake import photo_filenames
+from enclothed.intake import photo_filenames, add_garment
 from enclothed.models import PhotoTag
 
 # Paths don't need to exist: photo_filenames only reads .name and .suffix.
@@ -76,3 +76,22 @@ def test_invalid_tags_fall_back_to_original_names(indexes):
 def test_no_photos_and_no_tags():
     # `add -t` with no photos
     assert photo_filenames([], []) == []
+
+def test_invalid_photo_filepath(tmp_path):
+    intake = tmp_path / "intake"
+    intake.mkdir()
+
+    photos = ["tests/fixtures/20261017_120645.jpg","test/fixtures/nonexistent.jpg"]
+
+    with pytest.raises(FileNotFoundError):
+        add_garment(
+            photos,
+            tmp_path / "wardrobe.db",
+            tmp_path / "garments",
+            intake,
+            tmp_path / "tagging_log.jsonl",
+            None,
+            True,
+        )
+
+    assert list(intake.iterdir()) == []
