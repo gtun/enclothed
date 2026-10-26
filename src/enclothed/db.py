@@ -15,9 +15,14 @@ DB_JSON_COLUMNS = [
     "style_tags"
 ]
 
+def _connect(db_path: Path) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
 def init_db(db_path:Path, schema_path:Path) -> None:
     sql = schema_path.read_text()
-    with closing(sqlite3.connect(db_path)) as conn:
+    with closing(_connect(db_path)) as conn:
         with conn:
             conn.executescript(sql)
 
@@ -28,7 +33,7 @@ def insert_garment(db_path:Path, garment:Garment) -> int:
     garment_dict = {key: json.dumps(value, ensure_ascii=False) if isinstance(value, (list,dict)) else value
         for key, value in garment_dict.items()}
 
-    with closing(sqlite3.connect(db_path)) as conn:
+    with closing(_connect(db_path)) as conn:
         with conn:
             row_cursor = conn.execute("INSERT INTO garments (category, subcategory, primary_color, secondary_colors, accent_colors, formality, materials, warmth, pattern, country_of_origin, style_tags, notes, styling_notes, label_text, fit, sheen, brand) VALUES (:category, :subcategory, :primary_color, :secondary_colors, :accent_colors, :formality, :materials, :warmth, :pattern, :country_of_origin, :style_tags, :notes, :styling_notes, :label_text, :fit, :sheen, :brand)",
                 garment_dict
@@ -36,7 +41,7 @@ def insert_garment(db_path:Path, garment:Garment) -> int:
             return row_cursor.lastrowid
 
 def select_garment(db_path: Path, garment_id: int) -> Garment | None:
-    with closing(sqlite3.connect(db_path)) as conn:
+    with closing(_connect(db_path)) as conn:
         with conn:
             conn.row_factory = sqlite3.Row
             garment_record = conn.execute("SELECT * from garments where id = :id", {"id":garment_id}).fetchone()
@@ -46,7 +51,7 @@ def select_garment(db_path: Path, garment_id: int) -> Garment | None:
             return None #record with garment_id not found
 
 def select_all_garments(db_path: Path) -> list[Garment]:
-    with closing(sqlite3.connect(db_path)) as conn:
+    with closing(_connect(db_path)) as conn:
         with conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT * from garments ORDER BY id").fetchall()
