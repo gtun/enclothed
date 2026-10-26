@@ -90,13 +90,13 @@ def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] 
 
     wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
 
-    problems = validate_outfits(wrapper, wardrobe, anchors)
+    problems, valid_outfits = validate_outfits(wrapper, wardrobe, anchors)
     for problem in problems:
         logger.warning("Validation: %s", problem)
 
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    insert_outfits(db_path, wrapper, anchors, prompt_message, timestamp)
+    insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
 
     log_outfit(logging_path, anchors, wrapper, usage, context, problems, timestamp)
 
@@ -117,8 +117,9 @@ def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, 
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors: list[int] | None) -> list[str]:
-    problems = []
+def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors: list[int] | None) -> tuple[list[str], list[Outfit]]:
+    problems: list[str] = []
+    valid: list[Outfit] = []
 
     count = len(result.outfits)
     if not config.MIN_OUTFIT_SUGGESTIONS <= count <= config.MAX_OUTFIT_SUGGESTIONS:
@@ -128,10 +129,13 @@ def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors
         )
 
     for number, outfit in enumerate(result.outfits, start=1):
-        for problem in validate_outfit(outfit, wardrobe, anchors):
-            problems.append(f"Outfit {number}: {problem}")
+        outfit_problems = validate_outfit(outfit, wardrobe, anchors)
+        if outfit_problems:
+            problems.append(f"Outfit {number}: {outfit_problems}")
+        else:
+            valid.append(outfit)
 
-    return problems
+    return problems, valid
 
 def validate_outfit(outfit: Outfit, wardrobe: dict[int, Garment], anchors: list[int] | None) -> list[str]:
     problems = []

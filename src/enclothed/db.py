@@ -63,5 +63,13 @@ def _row_to_garment(row:sqlite3.Row) -> Garment:
         garment_dict[key] = json.loads(garment_dict[key]) if garment_dict[key] is not None else None
     return Garment.model_validate(garment_dict)
 
-def insert_outfits(db_path: Path, result: OutfitResult, anchors: list[int] | None, prompt_message: str, timestamp: str) -> list[int]:
-    pass
+def insert_outfits(db_path: Path, valid_outfits: list[Outfit], anchors: list[int] | None, prompt_message: str, timestamp: str) -> list[int]:
+    inserted_outfits = 0
+    if valid_outfits:
+        print(f"Inserting outfits {valid_outfits} into table...")
+        for outfit in valid_outfits:
+            inserted_outfits += 1
+
+    print(f"Inserted {inserted_outfits} outfits")
+
+    return 1
