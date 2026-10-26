@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from enclothed.models import Garment
+from enclothed.models import Garment, OutfitResult, Outfit
 from contextlib import closing
 import json
 import logging
@@ -62,3 +62,6 @@ def _row_to_garment(row:sqlite3.Row) -> Garment:
     for key in DB_JSON_COLUMNS:
         garment_dict[key] = json.loads(garment_dict[key]) if garment_dict[key] is not None else None
     return Garment.model_validate(garment_dict)
+
+def insert_outfits(db_path: Path, result: OutfitResult, anchors: list[int] | None, prompt_message: str, timestamp: str) -> list[int]:
+    pass

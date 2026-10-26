@@ -18,21 +18,22 @@ from enclothed.outfit import (
     validate_outfits,
     wardrobe_for_prompt,
 )
+from enclothed.db import init_db
 
 WARDROBE = {
     1: TEST_GARMENT.model_copy(update={"id": 1}),
     2: TEST_GARMENT.model_copy(update={"id": 2, "category": "shoes", "subcategory": "derbies", "brand": "Camper"}),
 }
 
-
 def run_test_mode(tmp_path, anchors, prompt="dinner downtown"):
     """get_outfits in test mode; returns (result, the one log entry)."""
+    db_path = tmp_path / "test.db"
+    init_db(db_path, config.SCHEMA_PATH)
     log_path = tmp_path / "outfit_log.jsonl"
-    result = get_outfits(WARDROBE, anchors, log_path, None, prompt, True)
+    result = get_outfits(db_path, WARDROBE, anchors, log_path, None, prompt, True)
     lines = log_path.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1
     return result, json.loads(lines[0])
-
 
 # --- wardrobe_for_prompt --------------------------------------------------------
 

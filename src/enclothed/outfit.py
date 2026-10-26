@@ -2,6 +2,7 @@ from anthropic import Anthropic
 from enclothed.models import Garment, TokenUsage, Outfit, OutfitResult, Category
 from enclothed.llm import recommend_outfits
 from enclothed import config
+from enclothed.db import insert_outfits
 import logging
 import json
 from datetime import datetime, timezone
@@ -70,7 +71,7 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> OutfitResult:
+def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> OutfitResult:
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
 
@@ -93,16 +94,20 @@ def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging
     for problem in problems:
         logger.warning("Validation: %s", problem)
 
-    log_outfit(logging_path, anchors, wrapper, usage, context, problems)
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    insert_outfits(db_path, wrapper, anchors, prompt_message, timestamp)
+
+    log_outfit(logging_path, anchors, wrapper, usage, context, problems, timestamp)
 
     return wrapper
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS) for key, value in wardrobe.items()}
 
-def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str]) -> None:
+def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str], timestamp: str) -> None:
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "timestamp": timestamp,
         "anchors": anchors,
         "usage": usage.model_dump() if usage else None,
         "result": result.model_dump(mode="json"),
