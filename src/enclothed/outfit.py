@@ -130,9 +130,9 @@ def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors
 
     for number, outfit in enumerate(result.outfits, start=1):
         outfit_problems = validate_outfit(outfit, wardrobe, anchors)
-        if outfit_problems:
-            problems.append(f"Outfit {number}: {outfit_problems}")
-        else:
+        for problem in outfit_problems:
+            problems.append(f"Outfit {number}: {problem}")
+        if not outfit_problems:
             valid.append(outfit)
 
     return problems, valid

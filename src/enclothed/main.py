@@ -55,8 +55,7 @@ def main() -> int:
     init_dirs()
     db.init_db(config.DB_PATH, config.SCHEMA_PATH)
 
-
-
+    # --- add ------------------
     if args.command == "add":
         load_dotenv()
         if args.test:
@@ -73,8 +72,7 @@ def main() -> int:
 
         print(format_new_garment(new_garment))
 
-
-
+    # --- list ------------------
     elif args.command == "list":
         wardrobe = db.select_all_garments(config.DB_PATH)
         if not wardrobe:
@@ -89,8 +87,7 @@ def main() -> int:
         else:
             print(format_list(wardrobe))
 
-
-
+    # --- outfit ------------------
     elif args.command == "outfit":
         load_dotenv()
         if not args.anchors and not args.prompt_message:
