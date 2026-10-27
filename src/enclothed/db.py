@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from enclothed.models import Garment
+from enclothed.models import Garment, Outfit
 from contextlib import closing
 import json
 import logging
@@ -62,3 +62,40 @@ def _row_to_garment(row:sqlite3.Row) -> Garment:
     for key in DB_JSON_COLUMNS:
         garment_dict[key] = json.loads(garment_dict[key]) if garment_dict[key] is not None else None
     return Garment.model_validate(garment_dict)
+
+def insert_outfits(db_path: Path, valid_outfits: list[Outfit], anchors: list[int] | None, prompt_message: str, timestamp: str) -> list[int]:
+    anchor_ids = set(anchors or [])
+    new_ids: list[int] = []
+
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            for outfit in valid_outfits:
+                cursor = conn.execute(
+                    "INSERT INTO outfits (timestamp, prompt_message, aesthetic, explanation, missing) "
+                    "VALUES (:timestamp, :prompt_message, :aesthetic, :explanation, :missing)",
+                    {
+                        "timestamp": timestamp,
+                        "prompt_message": prompt_message,
+                        "aesthetic": outfit.aesthetic,
+                        "explanation": outfit.explanation,
+                        "missing": outfit.missing,
+                    },
+                )
+                outfit_id = cursor.lastrowid
+
+                for garment in outfit.garments:
+                    conn.execute(
+                        "INSERT INTO outfit_garments (outfit_id, garment_id, styling_advice, is_anchor) "
+                        "VALUES (:outfit_id, :garment_id, :styling_advice, :is_anchor)",
+                        {
+                            "outfit_id": outfit_id,
+                            "garment_id": garment.garment_id,
+                            "styling_advice": garment.styling_advice,
+                            "is_anchor": int(garment.garment_id in anchor_ids),
+                        },
+                    )
+
+                new_ids.append(outfit_id)
+
+    logger.debug("Inserted outfits %s", new_ids)
+    return new_ids

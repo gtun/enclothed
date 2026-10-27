@@ -2,6 +2,7 @@ from anthropic import Anthropic
 from enclothed.models import Garment, TokenUsage, Outfit, OutfitResult, Category
 from enclothed.llm import recommend_outfits
 from enclothed import config
+from enclothed.db import insert_outfits
 import logging
 import json
 from datetime import datetime, timezone
@@ -70,7 +71,7 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> OutfitResult:
+def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> OutfitResult:
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
 
@@ -89,20 +90,24 @@ def get_outfits(wardrobe: dict[int, Garment], anchors: list[int] | None, logging
 
     wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
 
-    problems = validate_outfits(wrapper, wardrobe, anchors)
+    problems, valid_outfits = validate_outfits(wrapper, wardrobe, anchors)
     for problem in problems:
         logger.warning("Validation: %s", problem)
 
-    log_outfit(logging_path, anchors, wrapper, usage, context, problems)
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
+
+    log_outfit(logging_path, anchors, wrapper, usage, context, problems, timestamp)
 
     return wrapper
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS) for key, value in wardrobe.items()}
 
-def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str]) -> None:
+def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str], timestamp: str) -> None:
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "timestamp": timestamp,
         "anchors": anchors,
         "usage": usage.model_dump() if usage else None,
         "result": result.model_dump(mode="json"),
@@ -112,8 +117,9 @@ def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, 
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors: list[int] | None) -> list[str]:
-    problems = []
+def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors: list[int] | None) -> tuple[list[str], list[Outfit]]:
+    problems: list[str] = []
+    valid: list[Outfit] = []
 
     count = len(result.outfits)
     if not config.MIN_OUTFIT_SUGGESTIONS <= count <= config.MAX_OUTFIT_SUGGESTIONS:
@@ -123,10 +129,13 @@ def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors
         )
 
     for number, outfit in enumerate(result.outfits, start=1):
-        for problem in validate_outfit(outfit, wardrobe, anchors):
+        outfit_problems = validate_outfit(outfit, wardrobe, anchors)
+        for problem in outfit_problems:
             problems.append(f"Outfit {number}: {problem}")
+        if not outfit_problems:
+            valid.append(outfit)
 
-    return problems
+    return problems, valid
 
 def validate_outfit(outfit: Outfit, wardrobe: dict[int, Garment], anchors: list[int] | None) -> list[str]:
     problems = []

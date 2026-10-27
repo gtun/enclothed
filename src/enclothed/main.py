@@ -55,6 +55,7 @@ def main() -> int:
     init_dirs()
     db.init_db(config.DB_PATH, config.SCHEMA_PATH)
 
+    # --- add ------------------
     if args.command == "add":
         load_dotenv()
         if args.test:
@@ -71,6 +72,7 @@ def main() -> int:
 
         print(format_new_garment(new_garment))
 
+    # --- list ------------------
     elif args.command == "list":
         wardrobe = db.select_all_garments(config.DB_PATH)
         if not wardrobe:
@@ -85,6 +87,7 @@ def main() -> int:
         else:
             print(format_list(wardrobe))
 
+    # --- outfit ------------------
     elif args.command == "outfit":
         load_dotenv()
         if not args.anchors and not args.prompt_message:
@@ -96,7 +99,7 @@ def main() -> int:
                 outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
         user_prompt = args.prompt_message or "everyday wear"
         client = None if args.test else Anthropic()
-        result = get_outfits(wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test)
+        result = get_outfits(config.DB_PATH, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test)
         print(format_outfit_result(result, wardrobe))
 
     return 0

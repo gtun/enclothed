@@ -5,6 +5,8 @@
 # no tokens. Validation is pure, so its tests build small outfits and a fake
 # wardrobe by hand: they test the checks, not Claude.
 import json
+import sqlite3
+from contextlib import closing
 
 from enclothed import config
 from enclothed.intake import TEST_GARMENT
@@ -18,21 +20,22 @@ from enclothed.outfit import (
     validate_outfits,
     wardrobe_for_prompt,
 )
+from enclothed.db import init_db
 
 WARDROBE = {
     1: TEST_GARMENT.model_copy(update={"id": 1}),
     2: TEST_GARMENT.model_copy(update={"id": 2, "category": "shoes", "subcategory": "derbies", "brand": "Camper"}),
 }
 
-
 def run_test_mode(tmp_path, anchors, prompt="dinner downtown"):
     """get_outfits in test mode; returns (result, the one log entry)."""
+    db_path = tmp_path / "test.db"
+    init_db(db_path, config.SCHEMA_PATH)
     log_path = tmp_path / "outfit_log.jsonl"
-    result = get_outfits(WARDROBE, anchors, log_path, None, prompt, True)
+    result = get_outfits(db_path, WARDROBE, anchors, log_path, None, prompt, True)
     lines = log_path.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1
     return result, json.loads(lines[0])
-
 
 # --- wardrobe_for_prompt --------------------------------------------------------
 
@@ -102,6 +105,16 @@ def test_log_records_problems_as_a_json_list(tmp_path):
     assert any("unknown garment id(s)" in p for p in entry["problems"])
 
 
+def test_outfits_with_problems_are_not_saved(tmp_path):
+    # Every TEST_OUTFITS outfit has unknown ids against WARDROBE (only ids 1 and 2),
+    # so under the save rule nothing reaches the DB, but the reply is still logged.
+    _, entry = run_test_mode(tmp_path, [1])
+    with closing(sqlite3.connect(tmp_path / "test.db")) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM outfits").fetchone() == (0,)
+        assert conn.execute("SELECT COUNT(*) FROM outfit_garments").fetchone() == (0,)
+    assert entry["result"] == TEST_OUTFITS.model_dump(mode="json")
+
+
 # --- validation -------------------------------------------------------------------
 # A fake wardrobe with one garment per role. Only category matters to the checks.
 
@@ -109,7 +122,7 @@ def garment_in(category, garment_id):
     return TEST_GARMENT.model_copy(update={"id": garment_id, "category": category})
 
 
-TOP, TOP_2, BOTTOM, ONE_PIECE, SHOES, OUTER, ACCESSORY = 1, 2, 3, 4, 5, 6, 7
+TOP, TOP_2, BOTTOM, ONE_PIECE, SHOES, OUTER, ACCESSORY, SHOES_2 = 1, 2, 3, 4, 5, 6, 7, 8
 
 VALIDATION_WARDROBE = {
     TOP: garment_in("top", TOP),
@@ -119,6 +132,7 @@ VALIDATION_WARDROBE = {
     SHOES: garment_in("shoes", SHOES),
     OUTER: garment_in("outerwear", OUTER),
     ACCESSORY: garment_in("accessory", ACCESSORY),
+    SHOES_2: garment_in("shoes", SHOES_2),
 }
 
 
@@ -208,32 +222,76 @@ def test_unknown_id_does_not_count_toward_coverage():
     assert "outfit has no footwear suggestion" in problems
 
 
+def test_two_pairs_of_shoes_is_reported():
+    problems = validate_outfit(outfit_of(TOP, BOTTOM, SHOES, SHOES_2), VALIDATION_WARDROBE, None)
+    assert problems == ["outfit suggests multiple shoes"]
+
+
 def test_several_problems_are_all_reported():
     problems = validate_outfit(outfit_of(TOP, TOP, 999), VALIDATION_WARDROBE, [OUTER])
     assert len(problems) == 5  # anchor, duplicate, unknown, coverage, shoes
 
 
-# validate_outfits: the whole reply
+# validate_outfits: the whole reply -> (problems, valid outfits)
 
 def test_valid_result_has_no_problems():
-    assert validate_outfits(result_of(config.MIN_OUTFIT_SUGGESTIONS), VALIDATION_WARDROBE, None) == []
+    result = result_of(config.MIN_OUTFIT_SUGGESTIONS)
+    problems, valid = validate_outfits(result, VALIDATION_WARDROBE, None)
+    assert problems == []
+    assert valid == result.outfits
 
 
 def test_too_few_outfits_is_reported():
-    problems = validate_outfits(result_of(config.MIN_OUTFIT_SUGGESTIONS - 1), VALIDATION_WARDROBE, None)
+    problems, _ = validate_outfits(result_of(config.MIN_OUTFIT_SUGGESTIONS - 1), VALIDATION_WARDROBE, None)
     assert len(problems) == 1
     assert "outfit(s) returned" in problems[0]
 
 
 def test_too_many_outfits_is_reported():
-    problems = validate_outfits(result_of(config.MAX_OUTFIT_SUGGESTIONS + 1), VALIDATION_WARDROBE, None)
+    problems, _ = validate_outfits(result_of(config.MAX_OUTFIT_SUGGESTIONS + 1), VALIDATION_WARDROBE, None)
     assert len(problems) == 1
     assert "outfit(s) returned" in problems[0]
 
 
 def test_problems_are_numbered_from_one():
     result = OutfitResult(outfits=[outfit_of(TOP, BOTTOM, SHOES), outfit_of(TOP, BOTTOM)])
-    assert validate_outfits(result, VALIDATION_WARDROBE, None) == ["Outfit 2: outfit has no footwear suggestion"]
+    problems, _ = validate_outfits(result, VALIDATION_WARDROBE, None)
+    assert problems == ["Outfit 2: outfit has no footwear suggestion"]
+
+
+def test_each_problem_is_its_own_line():
+    # Two problems in one outfit -> two log lines, each with its own prefix
+    # (not one line holding a Python list).
+    result = OutfitResult(outfits=[outfit_of(TOP, BOTTOM, SHOES), outfit_of(TOP, 999)])
+    problems, _ = validate_outfits(result, VALIDATION_WARDROBE, None)
+    assert problems == [
+        "Outfit 2: unknown garment id(s) [999]",
+        "Outfit 2: body is not covered by a top and a bottom or a one-piece",
+        "Outfit 2: outfit has no footwear suggestion",
+    ]
+
+
+def test_valid_keeps_only_clean_outfits_in_order():
+    good_1 = outfit_of(TOP, BOTTOM, SHOES)
+    bad = outfit_of(TOP, BOTTOM)
+    good_2 = outfit_of(ONE_PIECE, SHOES)
+    _, valid = validate_outfits(OutfitResult(outfits=[good_1, bad, good_2]), VALIDATION_WARDROBE, None)
+    assert valid == [good_1, good_2]
+
+
+def test_valid_is_empty_when_every_outfit_has_problems():
+    result = OutfitResult(outfits=[outfit_of(TOP, BOTTOM), outfit_of(BOTTOM, SHOES)])
+    problems, valid = validate_outfits(result, VALIDATION_WARDROBE, None)
+    assert len(problems) == 2
+    assert valid == []
+
+
+def test_count_problem_does_not_drop_valid_outfits():
+    # Gary's rule (10-26): the count is reported, but every clean outfit is still kept.
+    result = result_of(config.MAX_OUTFIT_SUGGESTIONS + 1)
+    problems, valid = validate_outfits(result, VALIDATION_WARDROBE, None)
+    assert len(problems) == 1
+    assert len(valid) == config.MAX_OUTFIT_SUGGESTIONS + 1
 
 
 def test_validate_outfits_does_not_mutate_input():
