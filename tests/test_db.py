@@ -141,3 +141,91 @@ def test_insert_outfits_is_all_or_nothing(db_path, garment_ids):
         insert_outfits(db_path, outfits, None, "dinner", TIMESTAMP)
     assert rows(db_path, "SELECT * FROM outfits") == []
     assert rows(db_path, "SELECT * FROM outfit_garments") == []
+
+
+# --- migrations ------------------------------------------------------------------
+# The garments table as it was before migration 001, trimmed to the columns that matter.
+OLD_GARMENTS_TABLE = """
+CREATE TABLE garments (
+    id INTEGER PRIMARY KEY,
+    category TEXT NOT NULL,
+    wear_count INTEGER NOT NULL DEFAULT 0,
+    last_worn TEXT
+);
+"""
+
+
+def user_version(path):
+    with closing(sqlite3.connect(path)) as conn:
+        return conn.execute("PRAGMA user_version").fetchone()[0]
+
+
+def garment_columns(path):
+    with closing(sqlite3.connect(path)) as conn:
+        return {row[1] for row in conn.execute("PRAGMA table_info(garments)")}
+
+
+def make_old_db(path):
+    """A version-0 database with the old columns and two garments in it."""
+    with closing(sqlite3.connect(path)) as conn:
+        with conn:
+            conn.executescript(OLD_GARMENTS_TABLE)
+            conn.execute("INSERT INTO garments (category, wear_count) VALUES ('top', 3), ('shoes', 0)")
+
+
+LATEST = max(int(p.name.split("_")[0]) for p in MIGRATIONS_DIR.glob("*.sql"))
+
+
+def test_fresh_db_is_stamped_with_latest_version(db_path):
+    assert user_version(db_path) == LATEST
+    assert "wear_count" not in garment_columns(db_path)
+
+
+def test_old_db_is_migrated_and_keeps_its_rows(tmp_path):
+    path = tmp_path / "old.db"
+    make_old_db(path)
+    assert user_version(path) == 0
+
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+
+    assert user_version(path) == LATEST
+    columns = garment_columns(path)
+    assert "wear_count" not in columns
+    assert "last_worn" not in columns
+    with closing(sqlite3.connect(path)) as conn:
+        rows = conn.execute("SELECT id, category FROM garments ORDER BY id").fetchall()
+    assert rows == [(1, "top"), (2, "shoes")]
+
+
+def test_init_db_twice_changes_nothing(tmp_path):
+    path = tmp_path / "old.db"
+    make_old_db(path)
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    columns_after_first = garment_columns(path)
+
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)  # would raise "no such column" if 001 ran again
+
+    assert user_version(path) == LATEST
+    assert garment_columns(path) == columns_after_first
+
+
+def test_failed_migration_rolls_back(tmp_path):
+    # A copy of the real migrations plus a broken one whose first statement succeeds.
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+    for source in MIGRATIONS_DIR.glob("*.sql"):
+        (migrations / source.name).write_text(source.read_text())
+    bad_number = LATEST + 1
+    (migrations / f"{bad_number:03d}_broken.sql").write_text(
+        "ALTER TABLE garments ADD COLUMN half_done TEXT;\n"
+        "ALTER TABLE no_such_table ADD COLUMN x TEXT;\n"
+    )
+    path = tmp_path / "old.db"
+    make_old_db(path)
+
+    with pytest.raises(sqlite3.OperationalError):
+        init_db(path, SCHEMA_PATH, migrations)
+
+    # The good migrations committed; the broken one left no trace.
+    assert user_version(path) == LATEST
+    assert "half_done" not in garment_columns(path)
