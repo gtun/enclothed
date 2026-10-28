@@ -190,8 +190,12 @@ def test_old_db_is_migrated_and_keeps_its_rows(tmp_path):
 
     assert user_version(path) == LATEST
     columns = garment_columns(path)
+    # --- 001 migration -------------
     assert "wear_count" not in columns
     assert "last_worn" not in columns
+    # --- 002 migration -------------
+    assert "set_id" in columns
+    # --- end migrations ------------
     with closing(sqlite3.connect(path)) as conn:
         rows = conn.execute("SELECT id, category FROM garments ORDER BY id").fetchall()
     assert rows == [(1, "top"), (2, "shoes")]

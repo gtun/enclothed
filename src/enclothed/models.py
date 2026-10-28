@@ -106,6 +106,7 @@ class Garment(BaseModel):
     sheen: Sheen | None = None
     brand: str | None = None
     date_added: SkipJsonSchema[date | None] = None
+    set_id: SkipJsonSchema[int | None] = None
 
     @property
     def name(self) -> str:
