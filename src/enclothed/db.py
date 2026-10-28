@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-DB_DEFAULT_FIELDS = {"id","wear_count","last_worn","date_added"}
+DB_DEFAULT_FIELDS = {"id","date_added"}
 DB_JSON_COLUMNS = [
     "secondary_colors",
     "accent_colors",
@@ -20,11 +20,37 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
-def init_db(db_path:Path, schema_path:Path) -> None:
+def _migration_number(path: Path) -> int:
+    return int(path.name.split("_")[0])
+
+def init_db(db_path: Path, schema_path: Path, migrations_dir: Path) -> None:
+    migrations = sorted(migrations_dir.glob("*.sql"))
+    latest = _migration_number(migrations[-1]) if migrations else 0
     sql = schema_path.read_text()
     with closing(_connect(db_path)) as conn:
-        with conn:
-            conn.executescript(sql)
+        is_fresh = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'garments'"
+        ).fetchone() is None
+
+        conn.executescript(sql)
+
+        if is_fresh:
+            conn.execute(f"PRAGMA user_version = {latest}")
+            return
+
+        current = conn.execute("PRAGMA user_version").fetchone()[0]
+        for path in migrations:
+            number = _migration_number(path)
+            if number <= current:
+                continue
+            logger.info("Applying migration %s", path.name)
+            try:
+                conn.executescript(
+                    f"BEGIN;\n{path.read_text()}\nPRAGMA user_version = {number};\nCOMMIT;"
+                )
+            except sqlite3.Error:
+                conn.rollback()
+                raise
 
     return
 

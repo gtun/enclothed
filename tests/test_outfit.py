@@ -30,7 +30,7 @@ WARDROBE = {
 def run_test_mode(tmp_path, anchors, prompt="dinner downtown"):
     """get_outfits in test mode; returns (result, the one log entry)."""
     db_path = tmp_path / "test.db"
-    init_db(db_path, config.SCHEMA_PATH)
+    init_db(db_path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     log_path = tmp_path / "outfit_log.jsonl"
     result = get_outfits(db_path, WARDROBE, anchors, log_path, None, prompt, True)
     lines = log_path.read_text(encoding="utf-8").splitlines()
@@ -48,7 +48,7 @@ def test_prompt_wardrobe_keeps_only_whitelisted_fields():
 
 def test_prompt_wardrobe_never_sends_private_or_system_fields():
     fields = wardrobe_for_prompt(WARDROBE)[1]
-    for private in ("notes", "label_text", "country_of_origin", "id", "wear_count", "last_worn", "date_added"):
+    for private in ("notes", "label_text", "country_of_origin", "id", "date_added"):
         assert private not in fields
 
 

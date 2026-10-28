@@ -17,8 +17,6 @@ CREATE TABLE IF NOT EXISTS garments (
     fit TEXT,
     sheen TEXT,
     brand TEXT,
-    wear_count INTEGER NOT NULL DEFAULT 0,
-    last_worn TEXT,
     date_added TEXT NOT NULL DEFAULT (date('now', 'localtime'))
 );
 

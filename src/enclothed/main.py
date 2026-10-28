@@ -53,7 +53,7 @@ def main() -> int:
     configure_logging(args.verbose)
 
     init_dirs()
-    db.init_db(config.DB_PATH, config.SCHEMA_PATH)
+    db.init_db(config.DB_PATH, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
 
     # --- add ------------------
     if args.command == "add":
