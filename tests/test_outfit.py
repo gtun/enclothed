@@ -105,7 +105,7 @@ def test_log_records_problems_as_a_json_list(tmp_path):
     assert any("unknown garment id(s)" in p for p in entry["problems"])
 
 
-def test_outfits_with_problems_are_not_saved(tmp_path):
+def test_test_mode_does_not_write_to_db(tmp_path):
     # Every TEST_OUTFITS outfit has unknown ids against WARDROBE (only ids 1 and 2),
     # so under the save rule nothing reaches the DB, but the reply is still logged.
     _, entry = run_test_mode(tmp_path, [1])
