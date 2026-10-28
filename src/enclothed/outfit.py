@@ -96,7 +96,8 @@ def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] 
 
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
+    if not is_test
+        insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
 
     log_outfit(logging_path, anchors, wrapper, usage, context, problems, timestamp)
 
