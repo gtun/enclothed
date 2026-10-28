@@ -6,13 +6,13 @@ from pydantic import ValidationError
 
 from enclothed.db import init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS
 from enclothed.models import Garment, Outfit
-from enclothed.config import SCHEMA_PATH
+from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
 
 @pytest.fixture
 def db_path(tmp_path):
     path = tmp_path / "test.db"
-    init_db(path, SCHEMA_PATH)
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
     return path
 
 def test_garment_matches_table(db_path):

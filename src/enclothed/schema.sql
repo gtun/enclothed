@@ -17,8 +17,6 @@ CREATE TABLE IF NOT EXISTS garments (
     fit TEXT,
     sheen TEXT,
     brand TEXT,
-    wear_count INTEGER NOT NULL DEFAULT 0,
-    last_worn TEXT,
     date_added TEXT NOT NULL DEFAULT (date('now', 'localtime'))
 );
 
@@ -49,6 +47,12 @@ CREATE TABLE IF NOT EXISTS wears (
     notes TEXT,
     date TEXT NOT NULL,
     FOREIGN KEY (outfit_id) REFERENCES outfits(id)
+);
+
+CREATE TABLE IF NOT EXISTS sets (
+    id INTEGER PRIMARY KEY NOT NULL,
+    garment_id INTEGER NOT NULL,
+    name TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_outfit_garments_garment ON outfit_garments(garment_id);

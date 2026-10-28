@@ -105,8 +105,6 @@ class Garment(BaseModel):
     fit: Fit | None = None
     sheen: Sheen | None = None
     brand: str | None = None
-    wear_count: SkipJsonSchema[int] = 0
-    last_worn: SkipJsonSchema[date | None] = None
     date_added: SkipJsonSchema[date | None] = None
 
     @property
