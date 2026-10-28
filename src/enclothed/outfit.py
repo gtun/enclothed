@@ -24,48 +24,47 @@ OUTFIT_INCLUDE_FIELDS = {
 TEST_OUTFITS = OutfitResult.model_validate({
     "outfits": [
         {
-            "aesthetic": "Workwear Americana",
+            "aesthetic": "Japanese resort casual",
             "garments": [
-                {"garment_id": 1, "styling_advice": "nonnative x Undercover black corduroy blouson, worn as the focal piece"},
-                {"garment_id": 7, "styling_advice": "cream and navy micro-print heavy cotton shirt, worn buttoned as the mid layer"},
-                {"garment_id": 18, "styling_advice": "charcoal twill five-pocket pants with the small purple butterfly"},
-                {"garment_id": 22, "styling_advice": "Red Wing cap-toe boots in scuffed amber leather"},
+                {"garment_id": 6, "styling_advice": "Button it up and let it hang loose and untucked"},
+                {"garment_id": 15, "styling_advice": "Leave the cropped hem bare to show the shoes"},
+                {"garment_id": 27, "styling_advice": "Wear with no-show socks to keep it light"},
             ],
             "explanation": (
-                "Black, cream and charcoal make a neutral base, and the brown boots add warmth. "
-                "The cropped jacket sits above the shirt hem, and the straight-leg pants stack cleanly over the boots. "
-                "Soft corduroy, thick shirting, slick twill and rugged leather give plenty of texture contrast."
+                "The drapey printed camp shirt is the one focal point, so the rest stays quiet. "
+                "Washed indigo pants and slate-blue sneakers pick up the cool tones in the faded charcoal ground. "
+                "Everything is breathable and loose, which suits 21°C sun and a relaxed lunch."
             ),
-            "missing": "A plain white or grey heavy tee would give a quieter layer under the blouson than the patterned shirt.",
+            "missing": None,
         },
         {
-            "aesthetic": "Japanese Minimal",
+            "aesthetic": "Relaxed earth tones",
             "garments": [
-                {"garment_id": 1, "styling_advice": "black corduroy blouson"},
-                {"garment_id": 11, "styling_advice": "rust linen band-collar shirt, worn untucked"},
-                {"garment_id": 17, "styling_advice": "Issey Miyake me heathered gray wide-leg trousers, high-waisted and cropped"},
-                {"garment_id": 23, "styling_advice": "Camper black matte derbies"},
+                {"garment_id": 10, "styling_advice": "Wear untucked with the sleeves pushed up"},
+                {"garment_id": 73, "styling_advice": "Cuff the hem once for a clean ankle line"},
+                {"garment_id": 23, "styling_advice": "Keep the laces neat for a polished casual finish"},
             ],
             "explanation": (
-                "The cropped, collarless jacket balances the high-waisted wide trousers. "
-                "The longer vented linen hem peeks out below it, and the rust shirt is the single colour note against black and grey. "
-                "The collarless jacket, band collar and matte derbies keep the look quiet and clean. "
-                "The crinkled linen and fine corduroy give contrast without extra pattern."
+                "Rust linen, khaki chinos and camel leather sneakers make a warm, tonal palette. "
+                "The slubby linen against the smooth twill adds texture. "
+                "The look is easy and casual, with the slightly cropped chino showing off the sneakers."
             ),
+            "missing": None,
         },
         {
-            "aesthetic": "Relaxed Earth-Tone Casual",
+            "aesthetic": "Dark minimalist",
             "garments": [
-                {"garment_id": 1, "styling_advice": "black corduroy blouson"},
-                {"garment_id": 9, "styling_advice": "Needles tan jacquard collarless shirt, worn buttoned and loose"},
-                {"garment_id": 16, "styling_advice": "quadro indigo cotton-linen easy pants"},
-                {"garment_id": 24, "styling_advice": "Pikolinos cognac leather low-top sneakers"},
+                {"garment_id": 52, "styling_advice": "Let the sleeves bunch slightly at the wrists"},
+                {"garment_id": 77, "styling_advice": "Cinch the drawstring and keep the fit easy"},
+                {"garment_id": 25, "styling_advice": "Go sockless for an effortless summery feel"},
+                {"garment_id": 51, "styling_advice": "Wear open so the hem drapes behind you"},
             ],
             "explanation": (
-                "Tan, indigo and cognac are a natural earthy palette, and the black jacket anchors it as the darkest tone. "
-                "The jacquard is low-contrast, so it adds richness without competing with the jacket. "
-                "The mid-calf pants and low sneakers keep the lower half light against the boxy, drapey shirt."
+                "A black long-sleeve tee and tapered pinstripe pants keep the lower half slim under the oversized, draped open jacket. "
+                "The palette stays monochrome, with texture from the slubby linen and woven leather mules. "
+                "The jacket is light enough for 21°C and easy to take off in the sun."
             ),
+            "missing": None,
         },
     ]
 })
@@ -96,7 +95,9 @@ def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] 
 
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    if not is_test
+    if not is_test:
+        if len(valid_outfits) < len(wrapper.outfits):
+            logger.warning("Saving %d of %d outfits", len(valid_outfits), len(wrapper.outfits))
         insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
 
     log_outfit(logging_path, anchors, wrapper, usage, context, problems, timestamp)

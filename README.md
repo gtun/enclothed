@@ -56,7 +56,7 @@ every tagging call (with token usage) in `data/tagging_log.jsonl`.
 Ask for an outfit recommendation. Test it with:
 
 ```bash
-uv run enclothed outfit -t -w 1
+uv run enclothed outfit -t -p "autumn walk in the city"
 ```
 
 Or, once your wardrobe is filled out, with a real request to the LLM:
