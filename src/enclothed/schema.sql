@@ -49,10 +49,4 @@ CREATE TABLE IF NOT EXISTS wears (
     FOREIGN KEY (outfit_id) REFERENCES outfits(id)
 );
 
-CREATE TABLE IF NOT EXISTS sets (
-    id INTEGER PRIMARY KEY NOT NULL,
-    garment_id INTEGER NOT NULL,
-    name TEXT
-);
-
 CREATE INDEX IF NOT EXISTS idx_outfit_garments_garment ON outfit_garments(garment_id);
