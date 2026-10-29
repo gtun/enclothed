@@ -45,6 +45,17 @@ def main() -> int:
         help="Pass a garment ID to build an outfit around it (repeatable)",
     )
 
+    set_parser = subparsers.add_parser("set", parents=[common], help="Tag multiple garments as part of the same set")
+    set_parser.add_argument("-t","--test", action="store_true", help="Prevents adding set to DB")
+    set_parser.add_argument("-n", "--name", help="Name the set")
+    set_parser.add_argument("-g", "--garment-ids",
+        dest="garment_ids",
+        required=True,
+        metavar="ID",
+        type=int,
+        nargs="+",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -101,6 +112,26 @@ def main() -> int:
         client = None if args.test else Anthropic()
         result = get_outfits(config.DB_PATH, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test)
         print(format_outfit_result(result, wardrobe))
+
+    # --- set ----------------------
+    elif args.command == "set":
+        if len(args.garment_ids) < 1:
+            print("At least two garments required to create a set. Add them with -g/--garment <ID>")
+            return 1
+        wardrobe = {g.id: g for g in db.select_all_garments(config.DB_PATH)}
+        valid_garments = set(args.garment_ids) & wardrobe.keys()
+        if len(valid_garments) < len(args.garment_ids):
+            print(f"Garment IDs {', '.join(map(str, set(args.garment_ids) - valid_garments))} not found")
+            return 1
+        garments_in_sets = []
+        for garment_id in valid_garments:
+            if wardrobe[garment_id].set_id:
+                garments_in_sets.append(garment_id)
+        if garments_in_sets:
+            print(f"{', '.join(map(str, garments_in_sets))} already belongs to a set")
+            return 1
+        logger.info(f"Creating set {"'" + args.name + "' " if args.name else ""}with garment_ids {", ".join(map(str,args.garment_ids))}...")
+        db.insert_set(config.DB_PATH, valid_garments, args.name)
 
     return 0
 
