@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from anthropic import Anthropic
 from enclothed.intake import add_garment, is_url
 from enclothed.outfit import get_outfits
-from urllib.parse import urlparse
 from pathlib import Path
 import logging
 from enclothed.models import LIST_FILTER_CHOICES
