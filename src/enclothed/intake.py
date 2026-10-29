@@ -57,14 +57,16 @@ TEST_GARMENT = Garment(
     brand="nonnative x UNDERCOVER",
 )
 
+def is_url(text: str) -> bool:
+    return urlparse(text).scheme in ("http", "https")
+
 def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None) -> int:
     logger.info("Staging your photos...")
     with tempfile.TemporaryDirectory(dir=intake_dir, ignore_cleanup_errors=True, prefix="staging-") as tmp:
         run_dir = Path(tmp)
         staged_paths = []
         for image_path in image_paths:
-            scheme = urlparse(image_path).scheme
-            if scheme in ("http","https"):
+            if is_url(image_path):
                 staged_paths.append(download_photo(image_path, run_dir, len(staged_paths)))
             else:
                 dest = run_dir / f"{len(staged_paths):02d}_{Path(image_path).name}"
