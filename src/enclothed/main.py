@@ -3,8 +3,9 @@ from enclothed import db
 import argparse
 from dotenv import load_dotenv
 from anthropic import Anthropic
-from enclothed.intake import add_garment
+from enclothed.intake import add_garment, is_url
 from enclothed.outfit import get_outfits
+from pathlib import Path
 import logging
 from enclothed.models import LIST_FILTER_CHOICES
 from enclothed.cli_display import format_list, format_new_garment, format_outfit_result
@@ -72,6 +73,14 @@ def main() -> int:
             logger.info("Running in testing mode. No requests to LLMs will be made")
         if not args.photos and not args.test:
             add_parser.error("At least one photo URL or filepath needed")
+
+        invalid_photo_paths = []
+        for photo in args.photos:
+            if not is_url(photo) and not Path(photo).is_file():
+                invalid_photo_paths.append(photo)
+        if invalid_photo_paths:
+            add_parser.error(f"Nonexistent filepath(s): {invalid_photo_paths}")
+
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
         new_garment_id = add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
