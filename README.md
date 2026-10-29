@@ -65,6 +65,12 @@ Or, once your wardrobe is filled out, with a real request to the LLM:
 uv run enclothed outfit -p "17 degrees celsius. Out for a burger and beer lunch with friend and former coworker"
 ```
 
+Group multiple garments together into a set, like a two piece suit, optionally with a name:
+
+```bash
+uv run enclothed set -n "navy suit" -g 12 13
+```
+
 ## Commands
 
 | Command | What it does |

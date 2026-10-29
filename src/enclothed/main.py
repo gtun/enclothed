@@ -123,11 +123,11 @@ def main() -> int:
             set_parser.error(f"Garment IDs {', '.join(map(str, garment_ids - valid_garments))} not found")
         garments_in_sets = []
         for garment_id in valid_garments:
-            if wardrobe[garment_id].set_id:
+            if wardrobe[garment_id].set_id is not None:
                 garments_in_sets.append(garment_id)
         if garments_in_sets:
             set_parser.error(f"{', '.join(map(str, garments_in_sets))} already belongs to a set")
-        logger.info(f"Creating set {"'" + args.name + "' " if args.name else ""}with garment_ids {", ".join(map(str,garment_ids))}...")
+        logger.info("Creating set %s with garment IDs %s...", repr(args.name) if args.name else "(no name)", ", ".join(map(str, sorted(garment_ids))))
         db.insert_set(config.DB_PATH, valid_garments, args.name)
 
     return 0
