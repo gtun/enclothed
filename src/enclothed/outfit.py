@@ -19,6 +19,7 @@ OUTFIT_INCLUDE_FIELDS = {
     "style_tags",
     "styling_notes",
     "fit","sheen","formality",
+    "set_id",
 }
 
 TEST_OUTFITS = OutfitResult.model_validate({
@@ -105,7 +106,7 @@ def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] 
     return wrapper
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
-    return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS) for key, value in wardrobe.items()}
+    return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS, exclude_none=True) for key, value in wardrobe.items()}
 
 def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str], timestamp: str) -> None:
     entry = {

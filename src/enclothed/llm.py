@@ -65,6 +65,7 @@ Rules:
   garment at most once per outfit.
 - An outfit must be complete enough to wear in public: (a top and a bottom) or a
   one-piece, plus shoes. Outerwear and accessories are optional. Layering is allowed.
+- Garments sharing a set_id were made to be worn together, but can also be worn separately.
 
 Coordinate each outfit:
 - Color: harmonious palette (tonal, neutrals with one accent, or deliberate contrast).

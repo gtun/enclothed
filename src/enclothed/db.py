@@ -125,3 +125,18 @@ def insert_outfits(db_path: Path, valid_outfits: list[Outfit], anchors: list[int
 
     logger.debug("Inserted outfits %s", new_ids)
     return new_ids
+
+def insert_set(db_path: Path, garment_ids: list[int], set_name: str | None) -> int:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute(
+                "INSERT INTO sets (name) VALUES (:name)",
+                {"name": set_name,}
+            )
+            set_id = cursor.lastrowid
+
+            conn.executemany(
+                "UPDATE garments SET set_id = ? WHERE id = ?",
+                [(set_id, garment_id) for garment_id in garment_ids],
+            )
+    return set_id

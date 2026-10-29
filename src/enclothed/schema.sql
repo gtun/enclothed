@@ -17,7 +17,13 @@ CREATE TABLE IF NOT EXISTS garments (
     fit TEXT,
     sheen TEXT,
     brand TEXT,
-    date_added TEXT NOT NULL DEFAULT (date('now', 'localtime'))
+    date_added TEXT NOT NULL DEFAULT (date('now', 'localtime')),
+    set_id INTEGER REFERENCES sets(id)
+);
+
+CREATE TABLE IF NOT EXISTS sets (
+    id INTEGER PRIMARY KEY NOT NULL,
+    name TEXT
 );
 
 CREATE TABLE IF NOT EXISTS outfits (

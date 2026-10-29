@@ -52,6 +52,19 @@ def test_prompt_wardrobe_never_sends_private_or_system_fields():
         assert private not in fields
 
 
+def test_prompt_wardrobe_sends_set_id_when_garment_is_in_a_set():
+    in_a_set = {1: TEST_GARMENT.model_copy(update={"id": 1, "set_id": 7})}
+    assert wardrobe_for_prompt(in_a_set)[1]["set_id"] == 7
+
+
+def test_prompt_wardrobe_leaves_out_empty_fields():
+    # exclude_none: a garment with no set and no formality sends neither key
+    not_in_a_set = {1: TEST_GARMENT.model_copy(update={"id": 1, "set_id": None, "formality": None})}
+    fields = wardrobe_for_prompt(not_in_a_set)[1]
+    assert "set_id" not in fields
+    assert "formality" not in fields
+
+
 def test_prompt_wardrobe_does_not_mutate_input():
     before = {i: g.model_copy(deep=True) for i, g in WARDROBE.items()}
     wardrobe_for_prompt(WARDROBE)

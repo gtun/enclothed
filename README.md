@@ -65,6 +65,12 @@ Or, once your wardrobe is filled out, with a real request to the LLM:
 uv run enclothed outfit -p "17 degrees celsius. Out for a burger and beer lunch with friend and former coworker"
 ```
 
+Group multiple garments together into a set, like a two piece suit, optionally with a name:
+
+```bash
+uv run enclothed set -n "navy suit" -g 12 13
+```
+
 ## Commands
 
 | Command | What it does |
@@ -72,6 +78,7 @@ uv run enclothed outfit -p "17 degrees celsius. Out for a burger and beer lunch 
 | `add <photos…>` | Tags a garment from one or more local photo paths or URLs (quote URLs) and saves it |
 | `list` | Lists all garments, grouped by category |
 | `outfit` | Gets 2-4 outfit recommendations from the LLM based on a request or anchor pieces |
+| `set` | Groups two or more garments into a set, like a two-piece suit |
 
 Options for `add`:
 
@@ -87,6 +94,11 @@ Options for `outfit`:
 
 - `-p`, `--prompt-message`: have a special occasion? Weather getting kind of chilly? Specify it here so the LLM can tailor the outfit to your needs.
 - `-w`, `--with`: add an anchor piece, or multiple, by its ID, and the suggested outfits will include them
+
+Options for `set`:
+
+- `-g`, `--garment-ids ID [ID ...]`: the garments in the set (at least two, required)
+- `-n`, `--name TEXT`: an optional name for the set
 
 Every command accepts `-v`, `--verbose` for debug output.
 
