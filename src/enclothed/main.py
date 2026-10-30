@@ -54,6 +54,7 @@ def main() -> int:
         required=True,
         metavar="ID",
         type=int,
+        action="extend",
         nargs="+",
     )
 

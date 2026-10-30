@@ -86,7 +86,7 @@ def test_invalid_photo_filepath(tmp_path):
     with pytest.raises(FileNotFoundError):
         add_garment(
             photos,
-            tmp_path / "wardrobe.db",
+            tmp_path / "enclothed.db",
             tmp_path / "garments",
             intake,
             tmp_path / "tagging_log.jsonl",
