@@ -135,10 +135,16 @@ def insert_set(db_path: Path, garment_ids: list[int], set_name: str | None) -> i
             )
             set_id = cursor.lastrowid
 
-            conn.executemany(
-                "UPDATE garments SET set_id = ? WHERE id = ?",
+            cursor = conn.executemany(
+                "UPDATE garments SET set_id = ? WHERE id = ? and set_id is null",
                 [(set_id, garment_id) for garment_id in garment_ids],
             )
+            if cursor.rowcount != len(garment_ids):
+                raise ValueError(
+                    f"Expected to add {len(garment_ids)} garments to a set, updated {cursor.rowcount}. "
+                    f"Some of {sorted(garment_ids)} don't exist or already belong to a set."
+                )
+
     return set_id
 
 def select_all_sets(db_path) -> dict[int, str | None]:

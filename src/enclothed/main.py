@@ -40,10 +40,11 @@ def main() -> int:
     outfit_parser.add_argument(
         "-w","--with",
         type=int,
-        action="append",
+        action="extend",
+        nargs="+",
         dest="anchors",
         metavar="ID",
-        help="Pass a garment ID to build an outfit around it (repeatable)",
+        help="One or more garment IDs to build an outfit around (e.g. -w 3 4)",
     )
 
     set_parser = subparsers.add_parser("set", parents=[common], help="Tag multiple garments as part of the same set")

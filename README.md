@@ -50,7 +50,7 @@ Each run prints the new garment ID. Then see what's in your wardrobe:
 uv run enclothed list
 ```
 
-Results are saved in `data/wardrobe.db`, photos in `data/garments/<id>/`, and
+Results are saved in `data/enclothed.db`, photos in `data/garments/<id>/`, and
 every tagging call (with token usage) in `data/tagging_log.jsonl`.
 
 Ask for an outfit recommendation. Test it with:
@@ -63,6 +63,12 @@ Or, once your wardrobe is filled out, with a real request to the LLM:
 
 ```bash
 uv run enclothed outfit -p "17 degrees celsius. Out for a burger and beer lunch with friend and former coworker"
+```
+
+You can also build an outfit anchored around specific garments in your wardrobe based on their IDs:
+
+```bash
+uv run enclothed outfit -w 1 18
 ```
 
 Group multiple garments together into a set, like a two piece suit, optionally with a name:

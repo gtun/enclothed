@@ -3,7 +3,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 PKG_DIR = Path(__file__).resolve().parent
-DB_PATH = DATA_DIR / "wardrobe.db"
+DB_PATH = DATA_DIR / "enclothed.db"
 GARMENTS_DIR = DATA_DIR / "garments"
 INTAKE_DIR = DATA_DIR / "intake"
 SCHEMA_PATH = PKG_DIR / "schema.sql"
