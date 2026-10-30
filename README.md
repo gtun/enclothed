@@ -50,7 +50,7 @@ Each run prints the new garment ID. Then see what's in your wardrobe:
 uv run enclothed list
 ```
 
-Results are saved in `data/wardrobe.db`, photos in `data/garments/<id>/`, and
+Results are saved in `data/enclothed.db`, photos in `data/garments/<id>/`, and
 every tagging call (with token usage) in `data/tagging_log.jsonl`.
 
 Ask for an outfit recommendation. Test it with:
