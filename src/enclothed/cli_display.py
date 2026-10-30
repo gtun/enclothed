@@ -22,12 +22,14 @@ def format_list(wardrobe: list[Garment], wardrobe_sets: dict[int, str | None]) -
                 lines.append("")
             current_category = garment.category
             lines.append(f"{garment.category.upper()} {'=' * (45 - len(garment.category))}")
-        print(garment.set_id)
-        print (type(garment.set_id))
-        lines.append(f"  {format_garment_id_name(garment)}{format_garment_set(garment.set_id, wardrobe_sets[garment.set_id]) if garment.set_id else ''}")
+        line = f"  {format_garment_id_name(garment)}"
+        if garment.set_id is not None:
+            line += format_garment_set(garment.set_id, wardrobe_sets[garment.set_id])
+        lines.append(line)
 
     lines.append("")
-    lines.append(f"{len(wardrobe)} garment{'s' if len(wardrobe) > 1 else ''} and {len(wardrobe_sets)} set{'s' if len(wardrobe_sets) > 1 else ''} found")
+    set_count = len({garment.set_id for garment in wardrobe if garment.set_id is not None})
+    lines.append(f"{len(wardrobe)} garment{'s' if len(wardrobe) != 1 else ''} and {set_count} set{'s' if set_count != 1 else ''} found")
 
     return "\n".join(lines)
 
