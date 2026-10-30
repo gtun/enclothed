@@ -253,3 +253,22 @@ def test_unnamed_set(db_path):
 
 def test_empty_sets_table(db_path):
     assert select_all_sets(db_path) == {}
+
+def test_insert_set_unknown_garment_raises_and_rolls_back(db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    with pytest.raises(ValueError, match="updated 1"):
+        insert_set(db_path, [garment_id, 999], "ghost suit")
+    # The rollback undid both the sets row and the garment's update.
+    assert select_all_sets(db_path) == {}
+    assert select_garment(db_path, garment_id).set_id is None
+
+
+def test_insert_set_garment_already_in_set_raises_and_rolls_back(db_path):
+    jacket, trousers, shoes = [insert_garment(db_path, TEST_GARMENT) for _ in range(3)]
+    first_set = insert_set(db_path, [jacket, trousers], "navy suit")
+    with pytest.raises(ValueError, match="updated 1"):
+        insert_set(db_path, [trousers, shoes], None)
+    # Only the first set exists; trousers kept their set, shoes stayed free.
+    assert select_all_sets(db_path) == {first_set: "navy suit"}
+    assert select_garment(db_path, trousers).set_id == first_set
+    assert select_garment(db_path, shoes).set_id is None
