@@ -4,7 +4,7 @@ from contextlib import closing
 import pytest
 from pydantic import ValidationError
 
-from enclothed.db import init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS
+from enclothed.db import init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set
 from enclothed.models import Garment, Outfit
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -233,3 +233,23 @@ def test_failed_migration_rolls_back(tmp_path):
     # The good migrations committed; the broken one left no trace.
     assert user_version(path) == LATEST
     assert "half_done" not in garment_columns(path)
+
+
+def _insert_two_garments(db_path):
+    return [insert_garment(db_path, TEST_GARMENT) for _ in range(2)]
+
+
+def test_named_set(db_path):
+    garment_ids = _insert_two_garments(db_path)
+    set_id = insert_set(db_path, garment_ids, "navy suit")
+    assert select_all_sets(db_path) == {set_id: "navy suit"}
+
+
+def test_unnamed_set(db_path):
+    garment_ids = _insert_two_garments(db_path)
+    set_id = insert_set(db_path, garment_ids, None)
+    assert select_all_sets(db_path) == {set_id: None}
+
+
+def test_empty_sets_table(db_path):
+    assert select_all_sets(db_path) == {}

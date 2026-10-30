@@ -98,13 +98,15 @@ def main() -> int:
             print("Sorry, you have no items in your wardrobe to list. Go shopping and add something with: enclothed add <photos>")
             return 0
 
+        wardrobe_sets = db.select_all_sets(config.DB_PATH)
+
         if args.category:
             wardrobe = [garment for garment in wardrobe if garment.category in args.category or garment.subcategory in args.category]
 
         if not wardrobe:
             print(f"No matches found for '{', '.join(args.category)}'")
         else:
-            print(format_list(wardrobe))
+            print(format_list(wardrobe, wardrobe_sets))
 
     # --- outfit ------------------
     elif args.command == "outfit":
