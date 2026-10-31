@@ -77,8 +77,6 @@ def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] 
 
     logger.debug(json.dumps(prompt_wardrobe, ensure_ascii=False, indent=2))
 
-
-
     context = []
 
     wardrobe_block = {
