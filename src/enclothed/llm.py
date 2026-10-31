@@ -114,7 +114,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
         raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")
     return response.parsed_output, usage
 
-def recommend_outfits(client: Anthropic, context: str) -> tuple[OutfitResult, TokenUsage]:
+def recommend_outfits(client: Anthropic, context: list[dict]) -> tuple[OutfitResult, TokenUsage]:
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=config.OUTFIT_TOKEN_CAP,
