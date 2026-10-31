@@ -147,3 +147,27 @@ class Outfit(BaseModel):
 
 class OutfitResult(BaseModel):
     outfits: list[Outfit]
+
+
+# --- Front-end-only models ------------
+class Photo(BaseModel):
+    role: PhotoRole
+    url: str
+
+class GarmentOut(Garment):
+    photos: list[Photo] = []
+
+class OutfitGarmentOut(BaseModel):
+    garment: GarmentOut
+    styling_advice: str | None = None
+    is_anchor: bool = False
+
+class OutfitOut(BaseModel):
+    id: int
+    timestamp: str
+    prompt_message: str
+    aesthetic: str
+    explanation: str
+    missing: str | None = None
+    liked: bool | None = None
+    garments: list[OutfitGarmentOut]
