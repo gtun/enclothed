@@ -2,6 +2,7 @@ import sqlite3
 from pathlib import Path
 from enclothed.models import Garment, Outfit, OutfitOut, OutfitGarmentOut, GarmentOut
 from contextlib import closing
+from enclothed.photos import to_garment_out
 import json
 import logging
 
@@ -155,7 +156,7 @@ def _row_to_outfit(row: sqlite3.Row, wardrobe: dict[int, GarmentOut]) -> OutfitO
     return OutfitOut(**outfit_dict)
 
 def _wardrobe_by_id(db_path: Path) -> dict[int, GarmentOut]:
-    return {garment.id: GarmentOut(**garment.model_dump()) for garment in select_all_garments(db_path)}
+    return {garment.id: to_garment_out(garment) for garment in select_all_garments(db_path)}
 
 def select_outfit(db_path: Path, outfit_id: int) -> OutfitOut | None:
     with closing(_connect(db_path)) as conn:

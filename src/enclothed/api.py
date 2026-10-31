@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from enclothed import db
 from enclothed.config import DB_PATH
-from enclothed.models import Garment, OutfitOut
+from enclothed.models import GarmentOut, OutfitOut
+from enclothed.photos import to_garment_out
 from fastapi.staticfiles import StaticFiles
 from enclothed.config import GARMENTS_DIR
 
@@ -11,15 +12,15 @@ GARMENTS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/photos", StaticFiles(directory=GARMENTS_DIR), name="photos")
 
 @app.get("/api/garments")
-def list_garments() -> list[Garment]:
-    return db.select_all_garments(DB_PATH)
+def list_garments() -> list[GarmentOut]:
+    return [to_garment_out(garment) for garment in db.select_all_garments(DB_PATH)]
 
 @app.get("/api/garments/{garment_id}")
-def get_garment(garment_id: int) -> Garment:
+def get_garment(garment_id: int) -> GarmentOut:
     garment = db.select_garment(DB_PATH, garment_id)
     if garment is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
-    return garment
+    return to_garment_out(garment)
 
 @app.get("/api/outfits")
 def list_outfits() -> list[OutfitOut]:
