@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from enclothed import db
 from enclothed.config import DB_PATH
-from enclothed.models import Garment
+from enclothed.models import Garment, OutfitOut
 
 app = FastAPI(title="enclothed")
 
@@ -15,3 +15,14 @@ def get_garment(garment_id: int) -> Garment:
     if garment is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
     return garment
+
+@app.get("/api/outfits")
+def list_outfits() -> list[OutfitOut]:
+    return db.select_all_outfits(DB_PATH)
+
+@app.get("/api/outfits/{outfit_id}")
+def get_outfit(outfit_id: int) -> OutfitOut:
+    outfit = db.select_outfit(DB_PATH, outfit_id)
+    if outfit is None:
+        raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
+    return outfit

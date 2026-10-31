@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from enclothed.models import Garment, Outfit
+from enclothed.models import Garment, Outfit, OutfitOut, OutfitGarmentOut, GarmentOut
 from contextlib import closing
 import json
 import logging
@@ -54,6 +54,8 @@ def init_db(db_path: Path, schema_path: Path, migrations_dir: Path) -> None:
 
     return
 
+
+# --- garment defs ----------
 def insert_garment(db_path:Path, garment:Garment) -> int:
     garment_dict = garment.model_dump(mode="json", exclude=DB_DEFAULT_FIELDS)
     garment_dict = {key: json.dumps(value, ensure_ascii=False) if isinstance(value, (list,dict)) else value
@@ -89,6 +91,8 @@ def _row_to_garment(row:sqlite3.Row) -> Garment:
         garment_dict[key] = json.loads(garment_dict[key]) if garment_dict[key] is not None else None
     return Garment.model_validate(garment_dict)
 
+
+# --- outfit defs -------------
 def insert_outfits(db_path: Path, valid_outfits: list[Outfit], anchors: list[int] | None, prompt_message: str, timestamp: str) -> list[int]:
     anchor_ids = set(anchors or [])
     new_ids: list[int] = []
@@ -126,6 +130,56 @@ def insert_outfits(db_path: Path, valid_outfits: list[Outfit], anchors: list[int
     logger.debug("Inserted outfits %s", new_ids)
     return new_ids
 
+
+OUTFIT_SELECT = (
+    "SELECT o.id, o.timestamp, o.prompt_message, o.aesthetic, o.explanation, o.missing, o.liked, "
+    "json_group_array(json_object("
+    "'garment_id', og.garment_id, "
+    "'styling_advice', og.styling_advice, "
+    "'is_anchor', og.is_anchor"
+    ")) FILTER (WHERE og.garment_id IS NOT NULL) AS garments "
+    "FROM outfits AS o "
+    "LEFT JOIN outfit_garments AS og ON og.outfit_id = o.id "
+)
+
+def _row_to_outfit(row: sqlite3.Row, wardrobe: dict[int, GarmentOut]) -> OutfitOut:
+    outfit_dict = dict(row)
+    outfit_dict["garments"] = [
+        OutfitGarmentOut(
+            garment=wardrobe[entry["garment_id"]],
+            styling_advice=entry["styling_advice"],
+            is_anchor=entry["is_anchor"],
+        )
+        for entry in json.loads(row["garments"])
+    ]
+    return OutfitOut(**outfit_dict)
+
+def _wardrobe_by_id(db_path: Path) -> dict[int, GarmentOut]:
+    return {garment.id: GarmentOut(**garment.model_dump()) for garment in select_all_garments(db_path)}
+
+def select_outfit(db_path: Path, outfit_id: int) -> OutfitOut | None:
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            OUTFIT_SELECT + "WHERE o.id = :id GROUP BY o.id",
+            {"id": outfit_id},
+        ).fetchone()
+
+    if row is None:
+        logger.debug("Outfit ID %s not found", outfit_id)
+        return None
+    return _row_to_outfit(row, _wardrobe_by_id(db_path))
+
+def select_all_outfits(db_path: Path) -> list[OutfitOut]:
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(OUTFIT_SELECT + "GROUP BY o.id ORDER BY o.id").fetchall()
+
+    wardrobe = _wardrobe_by_id(db_path)
+    return [_row_to_outfit(row, wardrobe) for row in rows]
+
+
+# --- set defs ----------------
 def insert_set(db_path: Path, garment_ids: list[int], set_name: str | None) -> int:
     with closing(_connect(db_path)) as conn:
         with conn:
@@ -146,6 +200,7 @@ def insert_set(db_path: Path, garment_ids: list[int], set_name: str | None) -> i
                 )
 
     return set_id
+
 
 def select_all_sets(db_path) -> dict[int, str | None]:
     with closing(_connect(db_path)) as conn:
