@@ -71,6 +71,15 @@ You can also build an outfit anchored around specific garments in your wardrobe 
 uv run enclothed outfit -w 1 18
 ```
 
+If you're trying several requests in a row, add `--cache`. The wardrobe is cached for 5 minutes, so follow-up calls skip re-sending it and use far fewer input tokens:
+
+```bash
+uv run enclothed outfit --cache -p "dinner downtown"
+uv run enclothed outfit --cache -p "brunch with friends"
+```
+
+Caching is off by default because the first cached call costs a little more (about 25% extra on the wardrobe); it pays for itself from the second call. Token usage, including cache reads and writes, is logged in `data/outfit_log.jsonl`.
+
 Group multiple garments together into a set, like a two piece suit, optionally with a name:
 
 ```bash
