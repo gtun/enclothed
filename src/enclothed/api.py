@@ -2,8 +2,13 @@ from fastapi import FastAPI, HTTPException
 from enclothed import db
 from enclothed.config import DB_PATH
 from enclothed.models import Garment, OutfitOut
+from fastapi.staticfiles import StaticFiles
+from enclothed.config import GARMENTS_DIR
 
 app = FastAPI(title="enclothed")
+
+GARMENTS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/photos", StaticFiles(directory=GARMENTS_DIR), name="photos")
 
 @app.get("/api/garments")
 def list_garments() -> list[Garment]:
