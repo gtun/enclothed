@@ -7,9 +7,7 @@
 import json
 import sqlite3
 from contextlib import closing
-from enclothed import config
 from enclothed import outfit as outfit_module
-from enclothed.intake import TEST_GARMENT
 from enclothed.models import Outfit, OutfitResult, TokenUsage
 
 from enclothed import config
