@@ -132,6 +132,8 @@ class TokenUsage(BaseModel):
     model: str
     input_tokens: int
     output_tokens: int
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
 class OutfitGarment(BaseModel):
     garment_id: int = Field(description="The ID of the suggested garment.")

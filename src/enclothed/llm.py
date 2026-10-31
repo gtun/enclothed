@@ -114,7 +114,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
         raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")
     return response.parsed_output, usage
 
-def recommend_outfits(client: Anthropic, context: str) -> tuple[OutfitResult, TokenUsage]:
+def recommend_outfits(client: Anthropic, context: list[dict]) -> tuple[OutfitResult, TokenUsage]:
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=config.OUTFIT_TOKEN_CAP,
@@ -127,8 +127,10 @@ def recommend_outfits(client: Anthropic, context: str) -> tuple[OutfitResult, To
         model=config.CLAUDE_MODEL,
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
+        cache_creation_input_tokens=response.usage.cache_creation_input_tokens or 0,
+        cache_read_input_tokens=response.usage.cache_read_input_tokens or 0,
     )
-    logger.debug("tokens: in=%s out=%s", usage.input_tokens, usage.output_tokens)
+    logger.debug("tokens: in=%s out=%s cache_creation=%s cache_read=%s", usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
     logger.debug("blocks: %s", [block.type for block in response.content])
 
     if response.stop_reason == "max_tokens":

@@ -46,6 +46,7 @@ def main() -> int:
         metavar="ID",
         help="One or more garment IDs to build an outfit around (e.g. -w 3 4)",
     )
+    outfit_parser.add_argument("--no-cache", action="store_false", dest="cache", help="Don't cache the wardrobe. By default it's cached for 5 minutes, so repeat calls use far fewer tokens (the first costs ~25% more)")
 
     set_parser = subparsers.add_parser("set", parents=[common], help="Tag multiple garments as part of the same set")
     set_parser.add_argument("-n", "--name", help="Name the set")
@@ -122,7 +123,7 @@ def main() -> int:
                 outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
         user_prompt = args.prompt_message or "everyday wear"
         client = None if args.test else Anthropic()
-        result = get_outfits(config.DB_PATH, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test)
+        result = get_outfits(config.DB_PATH, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test, args.cache)
         print(format_outfit_result(result, wardrobe))
 
     # --- set ----------------------

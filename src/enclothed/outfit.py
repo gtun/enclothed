@@ -71,22 +71,40 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, formality: int = 1, warmth: int = 1) -> OutfitResult:
+def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1) -> OutfitResult:
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
 
     logger.debug(json.dumps(prompt_wardrobe, ensure_ascii=False, indent=2))
 
-    anchors_text = ""
+    context = []
+
+    wardrobe_block = {
+        "type": "text",
+        "text": f"""<wardrobe>
+{json.dumps(prompt_wardrobe, ensure_ascii=False)}
+</wardrobe>
+""",
+    }
+    if caching:
+        wardrobe_block["cache_control"] = {"type": "ephemeral"}
+    context.append(wardrobe_block)
+
     if anchors:
         anchors_text = "\n<anchors>\n"
         anchors_text += "\n".join(f"{i}: {wardrobe[i].name}" for i in anchors)
         anchors_text += "\n</anchors>"
-    context = f"""<wardrobe>
-{json.dumps(prompt_wardrobe, ensure_ascii=False)}
-</wardrobe>{anchors_text}
-<request>{prompt_message}</request>
-"""
+        anchors_block = {
+            "type": "text",
+            "text": anchors_text,
+        }
+        context.append(anchors_block)
+    if prompt_message:
+        request_block = {
+            "type": "text",
+            "text": f"<request>{prompt_message}</request>"
+        }
+        context.append(request_block)
 
     wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
 
@@ -101,7 +119,7 @@ def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] 
             logger.warning("Saving %d of %d outfits", len(valid_outfits), len(wrapper.outfits))
         insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
 
-    log_outfit(logging_path, anchors, wrapper, usage, context, problems, timestamp)
+    log_outfit(logging_path, anchors, wrapper, usage, "\n".join(block["text"] for block in context), problems, timestamp)
 
     return wrapper
 
