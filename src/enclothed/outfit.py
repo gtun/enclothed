@@ -71,7 +71,7 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool, formality: int = 1, warmth: int = 1) -> OutfitResult:
+def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = False, formality: int = 1, warmth: int = 1) -> OutfitResult:
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
 

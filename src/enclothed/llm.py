@@ -130,7 +130,7 @@ def recommend_outfits(client: Anthropic, context: list[dict]) -> tuple[OutfitRes
         cache_creation_input_tokens=response.usage.cache_creation_input_tokens or 0,
         cache_read_input_tokens=response.usage.cache_read_input_tokens or 0,
     )
-    logger.debug("tokens: in=%s out=%s cache_creation=%s cache_read=%s", usage.input_tokens, usage.output_tokens, usage.cache_creation, usage.cache_read)
+    logger.debug("tokens: in=%s out=%s cache_creation=%s cache_read=%s", usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
     logger.debug("blocks: %s", [block.type for block in response.content])
 
     if response.stop_reason == "max_tokens":

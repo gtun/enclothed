@@ -7,6 +7,8 @@
 import json
 import sqlite3
 from contextlib import closing
+from enclothed import outfit as outfit_module
+from enclothed.models import Outfit, OutfitResult, TokenUsage   # add TokenUsage to the existing line
 
 from enclothed import config
 from enclothed.intake import TEST_GARMENT
@@ -312,3 +314,82 @@ def test_validate_outfits_does_not_mutate_input():
     before = result.model_copy(deep=True)
     validate_outfits(result, VALIDATION_WARDROBE, [TOP])
     assert result == before
+
+# --- prompt caching ------------------------------------------------------------
+# Real-mode get_outfits with recommend_outfits replaced by a fake that records the
+# content blocks it was given. No client, no tokens.
+
+FAKE_USAGE = TokenUsage(
+    model="test-model",
+    input_tokens=40,
+    output_tokens=1500,
+    cache_creation_input_tokens=0,
+    cache_read_input_tokens=41796,
+)
+
+
+def run_real_mode(tmp_path, monkeypatch, anchors=None, **kwargs):
+    """get_outfits with a fake recommend_outfits; returns (blocks sent, the one log entry).
+    kwargs go straight to get_outfits (e.g. caching=True), so leaving them out
+    tests the default."""
+    sent = {}
+
+    def fake_recommend_outfits(client, context):
+        sent["blocks"] = context
+        return TEST_OUTFITS, FAKE_USAGE
+
+    # Patch the name outfit.py imported, not enclothed.llm.recommend_outfits.
+    monkeypatch.setattr(outfit_module, "recommend_outfits", fake_recommend_outfits)
+
+    tmp_path.mkdir(parents=True, exist_ok=True)  # callers may pass a subfolder
+    db_path = tmp_path / "test.db"
+    init_db(db_path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
+    log_path = tmp_path / "outfit_log.jsonl"
+    get_outfits(db_path, WARDROBE, anchors, log_path, None, "dinner downtown", False, **kwargs)
+    return sent["blocks"], json.loads(log_path.read_text(encoding="utf-8").splitlines()[0])
+
+
+def test_caching_marks_only_the_wardrobe_block(tmp_path, monkeypatch):
+    blocks, _ = run_real_mode(tmp_path, monkeypatch, anchors=[1], caching=True)
+    assert blocks[0]["text"].startswith("<wardrobe>")
+    assert blocks[0]["cache_control"] == {"type": "ephemeral"}
+    # Anchors and request change between calls, so they must stay after the breakpoint.
+    assert all("cache_control" not in block for block in blocks[1:])
+
+
+def test_no_caching_sends_no_breakpoint(tmp_path, monkeypatch):
+    blocks, _ = run_real_mode(tmp_path, monkeypatch, anchors=[1], caching=False)
+    assert all("cache_control" not in block for block in blocks)
+
+
+def test_caching_is_off_by_default(tmp_path, monkeypatch):
+    blocks, _ = run_real_mode(tmp_path, monkeypatch, anchors=[1])
+    assert all("cache_control" not in block for block in blocks)
+
+
+def test_blocks_are_wardrobe_anchors_request_in_order(tmp_path, monkeypatch):
+    blocks, _ = run_real_mode(tmp_path, monkeypatch, anchors=[1], caching=True)
+    assert len(blocks) == 3
+    assert "<anchors>" in blocks[1]["text"]
+    assert blocks[2]["text"] == "<request>dinner downtown</request>"
+
+
+def test_no_anchors_means_no_anchors_block(tmp_path, monkeypatch):
+    # The API rejects empty text blocks, so the anchors block must be left out, not empty.
+    blocks, _ = run_real_mode(tmp_path, monkeypatch, anchors=None, caching=True)
+    assert len(blocks) == 2
+    assert all(block["text"] for block in blocks)
+
+
+def test_log_context_is_the_same_string_with_or_without_caching(tmp_path, monkeypatch):
+    _, cached = run_real_mode(tmp_path / "a", monkeypatch, anchors=[1], caching=True)
+    _, uncached = run_real_mode(tmp_path / "b", monkeypatch, anchors=[1], caching=False)
+    assert isinstance(cached["context"], str)
+    assert cached["context"] == uncached["context"]
+    assert "cache_control" not in cached["context"]
+
+
+def test_log_records_cache_token_counts(tmp_path, monkeypatch):
+    _, entry = run_real_mode(tmp_path, monkeypatch, anchors=[1], caching=True)
+    assert entry["usage"]["cache_creation_input_tokens"] == 0
+    assert entry["usage"]["cache_read_input_tokens"] == 41796
