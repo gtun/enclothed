@@ -1,5 +1,5 @@
 from enclothed.config import GARMENTS_DIR
-from enclothed.models import Garment, GarmentOut, Photo, PhotoRole
+from enclothed.models import Photo, PhotoRole
 from typing import get_args
 
 ROLES = get_args(PhotoRole)   # ("front", "back", "detail", "label", "other")
@@ -19,6 +19,3 @@ def get_garment_photos(garment_id: int) -> list[Photo]:
     photo_list.sort(key=lambda photo: (ROLES.index(photo.role), photo.url))
 
     return photo_list
-
-def to_garment_out(garment: Garment) -> GarmentOut:
-    return GarmentOut(**garment.model_dump(), photos=get_garment_photos(garment.id))

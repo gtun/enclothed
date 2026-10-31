@@ -1,8 +1,7 @@
 import sqlite3
 from pathlib import Path
-from enclothed.models import Garment, Outfit, OutfitOut, OutfitGarmentOut, GarmentOut
+from enclothed.models import Garment, Outfit
 from contextlib import closing
-from enclothed.photos import to_garment_out
 import json
 import logging
 
@@ -143,22 +142,12 @@ OUTFIT_SELECT = (
     "LEFT JOIN outfit_garments AS og ON og.outfit_id = o.id "
 )
 
-def _row_to_outfit(row: sqlite3.Row, wardrobe: dict[int, GarmentOut]) -> OutfitOut:
-    outfit_dict = dict(row)
-    outfit_dict["garments"] = [
-        OutfitGarmentOut(
-            garment=wardrobe[entry["garment_id"]],
-            styling_advice=entry["styling_advice"],
-            is_anchor=entry["is_anchor"],
-        )
-        for entry in json.loads(row["garments"])
-    ]
-    return OutfitOut(**outfit_dict)
+def _row_to_outfit(row: sqlite3.Row) -> dict:
+    outfit = dict(row)
+    outfit["garments"] = json.loads(outfit["garments"])
+    return outfit
 
-def _wardrobe_by_id(db_path: Path) -> dict[int, GarmentOut]:
-    return {garment.id: to_garment_out(garment) for garment in select_all_garments(db_path)}
-
-def select_outfit(db_path: Path, outfit_id: int) -> OutfitOut | None:
+def select_outfit(db_path: Path, outfit_id: int) -> dict | None:
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
@@ -169,15 +158,13 @@ def select_outfit(db_path: Path, outfit_id: int) -> OutfitOut | None:
     if row is None:
         logger.debug("Outfit ID %s not found", outfit_id)
         return None
-    return _row_to_outfit(row, _wardrobe_by_id(db_path))
+    return _row_to_outfit(row)
 
-def select_all_outfits(db_path: Path) -> list[OutfitOut]:
+def select_all_outfits(db_path: Path) -> list[dict]:
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(OUTFIT_SELECT + "GROUP BY o.id ORDER BY o.id").fetchall()
-
-    wardrobe = _wardrobe_by_id(db_path)
-    return [_row_to_outfit(row, wardrobe) for row in rows]
+    return [_row_to_outfit(row) for row in rows]
 
 
 # --- set defs ----------------
