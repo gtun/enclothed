@@ -26,8 +26,9 @@ def received(tmp_path, monkeypatch):
 
     calls = {}
 
-    def fake_get_outfits(db_path, wardrobe, anchors, *rest):
+    def fake_get_outfits(db_path, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching):
         calls["anchors"] = anchors
+        calls["caching"] = caching
         return TEST_OUTFITS
 
     # Patch the name main.py imported, not enclothed.outfit.get_outfits.
@@ -73,3 +74,13 @@ def test_bare_with_is_an_error(monkeypatch, capsys, received):
     assert exc_info.value.code == 2
     assert "expected at least one argument" in capsys.readouterr().err
     assert "anchors" not in received
+
+
+def test_caching_is_on_unless_no_cache_is_given(monkeypatch, received):
+    run_outfit(monkeypatch, "-p", "dinner")
+    assert received["caching"] is True
+
+
+def test_no_cache_turns_caching_off(monkeypatch, received):
+    run_outfit(monkeypatch, "--no-cache", "-p", "dinner")
+    assert received["caching"] is False

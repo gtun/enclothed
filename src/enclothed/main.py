@@ -46,7 +46,7 @@ def main() -> int:
         metavar="ID",
         help="One or more garment IDs to build an outfit around (e.g. -w 3 4)",
     )
-    outfit_parser.add_argument("--cache", action="store_true", help="Cache the wardrobe for 5 minutes; saves tokens when making 2+ outfit calls in a row")
+    outfit_parser.add_argument("--no-cache", action="store_false", dest="cache", help="Don't cache the wardrobe. By default it's cached for 5 minutes, so repeat calls use far fewer tokens (the first costs ~25% more)")
 
     set_parser = subparsers.add_parser("set", parents=[common], help="Tag multiple garments as part of the same set")
     set_parser.add_argument("-n", "--name", help="Name the set")

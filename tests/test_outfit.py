@@ -7,12 +7,13 @@
 import json
 import sqlite3
 from contextlib import closing
+from enclothed import config
 from enclothed import outfit as outfit_module
-from enclothed.models import Outfit, OutfitResult, TokenUsage   # add TokenUsage to the existing line
+from enclothed.intake import TEST_GARMENT
+from enclothed.models import Outfit, OutfitResult, TokenUsage
 
 from enclothed import config
 from enclothed.intake import TEST_GARMENT
-from enclothed.models import Outfit, OutfitResult
 from enclothed.outfit import (
     OUTFIT_INCLUDE_FIELDS,
     TEST_OUTFITS,
@@ -362,9 +363,10 @@ def test_no_caching_sends_no_breakpoint(tmp_path, monkeypatch):
     assert all("cache_control" not in block for block in blocks)
 
 
-def test_caching_is_off_by_default(tmp_path, monkeypatch):
+def test_caching_is_on_by_default(tmp_path, monkeypatch):
     blocks, _ = run_real_mode(tmp_path, monkeypatch, anchors=[1])
-    assert all("cache_control" not in block for block in blocks)
+    assert blocks[0]["cache_control"] == {"type": "ephemeral"}
+    assert all("cache_control" not in block for block in blocks[1:])
 
 
 def test_blocks_are_wardrobe_anchors_request_in_order(tmp_path, monkeypatch):
