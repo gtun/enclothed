@@ -121,7 +121,7 @@ def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] 
             logger.warning("Saving %d of %d outfits", len(valid_outfits), len(wrapper.outfits))
         insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
 
-    log_outfit(logging_path, anchors, wrapper, usage, context, problems, timestamp)
+    log_outfit(logging_path, anchors, wrapper, usage, "\n".join(block["text"] for block in context), problems, timestamp)
 
     return wrapper
 
