@@ -4,7 +4,7 @@ from contextlib import closing
 import pytest
 from pydantic import ValidationError
 
-from enclothed.db import init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set
+from enclothed.db import init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment
 from enclothed.models import Garment, Outfit
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -59,6 +59,29 @@ def test_select_rejects_null_accent_colors(db_path):
 
     with pytest.raises(ValidationError):
         select_garment(db_path, garment_id)
+
+def test_update_changes_fields(db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    original = select_garment(db_path, garment_id)
+
+    edited = original.model_copy(update={"primary_color": "navy", "style_tags": ["edited"], "notes": "faded"})
+    update_garment(db_path, edited)
+    updated = select_garment(db_path, garment_id)
+
+    assert updated.primary_color == "navy"
+    assert updated.style_tags == ["edited"]
+    assert updated.notes == "faded"
+    assert updated.id == original.id
+    assert updated.date_added == original.date_added
+
+def test_update_only_touches_its_own_row(db_path):
+    target_id = insert_garment(db_path, TEST_GARMENT)
+    other_id = insert_garment(db_path, TEST_GARMENT)
+
+    edited = select_garment(db_path, target_id).model_copy(update={"primary_color": "navy"})
+    update_garment(db_path, edited)
+
+    assert select_garment(db_path, other_id).primary_color == TEST_GARMENT.primary_color
 
 
 # --- insert_outfits -----------------------------------------------------------------

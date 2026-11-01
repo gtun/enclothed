@@ -56,17 +56,31 @@ def init_db(db_path: Path, schema_path: Path, migrations_dir: Path) -> None:
 
 
 # --- garment defs ----------
-def insert_garment(db_path:Path, garment:Garment) -> int:
+def _garment_to_db_dict(garment: Garment) -> dict:
     garment_dict = garment.model_dump(mode="json", exclude=DB_DEFAULT_FIELDS)
-    garment_dict = {key: json.dumps(value, ensure_ascii=False) if isinstance(value, (list,dict)) else value
+    return {key: json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else value
         for key, value in garment_dict.items()}
+
+
+def insert_garment(db_path:Path, garment:Garment) -> int:
+    garment_dict = _garment_to_db_dict(garment)
+    columns = ", ".join(garment_dict)
+    placeholders = ", ".join(f":{name}" for name in garment_dict)
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            row_cursor = conn.execute(f"INSERT INTO garments ({columns}) VALUES ({placeholders})", garment_dict)
+            return row_cursor.lastrowid
+
+
+def update_garment(db_path: Path, garment: Garment) -> None:
+    garment_dict = _garment_to_db_dict(garment)
+    columns = ", ".join(f"{name} = :{name}" for name in garment_dict)
+    garment_dict["id"] = garment.id
 
     with closing(_connect(db_path)) as conn:
         with conn:
-            row_cursor = conn.execute("INSERT INTO garments (category, subcategory, primary_color, secondary_colors, accent_colors, formality, materials, warmth, pattern, country_of_origin, style_tags, notes, styling_notes, label_text, fit, sheen, brand) VALUES (:category, :subcategory, :primary_color, :secondary_colors, :accent_colors, :formality, :materials, :warmth, :pattern, :country_of_origin, :style_tags, :notes, :styling_notes, :label_text, :fit, :sheen, :brand)",
-                garment_dict
-            )
-            return row_cursor.lastrowid
+            conn.execute(f"UPDATE garments SET {columns} WHERE id = :id", garment_dict)
+
 
 def select_garment(db_path: Path, garment_id: int) -> Garment | None:
     with closing(_connect(db_path)) as conn:
