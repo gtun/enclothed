@@ -181,6 +181,22 @@ def select_all_outfits(db_path: Path) -> list[dict]:
     return [_row_to_outfit(row) for row in rows]
 
 
+def set_outfit_liked(db_path: Path, outfit_id: int, liked: bool | None) -> bool:
+    if liked not in (None, 0, 1):
+        raise ValueError(f"liked must be None, 0, or 1; got {liked!r}")
+
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute(
+                "UPDATE outfits SET liked = :liked WHERE id = :id",
+                {"id": outfit_id, "liked": liked},
+            )
+    if cursor.rowcount == 0:
+        logger.debug("Outfit ID %s not found", outfit_id)
+        return False
+    return True
+
+
 # --- set defs ----------------
 def insert_set(db_path: Path, garment_ids: list[int], set_name: str | None) -> int:
     with closing(_connect(db_path)) as conn:
