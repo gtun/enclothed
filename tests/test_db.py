@@ -4,7 +4,7 @@ from contextlib import closing
 import pytest
 from pydantic import ValidationError
 
-from enclothed.db import init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment
+from enclothed.db import init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked
 from enclothed.models import Garment, Outfit
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -295,3 +295,41 @@ def test_insert_set_garment_already_in_set_raises_and_rolls_back(db_path):
     assert select_all_sets(db_path) == {first_set: "navy suit"}
     assert select_garment(db_path, trousers).set_id == first_set
     assert select_garment(db_path, shoes).set_id is None
+
+
+# --- set_outfit_liked ---------------------------------------------------------------
+
+def liked_value(db_path, outfit_id):
+    return rows(db_path, f"SELECT liked FROM outfits WHERE id = {outfit_id}")[0]["liked"]
+
+
+@pytest.mark.parametrize("liked, stored", [(True, 1), (False, 0), (None, None)])
+def test_set_outfit_liked_stores_value(db_path, garment_ids, liked, stored):
+    [outfit_id] = insert_outfits(db_path, [make_outfit(garment_ids)], None, "dinner", TIMESTAMP)
+    assert set_outfit_liked(db_path, outfit_id, liked) is True
+    assert liked_value(db_path, outfit_id) == stored
+
+
+def test_set_outfit_liked_can_clear_back_to_unrated(db_path, garment_ids):
+    [outfit_id] = insert_outfits(db_path, [make_outfit(garment_ids)], None, "dinner", TIMESTAMP)
+    set_outfit_liked(db_path, outfit_id, True)
+    set_outfit_liked(db_path, outfit_id, None)
+    assert liked_value(db_path, outfit_id) is None
+
+
+def test_set_outfit_liked_missing_id_returns_false(db_path):
+    assert set_outfit_liked(db_path, 999, True) is False
+
+
+def test_set_outfit_liked_only_touches_its_own_row(db_path, garment_ids):
+    target_id, other_id = insert_outfits(db_path, [make_outfit(garment_ids), make_outfit(garment_ids)], None, "dinner", TIMESTAMP)
+    set_outfit_liked(db_path, target_id, True)
+    assert liked_value(db_path, other_id) is None
+
+
+@pytest.mark.parametrize("bad", [-1, 2, "yes"])
+def test_set_outfit_liked_rejects_bad_values(db_path, garment_ids, bad):
+    [outfit_id] = insert_outfits(db_path, [make_outfit(garment_ids)], None, "dinner", TIMESTAMP)
+    with pytest.raises(ValueError):
+        set_outfit_liked(db_path, outfit_id, bad)
+    assert liked_value(db_path, outfit_id) is None

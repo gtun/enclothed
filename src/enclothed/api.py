@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from enclothed import db, responses
 from enclothed.config import DB_PATH, GARMENTS_DIR
-from enclothed.models import Garment, GarmentOut, OutfitOut
+from enclothed.models import Garment, GarmentOut, OutfitOut, OutfitLikedIn
 from typing import Any
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
@@ -60,3 +60,9 @@ def get_outfit(outfit_id: int) -> OutfitOut:
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
     return outfit
 
+
+@app.patch("/api/outfits/{outfit_id}")
+def edit_outfit_liked(outfit_id: int, body: OutfitLikedIn) -> OutfitOut:
+    if not db.set_outfit_liked(DB_PATH, outfit_id, body.liked):
+        raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
+    return responses.get_outfit(DB_PATH, outfit_id)

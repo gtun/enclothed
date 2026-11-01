@@ -171,3 +171,6 @@ class OutfitOut(BaseModel):
     missing: str | None = None
     liked: bool | None = None
     garments: list[OutfitGarmentOut]
+
+class OutfitLikedIn(BaseModel):
+    liked: bool | None
