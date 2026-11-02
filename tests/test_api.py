@@ -20,6 +20,7 @@ def db_path(tmp_path, monkeypatch):
     monkeypatch.setattr(api, "INTAKE_DIR", tmp_path / "intake")
     monkeypatch.setattr(api, "TAGGING_LOG_PATH", tmp_path / "tagging_log.jsonl")
     monkeypatch.setattr(api, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
+    monkeypatch.setattr(api, "PREFERENCES_LOG_PATH", tmp_path / "preferences_log.jsonl")
     monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
     monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
     return path
@@ -317,3 +318,57 @@ def test_thumbnail_is_small_and_cached(client, db_path, tmp_path):
 @pytest.mark.parametrize("path", ["/thumbs/1/missing.jpg", "/thumbs/1/..%2F..%2Ftest.db", "/thumbs/abc/front_00.jpg"])
 def test_thumbnail_bad_requests(client, path):
     assert client.get(path).status_code in (404, 422)
+
+
+# --- style preferences ---------------------------------------------------------------
+
+def test_preferences_start_empty(client):
+    assert client.get("/api/preferences").json() == {"text": None, "updated_at": None}
+
+
+def test_preferences_save_replace_and_clear(client):
+    first = client.put("/api/preferences", json={"text": "  loose fits  "}).json()
+    assert first["text"] == "loose fits" and first["updated_at"]
+    assert client.put("/api/preferences", json={"text": "glasses with every outfit"}).json()["text"] == "glasses with every outfit"
+    assert client.put("/api/preferences", json={"text": "   "}).json() == {"text": None, "updated_at": None}
+
+
+def test_preferences_length_is_capped(client):
+    assert client.put("/api/preferences", json={"text": "x" * 4001}).status_code == 422
+
+
+def test_improve_returns_rewrite_without_saving(client, monkeypatch, tmp_path):
+    from enclothed.models import TokenUsage
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    seen = {}
+    def fake_improve(client_, text):
+        seen["text"] = text
+        return "Needs:\n- glasses in every outfit", TokenUsage(model="m", input_tokens=10, output_tokens=5)
+    monkeypatch.setattr(api, "improve_preferences", fake_improve)
+    response = client.post("/api/preferences/improve", json={"text": "i need my glasses"})
+    assert response.status_code == 200
+    assert response.json() == {"text": "Needs:\n- glasses in every outfit"}
+    assert seen == {"text": "i need my glasses"}
+    assert client.get("/api/preferences").json()["text"] is None
+    assert (tmp_path / "preferences_log.jsonl").read_text().count("\n") == 1
+
+
+def test_improve_needs_text(client, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    assert client.post("/api/preferences/improve", json={"text": "  "}).status_code == 422
+
+
+def test_suggestions_include_saved_preferences(client, basics, llm):
+    b = basics
+    llm.result = OutfitResult.model_validate({"outfits": [suggestion([b["top"], b["bottom"], b["shoes"]])]})
+    client.put("/api/preferences", json={"text": "always suggest glasses"})
+    client.post("/api/outfits/suggestions", json={"details": "dinner"})
+    texts = [block["text"] for block in llm.calls[-1]]
+    assert any("<preferences>" in t and "always suggest glasses" in t for t in texts)
+
+
+def test_suggestions_without_preferences_send_no_block(client, basics, llm):
+    b = basics
+    llm.result = OutfitResult.model_validate({"outfits": [suggestion([b["top"], b["bottom"], b["shoes"]])]})
+    client.post("/api/outfits/suggestions", json={"details": "dinner"})
+    assert not any("<preferences>" in block["text"] for block in llm.calls[-1])

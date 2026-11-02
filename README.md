@@ -127,19 +127,23 @@ uv run fastapi dev src/enclothed/api.py
 
 Then open http://localhost:8000.
 
-- **Wardrobe:** every garment by category, with filters for sets and garments not in any outfit. **+ Add garment** takes photos (camera or library, on iPhone and Android), with a box for details the photos don't show and one for private notes; it tags the garment and opens it.
+- **Wardrobe:** every garment by category, with filters for sets and garments not in any outfit, in Grid, Large or List view (List shows colors, materials and styling notes). **+ Add garment** takes photos (camera or library, on iPhone and Android), with a box for details the photos don't show and one for private notes; it tags the garment and opens it.
 - **Garment page:** photos, its set, every outfit it's in, and the garments it's most often paired with. Click any detail to correct it. Fixed lists (category, colors, formality, warmth, fit, sheen) use a dropdown you can type into to filter, and only accept listed values.
 - **Outfits:** every outfit, grouped by request, with filters for request text, date range, formality (of the least formal piece) and warmth (of the warmest top layer), and like/dislike buttons on each card. **+ New outfit** opens the outfit builder: pick pieces with the + on any garment, the category list, or by typing a name; add the occasion; then **Generate outfit suggestions** (your pieces are anchors) or **Save as my own outfit**. Suggestions open on a results page; change the pieces or details to try again, and the new ones are added to the same page.
+- **Style:** describe your tastes and needs once (loose fits, never shorts, glasses with every outfit); **Improve with AI** rewrites it into a clear brief you can edit before saving. The saved text is sent with every outfit request, from the web and the CLI.
 - Like or dislike an outfit on its page; disliked outfits are hidden unless you turn on "Show disliked".
 
 ### Customizing the pages
+
+Buttons that call the AI (and spend tokens) share the class `llm-action` and their own color, `--llm` in `css/theme.css`. By default it's picked from your wardrobe: the most common colorful accent among light garments for Day, and among dark garments for Evening.
+
 
 Everything is plain files in `public/`; edit one and refresh the browser (no build step).
 
 | To change | Edit |
 |---|---|
 | Colors and fonts (Day and Evening separately) | `css/theme.css` |
-| Date formats and language | `js/settings.js` |
+| Date formats, language, and the AI-button color source | `js/settings.js` |
 | Any text or layout on a page | the matching file in `js/templates/` (e.g. `outfitPage.js` for “Asked for …”, `garmentCard.js` for the wardrobe cards, `garmentPage.js` for the details labels) |
 | Spacing, sizes, layout rules | `css/app.css` |
 

@@ -26,7 +26,7 @@ def received(tmp_path, monkeypatch):
 
     calls = {}
 
-    def fake_get_outfits(db_path, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching):
+    def fake_get_outfits(db_path, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, **kwargs):
         calls["anchors"] = anchors
         calls["caching"] = caching
         return TEST_OUTFITS

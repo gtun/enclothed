@@ -225,6 +225,20 @@ class OutfitCreateIn(BaseModel):
     details: str | None = None
     garments: list[OutfitGarmentIn] = Field(min_length=1)
 
+class PreferencesOut(BaseModel):
+    text: str | None = None
+    updated_at: str | None = None
+
+class PreferencesIn(BaseModel):
+    text: str | None = Field(default=None, max_length=4000)
+
+class PreferencesImproveIn(BaseModel):
+    text: NonEmptyText = Field(max_length=4000)
+
+class ImprovedPreferences(BaseModel):
+    """What the LLM returns when rewriting the user's preferences."""
+    text: str = Field(description="The rewritten preferences, ready to send with outfit requests.")
+
 class OutfitLikedIn(BaseModel):
     liked: bool | None
 

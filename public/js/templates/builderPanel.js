@@ -38,7 +38,7 @@ function builderPanel(){
     ? `${busy}<button type="button" class="btn primary wide" data-save-own ${manualReason || builderBusy ? "disabled" : ""}>Save outfit</button>
        <p class="bhint" id="b-reason">${esc(manualReason)}</p>
        <button type="button" class="btn quiet wide" data-manual="off" ${builderBusy ? "disabled" : ""}>Back to suggestions</button>`
-    : `${busy}<button type="button" class="btn primary wide" data-suggest ${reason || builderBusy ? "disabled" : ""}>${retry ? "Suggest again" : "Generate outfit suggestions"}</button>
+    : `${busy}<button type="button" class="btn llm-action wide" data-suggest title="Uses AI (spends tokens)" ${reason || builderBusy ? "disabled" : ""}>${retry ? "Suggest again" : "Generate outfit suggestions"}</button>
        <p class="bhint" id="b-reason">${esc(reason)}</p>
        <button type="button" class="btn quiet wide" data-manual="on" ${builderBusy ? "disabled" : ""}>Save as my own outfit instead</button>`;
 
@@ -49,6 +49,7 @@ function builderPanel(){
       <div class="bsec"><h3>${builder.manual ? "Pieces" : "Pieces to build around"}</h3><div class="bpieces">${pieceRows}</div></div>
       <div class="bsec"><h3>Add pieces</h3><div id="b-search"></div><div class="tree">${tree}</div></div>
       <div class="bsec"><div class="field"><label for="b-details">${builder.manual ? "Occasion" : "Occasion and details"} <em>(optional${pieces.length || builder.manual ? "" : " if you pick pieces"})</em></label>
+        ${builder.manual ? "" : `<p class="style-hint">${prefs.text ? `Your <a href="#style">style notes</a> are included.` : `Tip: describe your <a href="#style">style</a> once and it's included every time.`}</p>`}
         <textarea id="b-details" class="txt" rows="3" data-details placeholder="${builder.manual ? "e.g. rainy Sunday" : "e.g. dinner downtown, about 10°C, want to wear the new boots"}">${esc(builder.details)}</textarea></div></div>
       ${builder.manual ? manualForm : ""}
     </div>

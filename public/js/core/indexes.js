@@ -15,6 +15,7 @@ function reindex(){
   REQUESTS = [];
   O.forEach(o => { let r = REQUESTS.find(x => x.text === o.prompt_message); if (!r) REQUESTS.push(r = {text: o.prompt_message, items: []}); r.items.push(o); });
   REQUESTS.forEach((r, i) => r.key = "r" + i);
+  applyLlmColors();   // AI button color can depend on the wardrobe (settings.js)
 }
 const reqOf = o => REQUESTS.find(r => r.text === o.prompt_message);
 const visible = o => showDisliked || o.liked !== false;

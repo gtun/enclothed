@@ -44,6 +44,11 @@
   --bad:#a3332b;
   --on-status:#ffffff;   /* text on --good / --bad */
 
+  /* buttons that call the AI and spend tokens (class "llm-action"). settings.js can pick
+     these from your wardrobe instead; set aiButtonColor: "theme" there to always use these. */
+  --llm:#a05a14;
+  --on-llm:#ffffff;
+
   /* depth */
   --shade:rgba(0,0,0,.06);   /* shadows */
   --overlay:rgba(0,0,0,.45); /* behind dialogs */
@@ -67,6 +72,8 @@
   --good:#7fc48c;
   --bad:#f08c84;
   --on-status:#121212;
+  --llm:#e2a75a;
+  --on-llm:#121212;
   --shade:rgba(0,0,0,.4);
   --overlay:rgba(0,0,0,.6);
   /* example: a different body font only in Evening
