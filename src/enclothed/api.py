@@ -1,11 +1,18 @@
+import getpass
+import os
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from enclothed import db, responses
-from enclothed.config import DB_PATH, GARMENTS_DIR
-from enclothed.models import Garment, GarmentOut, OptionsOut, OutfitOut, OutfitLikedIn, SetOut
+from enclothed.config import DB_PATH, GARMENTS_DIR, PUBLIC_DIR
+from enclothed.models import Garment, GarmentOut, OptionsOut, OutfitOut, OutfitLikedIn, ProfileOut, SetOut
 from typing import Any
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
+
+load_dotenv()
 
 app = FastAPI(title="enclothed")
 
@@ -78,3 +85,16 @@ def list_sets() -> list[SetOut]:
 @app.get("/api/options")
 def get_options() -> OptionsOut:
     return responses.get_options()
+
+
+# --- profile -------------------------
+@app.get("/api/profile")
+def get_profile() -> ProfileOut:
+    """Display name for the page header: ENCLOTHED_USER_NAME, else the OS login name."""
+    return ProfileOut(name=os.getenv("ENCLOTHED_USER_NAME") or getpass.getuser())
+
+
+# --- front end -----------------------
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    return FileResponse(PUBLIC_DIR / "index.html")

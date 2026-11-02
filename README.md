@@ -117,6 +117,22 @@ Options for `set`:
 
 Every command accepts `-v`, `--verbose` for debug output.
 
+## Web app
+
+Browse and edit your wardrobe in the browser:
+
+```bash
+uv run fastapi dev src/enclothed/api.py
+```
+
+Then open http://localhost:8000.
+
+- **Wardrobe:** every garment by category, with filters for sets and garments not in any outfit.
+- **Garment page:** photos, its set, every outfit it's in, and the garments it's most often paired with. Click any detail to correct it. Fixed lists (category, colors, formality, warmth, fit, sheen) use a dropdown you can type into to filter, and only accept listed values.
+- **Outfits:** every suggestion, grouped by request. Like or dislike an outfit on its page; disliked outfits are hidden unless you turn on "Show disliked".
+
+The name under the title is your OS login name; set `ENCLOTHED_USER_NAME` in `.env` to change it. The interactive API docs are at http://localhost:8000/docs.
+
 ## How it works
 
 1. Give the `add` command URLs or paths of photos of one garment.
@@ -132,9 +148,10 @@ uv run pytest
 
 ## Upcoming features
 
-- A way to review and edit a garment's tags in case the LLM got something wrong.
-- A UI to browse all garments in your wardrobe.
+- Log when you wear an outfit.
+- Upload photos and request outfits from the web app.
+- Thumbnails, so the pages load faster.
 
 ## Tech
 
-Python 3.13, uv, Anthropic API, Pydantic, SQLite, pytest
+Python 3.13, uv, Anthropic API, Pydantic, SQLite, FastAPI, vanilla JavaScript, pytest
