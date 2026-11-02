@@ -223,4 +223,4 @@ def insert_set(db_path: Path, garment_ids: list[int], set_name: str | None) -> i
 def select_all_sets(db_path) -> dict[int, str | None]:
     with closing(_connect(db_path)) as conn:
         with conn:
-            return dict(conn.execute("SELECT id, name FROM sets").fetchall())
+            return dict(conn.execute("SELECT id, name FROM sets ORDER BY id").fetchall())

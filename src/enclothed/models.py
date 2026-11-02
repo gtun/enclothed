@@ -172,5 +172,9 @@ class OutfitOut(BaseModel):
     liked: bool | None = None
     garments: list[OutfitGarmentOut]
 
+class SetOut(BaseModel):
+    id: int
+    name: str | None = None
+
 class OutfitLikedIn(BaseModel):
     liked: bool | None
