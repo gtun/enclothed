@@ -1,7 +1,7 @@
 """Builds the *Out models the API sends, from database records and photo folders."""
 from pathlib import Path
 from enclothed import db
-from enclothed.models import Garment, GarmentOut, OutfitGarmentOut, OutfitOut
+from enclothed.models import Garment, GarmentOut, OutfitGarmentOut, OutfitOut, SetOut
 from enclothed.photos import get_garment_photos
 
 def to_garment_out(garment: Garment) -> GarmentOut:
@@ -38,3 +38,6 @@ def list_outfits(db_path: Path) -> list[OutfitOut]:
     outfits = db.select_all_outfits(db_path)
     wardrobe = _wardrobe_by_id(db_path)
     return [_to_outfit_out(outfit, wardrobe) for outfit in outfits]
+
+def list_sets(db_path: Path) -> list[SetOut]:
+    return [SetOut(id=set_id, name=name) for set_id, name in db.select_all_sets(db_path).items()]

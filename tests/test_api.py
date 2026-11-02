@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from enclothed import api, photos
-from enclothed.db import init_db, insert_garment, insert_outfits
+from enclothed.db import init_db, insert_garment, insert_outfits, insert_set
 from enclothed.models import Outfit
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -62,3 +62,24 @@ def test_patch_liked_rejects_bad_body(client, outfit_id, body):
     response = client.patch(f"/api/outfits/{outfit_id}", json=body)
     assert response.status_code == 422
     assert client.get(f"/api/outfits/{outfit_id}").json()["liked"] is None
+
+
+# --- GET /api/sets -------------------------------------------------------------------
+
+def test_list_sets_empty(client):
+    response = client.get("/api/sets")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_sets_returns_id_and_name_in_order(client, db_path):
+    garment_ids = [insert_garment(db_path, TEST_GARMENT) for _ in range(4)]
+    suit_id = insert_set(db_path, garment_ids[:2], "navy suit")
+    unnamed_id = insert_set(db_path, garment_ids[2:], None)
+
+    response = client.get("/api/sets")
+    assert response.status_code == 200
+    assert response.json() == [
+        {"id": suit_id, "name": "navy suit"},
+        {"id": unnamed_id, "name": None},
+    ]
