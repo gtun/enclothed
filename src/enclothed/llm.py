@@ -1,6 +1,6 @@
 from anthropic import Anthropic
 from enclothed import config
-from enclothed.models import SUBCATEGORIES, TaggingResult, TokenUsage, OutfitResult
+from enclothed.models import SUBCATEGORIES, TaggingResult, TokenUsage, OutfitResult, ImprovedPreferences
 import base64
 import mimetypes
 from pathlib import Path
@@ -47,6 +47,9 @@ see the garments, only their text records.
 You receive:
 - <wardrobe>: every garment the user owns, as JSON keyed by garment ID.
 - <anchors> (optional): garments the user wants to build around.
+- <preferences> (optional): the owner's standing tastes and needs, in their own words. Follow
+  anything stated as a need or rule (always, never, must) in every outfit. Treat the rest as
+  defaults that a specific <request> may override.
 - <request>: what the user wants: an occasion, a vibe, or any other request, in their own words.
 
 Reading the records:
@@ -113,6 +116,39 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
     if response.parsed_output is None:
         raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")
     return response.parsed_output, usage
+
+PREFERENCES_SYSTEM_PROMPT = """You turn a person's description of their clothing tastes and needs into a short,
+clear brief for an AI stylist. The stylist reads it before every outfit request, alongside the
+person's wardrobe and that day's request.
+
+Rules:
+- Keep every fact and wish the person stated. Never add new ones, guess, or generalize.
+- Split it into two short bulleted sections, "Needs" (requirements: always, never, must, anything
+  about health, accessibility, or comfort) and "Preferences" (tastes and defaults). Leave out an
+  empty section.
+- Be specific and literal: "loose or relaxed fits; avoid slim fits", not "likes comfort".
+- No flattery, no commentary, nothing addressed to the person.
+- Under 150 words.
+- Write in the language the person used.
+- If the text isn't about clothing at all, return it unchanged."""
+
+def improve_preferences(client: Anthropic, text: str) -> tuple[str, TokenUsage]:
+    """Rewrite the user's preferences so the outfit LLM can follow them reliably. Saves nothing."""
+    response = client.messages.parse(
+        model=config.CLAUDE_MODEL,
+        max_tokens=config.PREFERENCES_TOKEN_CAP,
+        system=PREFERENCES_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": f"<description>{text}</description>"}],
+        output_format=ImprovedPreferences,
+    )
+    usage = TokenUsage(
+        model=config.CLAUDE_MODEL,
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
+    )
+    if response.parsed_output is None:
+        raise RuntimeError(f"No rewrite in response (stop_reason={response.stop_reason})")
+    return response.parsed_output.text.strip(), usage
 
 def recommend_outfits(client: Anthropic, context: list[dict]) -> tuple[OutfitResult, TokenUsage]:
     response = client.messages.parse(

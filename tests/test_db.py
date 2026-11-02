@@ -4,7 +4,7 @@ from contextlib import closing
 import pytest
 from pydantic import ValidationError
 
-from enclothed.db import init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked
+from enclothed.db import select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked
 from enclothed.models import Garment, Outfit
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -333,3 +333,30 @@ def test_set_outfit_liked_rejects_bad_values(db_path, garment_ids, bad):
     with pytest.raises(ValueError):
         set_outfit_liked(db_path, outfit_id, bad)
     assert liked_value(db_path, outfit_id) is None
+
+
+# --- preferences ---------------------------------------------------------------------
+
+def test_preferences_round_trip(db_path):
+    assert select_preferences(db_path) is None
+    save_preferences(db_path, "loose fits", "2026-11-01T00:00:00+00:00")
+    save_preferences(db_path, "loose fits; no shorts", "2026-11-02T00:00:00+00:00")
+    assert select_preferences(db_path) == ("loose fits; no shorts", "2026-11-02T00:00:00+00:00")
+    save_preferences(db_path, None, "2026-11-03T00:00:00+00:00")
+    assert select_preferences(db_path) is None
+
+
+def test_preferences_migration_adds_table_to_an_existing_db(tmp_path):
+    from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
+    path = tmp_path / "old.db"
+    old_schema = tmp_path / "old_schema.sql"
+    old_schema.write_text(SCHEMA_PATH.read_text().split("CREATE TABLE IF NOT EXISTS preferences")[0])
+    old_migrations = tmp_path / "old_migrations"; old_migrations.mkdir()
+    for m in sorted(MIGRATIONS_DIR.glob("*.sql"))[:2]:
+        (old_migrations / m.name).write_text(m.read_text())
+    init_db(path, old_schema, old_migrations)  # a database as it was before preferences existed
+
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    with closing(sqlite3.connect(path)) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert conn.execute("SELECT name FROM sqlite_master WHERE name = 'preferences'").fetchone()

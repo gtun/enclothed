@@ -21,10 +21,11 @@ function render(){
     document.title = o ? `${o.aesthetic} · enclothed` : "enclothed";
   } else if (h === "outfits"){ view = "outfits"; html = outfits(); document.title = "Outfits · enclothed"; }
   else if (h === "results"){ view = "results"; html = resultsPage(); document.title = "New suggestions · enclothed"; }
+  else if (h === "style"){ view = "style"; html = stylePage(); document.title = "Your style · enclothed"; }
   else { html = wardrobe(); document.title = "enclothed"; }
   app.innerHTML = html;
-  const section = (view === "outfit" || view === "outfits" || view === "results") ? "outfits" : "wardrobe";
-  for (const k of ["wardrobe", "outfits"]){ const n = document.getElementById("nav-" + k);
+  const section = (view === "outfit" || view === "outfits" || view === "results") ? "outfits" : view === "style" ? "style" : "wardrobe";
+  for (const k of ["wardrobe", "outfits", "style"]){ const n = document.getElementById("nav-" + k);
     if (k === section) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current"); }
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;
   const bk = app.querySelector("[data-back]");
@@ -60,6 +61,10 @@ app.addEventListener("click", e => {
     if (f.hasAttribute("data-toggle-disliked")){ showDisliked = !showDisliked; store.set("enclothed-show-disliked", showDisliked); }
     refresh(); return;
   }
+  if (e.target.closest("[data-ofilt-toggle]")){ filtersOpen = !filtersOpen; refresh(); if (filtersOpen) document.getElementById("of-q")?.focus(); return; }
+  const wv = e.target.closest("[data-wview]");
+  if (wv){ wview = wv.dataset.wview; store.set("enclothed-wardrobe-view", wview); refresh(); return; }
+  if (handleStyleClick(e)) return;
   const of = e.target.closest("[data-ofilt-f],[data-ofilt-w],[data-ofilt-clear]");
   if (of){
     const toggle = (list, v) => list.includes(v) ? list.filter(x => x !== v) : [...list, v];
@@ -110,8 +115,9 @@ paintTheme();
 /* ================= start ================= */
 (async function start(){
   try {
-    const [garments, outfitList, sets, options, profile] = await Promise.all([
-      api("/api/garments"), api("/api/outfits"), api("/api/sets"), api("/api/options"), api("/api/profile")]);
+    const [garments, outfitList, sets, options, profile, preferences] = await Promise.all([
+      api("/api/garments"), api("/api/outfits"), api("/api/sets"), api("/api/options"), api("/api/profile"), api("/api/preferences")]);
+    Object.assign(prefs, preferences);
     G = garments; O = outfitList.map(adoptOutfit); SETS = sets; OPT = options;
     HEX = Object.fromEntries(options.colors.map(c => [c.name, c.hex]));
     document.getElementById("who").textContent = profile.name;

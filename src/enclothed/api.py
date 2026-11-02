@@ -1,4 +1,5 @@
 import getpass
+import json
 import logging
 import os
 import shutil
@@ -17,14 +18,15 @@ from pydantic import ValidationError
 
 from enclothed import db, photos, responses
 from enclothed.config import (
-    DB_PATH, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PUBLIC_DIR,
+    DB_PATH, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS,
 )
 from enclothed.intake import add_garment
 from enclothed.models import (
     Garment, GarmentOut, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
-    OutfitSuggestIn, ProfileOut, SetOut,
+    OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut,
 )
+from enclothed.llm import improve_preferences
 from enclothed.outfit import generate_outfits
 
 load_dotenv()
@@ -155,8 +157,9 @@ def suggest_outfits(body: OutfitSuggestIn) -> list[OutfitOut]:
 
     client = _anthropic_client()
     try:
+        saved = db.select_preferences(DB_PATH)
         _, new_ids = generate_outfits(DB_PATH, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
-                                      details or "everyday wear", False)
+                                      details or "everyday wear", False, preferences=saved[0] if saved else None)
     except anthropic.APIError as error:
         raise _llm_failed(error)
     return responses.get_outfits(DB_PATH, new_ids)
@@ -189,6 +192,37 @@ def edit_outfit_liked(outfit_id: int, body: OutfitLikedIn) -> OutfitOut:
     if not db.set_outfit_liked(DB_PATH, outfit_id, body.liked):
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
     return responses.get_outfit(DB_PATH, outfit_id)
+
+
+# --- preferences ---------------------
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+@app.get("/api/preferences")
+def get_preferences() -> PreferencesOut:
+    saved = db.select_preferences(DB_PATH)
+    return PreferencesOut(text=saved[0], updated_at=saved[1]) if saved else PreferencesOut()
+
+
+@app.put("/api/preferences")
+def put_preferences(body: PreferencesIn) -> PreferencesOut:
+    """Save the user's style preferences (sent with every outfit request). Empty text clears them."""
+    db.save_preferences(DB_PATH, _blank_to_none(body.text), _now())
+    return get_preferences()
+
+
+@app.post("/api/preferences/improve")
+def improve_preferences_text(body: PreferencesImproveIn) -> PreferencesIn:
+    """Ask the LLM to rewrite the text into a clearer brief. Returns the rewrite; saves nothing."""
+    client = _anthropic_client()
+    try:
+        text, usage = improve_preferences(client, body.text)
+    except anthropic.APIError as error:
+        raise _llm_failed(error)
+    with PREFERENCES_LOG_PATH.open("a", encoding="utf-8") as log:
+        log.write(json.dumps({"timestamp": _now(), "usage": usage.model_dump(), "input": body.text, "output": text}, ensure_ascii=False) + "\n")
+    return PreferencesIn(text=text)
 
 
 # --- sets ----------------------------

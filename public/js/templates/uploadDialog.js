@@ -20,6 +20,6 @@ function uploadDialog(){
       <p class="formerr" id="u-err" role="alert"></p>
     </div>
     <div class="bfoot">${upload.busy ? `<div class="busy" role="status"><span class="spin" aria-hidden="true"></span>Tagging your garment… this can take up to a minute.</div>` : ""}
-      <button type="button" class="btn primary wide" data-u-submit ${!n || upload.busy ? "disabled" : ""}>${n ? `Tag and add (${plural(n, "photo")})` : "Add at least one photo"}</button></div>
+      <button type="button" class="btn llm-action wide" data-u-submit title="Uses AI (spends tokens)" ${!n || upload.busy ? "disabled" : ""}>${n ? `Tag and add (${plural(n, "photo")})` : "Add at least one photo"}</button></div>
   </div>`;
 }

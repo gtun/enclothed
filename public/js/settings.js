@@ -16,4 +16,11 @@ const SETTINGS = {
     long: {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}, // outfit page: "Sun, Nov 1, 9:12 PM"
     day: {year: "numeric", month: "short", day: "numeric"},                                     // garment "Added": "Nov 1, 2026"
   },
+
+  /* Color of buttons that call the AI (and so spend tokens), e.g. "Generate outfit suggestions".
+     "wardrobe": picked from your own clothes. For Day, the most common colorful accent among
+                 light-colored garments; for Evening, among dark-colored garments. Falls back to
+                 theme.css when nothing colorful enough is found.
+     "theme":    always use --llm / --on-llm from css/theme.css. */
+  aiButtonColor: "wardrobe",
 };

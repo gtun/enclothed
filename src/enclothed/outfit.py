@@ -71,11 +71,11 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1) -> OutfitResult:
-    result, _ = generate_outfits(db_path, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching)
+def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None) -> OutfitResult:
+    result, _ = generate_outfits(db_path, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences)
     return result
 
-def generate_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True) -> tuple[OutfitResult, list[int]]:
+def generate_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None) -> tuple[OutfitResult, list[int]]:
     """Ask the LLM for outfits, save the valid ones, and return the result plus the new outfit ids."""
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
@@ -94,6 +94,9 @@ def generate_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[
     if caching:
         wardrobe_block["cache_control"] = {"type": "ephemeral"}
     context.append(wardrobe_block)
+
+    if preferences:
+        context.append({"type": "text", "text": f"<preferences>\n{preferences}\n</preferences>"})
 
     if anchors:
         anchors_text = "\n<anchors>\n"

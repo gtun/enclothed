@@ -123,7 +123,9 @@ def main() -> int:
                 outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
         user_prompt = args.prompt_message or "everyday wear"
         client = None if args.test else Anthropic()
-        result = get_outfits(config.DB_PATH, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test, args.cache)
+        saved_preferences = db.select_preferences(config.DB_PATH)
+        result = get_outfits(config.DB_PATH, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test, args.cache,
+                             preferences=saved_preferences[0] if saved_preferences else None)
         print(format_outfit_result(result, wardrobe))
 
     # --- set ----------------------
