@@ -38,6 +38,11 @@ def get_outfit(db_path: Path, outfit_id: int) -> OutfitOut | None:
         return None
     return _to_outfit_out(outfit, _wardrobe_by_id(db_path))
 
+def get_outfits(db_path: Path, outfit_ids: list[int]) -> list[OutfitOut]:
+    outfits = [db.select_outfit(db_path, outfit_id) for outfit_id in outfit_ids]
+    wardrobe = _wardrobe_by_id(db_path)
+    return [_to_outfit_out(outfit, wardrobe) for outfit in outfits if outfit is not None]
+
 def list_outfits(db_path: Path) -> list[OutfitOut]:
     outfits = db.select_all_outfits(db_path)
     wardrobe = _wardrobe_by_id(db_path)

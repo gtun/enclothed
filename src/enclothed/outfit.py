@@ -72,6 +72,11 @@ TEST_OUTFITS = OutfitResult.model_validate({
 
 
 def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1) -> OutfitResult:
+    result, _ = generate_outfits(db_path, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching)
+    return result
+
+def generate_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True) -> tuple[OutfitResult, list[int]]:
+    """Ask the LLM for outfits, save the valid ones, and return the result plus the new outfit ids."""
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
 
@@ -114,14 +119,15 @@ def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] 
 
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
+    new_ids: list[int] = []
     if not is_test:
         if len(valid_outfits) < len(wrapper.outfits):
             logger.warning("Saving %d of %d outfits", len(valid_outfits), len(wrapper.outfits))
-        insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
+        new_ids = insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
 
     log_outfit(logging_path, anchors, wrapper, usage, "\n".join(block["text"] for block in context), problems, timestamp)
 
-    return wrapper
+    return wrapper, new_ids
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS, exclude_none=True) for key, value in wardrobe.items()}

@@ -127,9 +127,12 @@ uv run fastapi dev src/enclothed/api.py
 
 Then open http://localhost:8000.
 
-- **Wardrobe:** every garment by category, with filters for sets and garments not in any outfit.
+- **Wardrobe:** every garment by category, with filters for sets and garments not in any outfit. **+ Add garment** takes photos (camera or library, on iPhone and Android), with a box for details the photos don't show and one for private notes; it tags the garment and opens it.
 - **Garment page:** photos, its set, every outfit it's in, and the garments it's most often paired with. Click any detail to correct it. Fixed lists (category, colors, formality, warmth, fit, sheen) use a dropdown you can type into to filter, and only accept listed values.
-- **Outfits:** every suggestion, grouped by request. Like or dislike an outfit on its page; disliked outfits are hidden unless you turn on "Show disliked".
+- **Outfits:** every outfit, grouped by request. **+ New outfit** opens the outfit builder: pick pieces with the + on any garment, the category list, or by typing a name; add the occasion; then **Generate outfit suggestions** (your pieces are anchors) or **Save as my own outfit**. Suggestions open on a results page; change the pieces or details to try again, and the new ones are added to the same page.
+- Like or dislike an outfit on its page; disliked outfits are hidden unless you turn on "Show disliked".
+
+Uploaded photos are turned upright, converted to JPEG and resized (longest side 2000 px), so phone photos (including iPhone HEIC) fit the API's limits. Thumbnails are made on first view and cached in `data/thumbs/`.
 
 The name under the title is your OS login name; set `ENCLOTHED_USER_NAME` in `.env` to change it. The interactive API docs are at http://localhost:8000/docs.
 
@@ -149,9 +152,8 @@ uv run pytest
 ## Upcoming features
 
 - Log when you wear an outfit.
-- Upload photos and request outfits from the web app.
-- Thumbnails, so the pages load faster.
+- Accounts and sign-in, then hosting.
 
 ## Tech
 
-Python 3.13, uv, Anthropic API, Pydantic, SQLite, FastAPI, vanilla JavaScript, pytest
+Python 3.13, uv, Anthropic API, Pydantic, SQLite, FastAPI, Pillow, vanilla JavaScript, pytest

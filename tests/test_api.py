@@ -16,7 +16,12 @@ def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
     init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
     monkeypatch.setattr(api, "DB_PATH", path)
+    monkeypatch.setattr(api, "GARMENTS_DIR", tmp_path / "garments")
+    monkeypatch.setattr(api, "INTAKE_DIR", tmp_path / "intake")
+    monkeypatch.setattr(api, "TAGGING_LOG_PATH", tmp_path / "tagging_log.jsonl")
+    monkeypatch.setattr(api, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
     monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
+    monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
     return path
 
 
@@ -129,3 +134,179 @@ def test_root_serves_the_front_end(client):
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert "<title>enclothed</title>" in response.text
+
+
+# --- outfits from the web: suggestions and save-your-own -----------------------------
+
+import io
+from PIL import Image
+
+from enclothed import intake, outfit as outfit_module
+from enclothed.config import MANUAL_OUTFIT_REQUEST
+from enclothed.models import OutfitResult, TaggingResult, PhotoTag
+
+
+@pytest.fixture
+def basics(db_path):
+    """A wearable wardrobe: top, bottom, shoes, plus an outerwear piece. Returns their ids by category."""
+    make = lambda **kw: insert_garment(db_path, TEST_GARMENT.model_copy(update=kw))
+    return {
+        "top": make(category="top", subcategory="t-shirt"),
+        "bottom": make(category="bottom", subcategory="jeans"),
+        "shoes": make(category="shoes", subcategory="loafers"),
+        "outerwear": make(),
+    }
+
+
+@pytest.fixture
+def llm(monkeypatch):
+    """Replace the outfit LLM call; records what it was sent and returns `llm.result`."""
+    class Fake:
+        result = None
+        calls = []
+    def fake_recommend(client, context):
+        Fake.calls.append(context)
+        return Fake.result, None
+    monkeypatch.setattr(outfit_module, "recommend_outfits", fake_recommend)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    return Fake
+
+
+def suggestion(ids, aesthetic="look"):
+    return {"aesthetic": aesthetic, "explanation": "why", "garments": [{"garment_id": i} for i in ids]}
+
+
+def test_suggestions_returns_the_new_valid_outfits(client, basics, llm):
+    b = basics
+    llm.result = OutfitResult.model_validate({"outfits": [
+        suggestion([b["top"], b["bottom"], b["shoes"]], "A"),
+        suggestion([b["top"], b["bottom"], b["shoes"], b["outerwear"]], "B"),
+        suggestion([b["top"], b["shoes"]], "invalid: no bottom"),
+    ]})
+    response = client.post("/api/outfits/suggestions", json={"anchors": [b["shoes"]], "details": "dinner"})
+    assert response.status_code == 200
+    body = response.json()
+    assert [o["aesthetic"] for o in body] == ["A", "B"]
+    assert all(o["prompt_message"] == "dinner" for o in body)
+    assert {g["garment"]["id"] for g in body[0]["garments"]} == {b["top"], b["bottom"], b["shoes"]}
+    assert [g["is_anchor"] for g in body[0]["garments"] if g["garment"]["id"] == b["shoes"]] == [True]
+    assert len(client.get("/api/outfits").json()) == 2
+
+
+def test_suggestions_needs_anchors_or_details(client, basics, llm):
+    response = client.post("/api/outfits/suggestions", json={"anchors": [], "details": "   "})
+    assert response.status_code == 422
+    assert llm.calls == []
+
+
+def test_suggestions_rejects_unknown_anchor(client, basics, llm):
+    response = client.post("/api/outfits/suggestions", json={"anchors": [999]})
+    assert response.status_code == 422
+    assert llm.calls == []
+
+
+def test_suggestions_without_api_key_is_503(client, basics, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    response = client.post("/api/outfits/suggestions", json={"details": "dinner"})
+    assert response.status_code == 503
+
+
+def test_save_own_outfit(client, basics):
+    b = basics
+    response = client.post("/api/outfits", json={
+        "aesthetic": "Sunday errands", "explanation": "comfy", "details": "",
+        "garments": [{"garment_id": b["top"], "styling_advice": " tucked "}, {"garment_id": b["bottom"]}],
+    })
+    assert response.status_code == 201
+    body = response.json()
+    assert body["aesthetic"] == "Sunday errands"
+    assert body["prompt_message"] == MANUAL_OUTFIT_REQUEST
+    assert [(g["garment"]["id"], g["styling_advice"]) for g in body["garments"]] == [(b["top"], "tucked"), (b["bottom"], None)]
+
+
+def test_save_own_outfit_uses_details_as_request(client, basics):
+    response = client.post("/api/outfits", json={
+        "aesthetic": "x", "explanation": "y", "details": "rainy day", "garments": [{"garment_id": basics["top"]}]})
+    assert response.json()["prompt_message"] == "rainy day"
+
+
+@pytest.mark.parametrize("change", [
+    {"aesthetic": "  "},
+    {"explanation": ""},
+    {"garments": []},
+    {"garments": [{"garment_id": 999}]},
+    {"garments": "duplicate"},
+])
+def test_save_own_outfit_enforces_required_fields(client, basics, change):
+    body = {"aesthetic": "x", "explanation": "y", "garments": [{"garment_id": basics["top"]}]}
+    if change.get("garments") == "duplicate":
+        change = {"garments": [{"garment_id": basics["top"]}, {"garment_id": basics["top"]}]}
+    response = client.post("/api/outfits", json={**body, **change})
+    assert response.status_code == 422
+    assert client.get("/api/outfits").json() == []
+
+
+# --- adding a garment from uploaded photos -------------------------------------------
+
+def jpeg_bytes(size=(3000, 1500), color="navy"):
+    buffer = io.BytesIO()
+    Image.new("RGB", size, color).save(buffer, "JPEG")
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def tagger(monkeypatch):
+    """Replace the tagging LLM call; records the photo paths and context it got."""
+    class Fake:
+        calls = []
+    def fake_tag(client, photo_paths, prompt_message=None):
+        Fake.calls.append({"sizes": [Image.open(p).size for p in photo_paths], "prompt": prompt_message})
+        return TaggingResult(garment=TEST_GARMENT, photos=[PhotoTag(index=i, role="front" if i == 0 else "label") for i in range(len(photo_paths))]), None
+    monkeypatch.setattr(intake, "tag_garment", fake_tag)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    return Fake
+
+
+def test_upload_tags_and_files_resized_photos(client, tagger):
+    files = [("photos", ("IMG_1.jpg", jpeg_bytes(), "image/jpeg")), ("photos", ("IMG_2.jpg", jpeg_bytes((800, 600)), "image/jpeg"))]
+    response = client.post("/api/garments", files=files, data={"prompt_message": "true color is navy", "notes": "  gift  "})
+    assert response.status_code == 201
+    body = response.json()
+    assert body["notes"] == "gift"
+    assert [p["role"] for p in body["photos"]] == ["front", "label"]
+    assert tagger.calls == [{"sizes": [(2000, 1000), (800, 600)], "prompt": "true color is navy"}]
+    # the /photos mount is bound to the real folder at startup, so check the filed photo via its thumbnail
+    assert client.get(body["photos"][0]["thumb_url"]).status_code == 200
+
+
+def test_upload_rejects_non_images(client, tagger):
+    response = client.post("/api/garments", files=[("photos", ("notes.txt", b"not a photo", "text/plain"))])
+    assert response.status_code == 422
+    assert "notes.txt" in response.json()["detail"]
+    assert tagger.calls == []
+
+
+def test_upload_needs_a_photo(client, tagger):
+    assert client.post("/api/garments", data={"notes": "x"}).status_code == 422
+
+
+# --- thumbnails ----------------------------------------------------------------------
+
+def test_thumbnail_is_small_and_cached(client, db_path, tmp_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    folder = tmp_path / "garments" / str(garment_id)
+    folder.mkdir(parents=True)
+    Image.new("RGB", (3000, 4000), "white").save(folder / "front_00.jpg")
+
+    photo = client.get(f"/api/garments/{garment_id}").json()["photos"][0]
+    assert photo["thumb_url"] == f"/thumbs/{garment_id}/front_00.jpg"
+    response = client.get(photo["thumb_url"])
+    assert response.status_code == 200
+    assert Image.open(io.BytesIO(response.content)).size == (600, 800)
+    cached = tmp_path / "thumbs" / str(garment_id) / "front_00.jpg.jpg"
+    assert cached.is_file()
+
+
+@pytest.mark.parametrize("path", ["/thumbs/1/missing.jpg", "/thumbs/1/..%2F..%2Ftest.db", "/thumbs/abc/front_00.jpg"])
+def test_thumbnail_bad_requests(client, path):
+    assert client.get(path).status_code in (404, 422)
