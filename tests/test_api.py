@@ -1,9 +1,11 @@
+from typing import get_args
+
 import pytest
 from fastapi.testclient import TestClient
 
 from enclothed import api, photos
 from enclothed.db import init_db, insert_garment, insert_outfits, insert_set
-from enclothed.models import Outfit
+from enclothed.models import Category, Color, Fit, Outfit, Sheen, SUBCATEGORIES
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
 
@@ -83,3 +85,27 @@ def test_list_sets_returns_id_and_name_in_order(client, db_path):
         {"id": suit_id, "name": "navy suit"},
         {"id": unnamed_id, "name": None},
     ]
+
+
+# --- GET /api/options ----------------------------------------------------------------
+
+def test_options_match_the_models(client):
+    response = client.get("/api/options")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["categories"] == list(get_args(Category))
+    assert [color["name"] for color in body["colors"]] == list(get_args(Color))
+    assert [fit["value"] for fit in body["fits"]] == list(get_args(Fit))
+    assert [sheen["value"] for sheen in body["sheens"]] == list(get_args(Sheen))
+    for category, choices in body["subcategories"].items():
+        assert set(choices) == SUBCATEGORIES[category]
+        assert choices[-1] == "other"
+
+
+def test_options_levels_are_numbered_labels(client):
+    body = client.get("/api/options").json()
+    assert body["formality"][0] == {"value": 1, "label": "casual"}
+    assert [level["value"] for level in body["warmth"]] == [1, 2, 3, 4, 5]
+    assert body["fits"][0] == {"value": "slim", "label": "slim (close to the body)"}
+    assert body["sheens"][1] == {"value": "low", "label": "low (soft luster)"}

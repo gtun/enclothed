@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from enclothed import db, responses
 from enclothed.config import DB_PATH, GARMENTS_DIR
-from enclothed.models import Garment, GarmentOut, OutfitOut, OutfitLikedIn, SetOut
+from enclothed.models import Garment, GarmentOut, OptionsOut, OutfitOut, OutfitLikedIn, SetOut
 from typing import Any
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
@@ -72,3 +72,9 @@ def edit_outfit_liked(outfit_id: int, body: OutfitLikedIn) -> OutfitOut:
 @app.get("/api/sets")
 def list_sets() -> list[SetOut]:
     return responses.list_sets(DB_PATH)
+
+
+# --- options -------------------------
+@app.get("/api/options")
+def get_options() -> OptionsOut:
+    return responses.get_options()

@@ -14,8 +14,37 @@ Color = Literal[
     # metallics
     "silver", "gold", "brass", "copper", "gunmetal"
 ]
+COLOR_HEX: dict[Color, str] = {
+    "black": "#151515", "charcoal": "#3b3d42", "gray": "#8a8c90", "light gray": "#c9cacd",
+    "white": "#f7f7f5", "cream": "#efe6cf", "beige": "#d9c8a6", "khaki": "#b9a777",
+    "tan": "#c19a6b", "camel": "#b5844f", "brown": "#7a4e2d", "dark brown": "#4a2f1d",
+    "navy": "#1f2a4a", "light blue": "#a9c4e4", "slate blue": "#5f7391", "blue": "#2f5fb3",
+    "indigo": "#2e335f", "teal": "#1f7a7a", "green": "#3c8a4a", "olive": "#6b6a2f",
+    "forest green": "#24452e", "burgundy": "#6b1f2e", "red": "#b8322a", "pink": "#e7a1b4",
+    "orange": "#e07a2e", "rust": "#a4482a", "mustard": "#c9a227", "yellow": "#eccb3a",
+    "purple": "#5e3b8a", "eggplant": "#4b2c45", "lavender": "#b9a7da", "cognac": "#9a5527",
+    "silver": "#c0c3c8", "gold": "#c6a14a", "brass": "#b5933f", "copper": "#b06a3b",
+    "gunmetal": "#53565c",
+}
+FORMALITY_LABELS = {1: "casual", 2: "smart casual", 3: "business", 4: "formalwear"}
+WARMTH_LABELS = {
+    1: "summer-weight, 25°C+", 2: "light, 18–25°C", 3: "mid-layer, 10–18°C",
+    4: "warm, 0–10°C", 5: "heavy winter, below 0°C",
+}
+
 Fit = Literal["slim", "regular", "relaxed", "oversized"]
 Sheen = Literal["matte", "low", "high"]
+FIT_LABELS: dict[Fit, str] = {
+    "slim": "slim (close to the body)",
+    "regular": "regular (standard cut)",
+    "relaxed": "relaxed (roomy)",
+    "oversized": "oversized (deliberately large)",
+}
+SHEEN_LABELS: dict[Sheen, str] = {
+    "matte": "matte (no shine)",
+    "low": "low (soft luster)",
+    "high": "high (shiny, like satin or patent leather)",
+}
 Category = Literal["top", "bottom", "one-piece", "outerwear", "shoes", "accessory"]
 CATEGORY_ORDER = {category: position for position, category in enumerate(get_args(Category))}
 
@@ -178,3 +207,25 @@ class SetOut(BaseModel):
 
 class OutfitLikedIn(BaseModel):
     liked: bool | None
+
+class ColorOption(BaseModel):
+    name: Color
+    hex: str
+
+class LevelOption(BaseModel):
+    value: int
+    label: str
+
+class ChoiceOption(BaseModel):
+    value: str
+    label: str
+
+class OptionsOut(BaseModel):
+    """The fixed choices for editing a garment, so the front end never keeps its own copy."""
+    categories: list[Category]
+    subcategories: dict[Category, list[str]]
+    colors: list[ColorOption]
+    fits: list[ChoiceOption]
+    sheens: list[ChoiceOption]
+    formality: list[LevelOption]
+    warmth: list[LevelOption]
