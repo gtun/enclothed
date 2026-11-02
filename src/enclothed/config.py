@@ -11,6 +11,7 @@ TAGGING_LOG_PATH = DATA_DIR / "tagging_log.jsonl"
 OUTFIT_LOG_PATH = DATA_DIR / "outfit_log.jsonl"
 BACKUPS_DIR = PROJECT_ROOT / "backups"
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
+PUBLIC_DIR = PROJECT_ROOT / "public"
 
 CLAUDE_MODEL = "claude-sonnet-5-5"
 TEST_CLAUDE_MODEL = "claude-haiku-5-5"

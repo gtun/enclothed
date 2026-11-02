@@ -109,3 +109,23 @@ def test_options_levels_are_numbered_labels(client):
     assert [level["value"] for level in body["warmth"]] == [1, 2, 3, 4, 5]
     assert body["fits"][0] == {"value": "slim", "label": "slim (close to the body)"}
     assert body["sheens"][1] == {"value": "low", "label": "low (soft luster)"}
+
+
+# --- GET /api/profile and the page ------------------------------------------------------
+
+def test_profile_uses_env_name(client, monkeypatch):
+    monkeypatch.setenv("ENCLOTHED_USER_NAME", "tester")
+    assert client.get("/api/profile").json() == {"name": "tester"}
+
+
+def test_profile_falls_back_to_os_login(client, monkeypatch):
+    monkeypatch.delenv("ENCLOTHED_USER_NAME", raising=False)
+    monkeypatch.setattr("getpass.getuser", lambda: "oslogin")
+    assert client.get("/api/profile").json() == {"name": "oslogin"}
+
+
+def test_root_serves_the_front_end(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "<title>enclothed</title>" in response.text

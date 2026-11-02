@@ -220,6 +220,9 @@ class ChoiceOption(BaseModel):
     value: str
     label: str
 
+class ProfileOut(BaseModel):
+    name: str
+
 class OptionsOut(BaseModel):
     """The fixed choices for editing a garment, so the front end never keeps its own copy."""
     categories: list[Category]
