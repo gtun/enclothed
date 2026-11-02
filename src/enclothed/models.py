@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Literal, get_args
-from pydantic import BaseModel, Field, model_validator
+from typing import Annotated
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 Color = Literal[
@@ -182,6 +183,7 @@ class OutfitResult(BaseModel):
 class Photo(BaseModel):
     role: PhotoRole
     url: str
+    thumb_url: str
 
 class GarmentOut(Garment):
     photos: list[Photo] = []
@@ -204,6 +206,24 @@ class OutfitOut(BaseModel):
 class SetOut(BaseModel):
     id: int
     name: str | None = None
+
+NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+class OutfitSuggestIn(BaseModel):
+    anchors: list[int] = []
+    details: str | None = None
+
+class OutfitGarmentIn(BaseModel):
+    garment_id: int
+    styling_advice: str | None = None
+
+class OutfitCreateIn(BaseModel):
+    """An outfit the user put together, saved without the LLM."""
+    aesthetic: NonEmptyText
+    explanation: NonEmptyText
+    missing: str | None = None
+    details: str | None = None
+    garments: list[OutfitGarmentIn] = Field(min_length=1)
 
 class OutfitLikedIn(BaseModel):
     liked: bool | None

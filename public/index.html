@@ -5,261 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>enclothed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script>
-/* Bright by default; the viewer's own Day/Evening choice wins. */
+/* Bright by default; the viewer's own Day/Evening choice wins. Runs before the CSS so the page never flashes. */
 (function(){ let t = null; try { t = localStorage.getItem("enclothed-theme"); } catch (e) {}
   document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light"); })();
 </script>
-<style>
-/* A gallery-white floor so each garment reads true; rails of garments, racks of outfits, and detail pages that link the two. */
-:root{
-  --bg:#f6f6f5; --surface:#ffffff; --ink:#1d1d1c; --muted:#6b6b68; --line:#e3e3e0;
-  --photo:#eeeeec; --chip:#f0f0ee; --accent:#1d1d1c; --on-accent:#ffffff;
-  --tag:#f4f0e6; --tag-ink:#3a3528; --shade:rgba(0,0,0,.06);
-  --good:#2f6b3a; --bad:#a3332b; --hover:#f2f2f0;
-  --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
-  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-}
-:root[data-theme="dark"]{
-  --bg:#121212; --surface:#1b1b1b; --ink:#ececea; --muted:#9c9c98; --line:#2e2e2d;
-  --photo:#232322; --chip:#262625; --accent:#ececea; --on-accent:#121212;
-  --tag:#2a2720; --tag-ink:#e6dfc9; --shade:rgba(0,0,0,.4);
-  --good:#7fc48c; --bad:#f08c84; --hover:#232322; color-scheme:dark}
-*{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 72px}
-a{color:inherit}
-button{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
-
-/* top bar */
-.bar{position:sticky;top:0;z-index:5;background:var(--bg);margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));
-  padding:12px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
-.bar-in{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.logo{text-decoration:none;margin-right:auto;display:flex;align-items:baseline;gap:10px;min-width:0}
-.logo b{font-family:var(--display);font-weight:700;font-size:1.3rem;letter-spacing:-.01em}
-.logo span{font:400 .8rem var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--surface);gap:2px}
-.seg a,.seg button{font:500 .84rem var(--body);border:0;background:none;color:var(--muted);padding:5px 13px;border-radius:999px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
-.seg [aria-current="page"],.seg [aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
-.seg svg{width:13px;height:13px}
-
-header.hero{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:16px;padding-top:28px}
-h1{font-family:var(--display);font-weight:700;font-size:clamp(2rem,5vw,3rem);line-height:1.02;margin:0;letter-spacing:-.02em;text-wrap:balance}
-.sub{color:var(--muted);margin:6px 0 0;max-width:65ch}
-.stats{display:flex;gap:20px;font-variant-numeric:tabular-nums;color:var(--muted);font-size:.82rem}
-.stats b{display:block;font-family:var(--display);font-size:1.5rem;color:var(--ink);font-weight:700;line-height:1.1}
-.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.filters .sep{width:1px;height:22px;background:var(--line);margin-inline:4px}
-.filters button{font:500 .84rem var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);
-  border-radius:999px;padding:6px 14px;cursor:pointer;max-width:30ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.filters button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.filters button span{opacity:.6;font-variant-numeric:tabular-nums}
-
-section.rail{display:flex;flex-direction:column;gap:12px}
-.rail h2{font-family:var(--display);font-weight:500;font-size:1.02rem;margin:0;display:flex;align-items:center;gap:12px;text-transform:uppercase;letter-spacing:.08em}
-.rail h2::after{content:"";flex:1;height:1px;background:var(--line)}
-.rail h2 span{color:var(--muted);font-family:var(--body);font-size:.8rem;letter-spacing:0}
-.rail h2.req{text-transform:none;letter-spacing:0;font-size:1.15rem;font-weight:500}
-.rail h2.req q{quotes:"“" "”"}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:14px}
-
-/* garment card */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;text-decoration:none;transition:border-color .15s,transform .15s}
-.card:hover{border-color:var(--ink);transform:translateY(-2px)}
-.ph{aspect-ratio:3/4;width:100%;max-width:100%;position:relative;background:var(--photo);display:grid;place-items:center;overflow:hidden}
-.ph img{width:100%;height:100%;object-fit:cover;display:block}
-.ph .sw{width:44%;aspect-ratio:1;border-radius:50%;border:1px solid var(--line)}
-.badge{position:absolute;font:500 .7rem var(--mono);background:var(--surface);color:var(--ink);padding:2px 7px;border-radius:4px;box-shadow:0 1px 2px var(--shade)}
-.badge.id{top:8px;left:8px;color:var(--muted)}
-.badge.set{top:8px;right:8px;display:inline-flex;gap:5px;align-items:center;max-width:calc(100% - 64px);font-family:var(--body);font-weight:500}
-.badge.set b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.badge svg{flex:none}
-.meta{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
-.brand{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sc{font-weight:600;line-height:1.25}
-.chips{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-.chip{width:14px;height:14px;border-radius:50%;border:1px solid var(--line);display:inline-block;flex:none}
-.row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
-.scales{display:flex;gap:10px}
-.row>span,.scales>span{white-space:nowrap;display:inline-flex;align-items:center}
-.pips{display:inline-flex;gap:2px;margin-left:4px;vertical-align:middle}
-.pips i{width:7px;height:7px;border-radius:2px;background:var(--line)}
-.pips i.on{background:var(--ink)}
-
-/* palette stripe */
-.pal{display:flex;height:12px;border-radius:3px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
-.pal i{display:block;min-width:8px}
-.pal.big{height:30px;border-radius:5px}
-.palnames{display:flex;flex-wrap:wrap;gap:4px 14px;font:400 .76rem var(--mono);color:var(--muted)}
-.palnames span{display:inline-flex;align-items:center;gap:6px}
-.palnames i{width:10px;height:10px;border-radius:2px;border:1px solid var(--line)}
-
-/* outfit card */
-.ogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
-.ocard{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;text-decoration:none;transition:border-color .15s,transform .15s}
-.ocard:hover{border-color:var(--ink);transform:translateY(-2px)}
-.ocard.disliked{opacity:.6}
-.flat{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;background:var(--line);height:clamp(130px,13vw,160px)}
-.flat span{background:var(--photo);overflow:hidden;min-width:0;display:grid;place-items:center}
-.flat img{width:100%;height:100%;object-fit:cover;display:block}
-.flat .sw{width:40%;aspect-ratio:1;border-radius:50%;border:1px solid var(--line)}
-.obody{padding:12px 14px 14px;display:flex;flex-direction:column;gap:9px;min-width:0;flex:1}
-.obody h3{font-family:var(--display);font-weight:700;font-size:1.18rem;line-height:1.15;margin:0;text-wrap:balance}
-.clamp{margin:0;color:var(--muted);font-size:.88rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.ofoot{margin-top:auto;font-size:.74rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
-.ofoot .liked{color:var(--good);font-weight:500}
-.ofoot .disliked{color:var(--bad);font-weight:500}
-
-/* detail pages */
-.back{display:inline-flex;align-items:center;gap:6px;font:500 .85rem var(--body);color:var(--muted);text-decoration:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 13px;cursor:pointer;align-self:flex-start}
-.back:hover{color:var(--ink);border-color:var(--ink)}
-.detail{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:28px;align-items:start;margin-top:-8px}
-.gallery{position:sticky;top:76px;background:var(--photo);border-radius:8px;overflow:hidden;min-width:0}
-.track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
-.track::-webkit-scrollbar{display:none}
-.slide{flex:0 0 100%;scroll-snap-align:center;display:grid;place-items:center;margin:0}
-.slide img{display:block;width:auto;height:auto;max-width:100%;max-height:calc(100vh - 170px)}
-.gnav{display:flex;align-items:center;justify-content:center;gap:14px;padding:8px 12px;font:500 .78rem var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;background:var(--surface);border-top:1px solid var(--line)}
-.gnav button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;width:32px;height:32px;font-size:1.05rem;cursor:pointer}
-.gnav button:disabled{opacity:.35;cursor:default}
-.info{display:flex;flex-direction:column;gap:20px;min-width:0}
-.info h2{font-family:var(--display);font-size:clamp(1.6rem,3.5vw,2.1rem);line-height:1.08;margin:0;text-wrap:balance;letter-spacing:-.01em}
-.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.notes{max-width:65ch;margin:0}
-.mine{border-left:2px solid var(--ink);padding-left:10px;font-style:italic;margin:0}
-.tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.tags span.tg{font-size:.74rem;background:var(--chip);border-radius:999px;padding:2px 9px}
-.label{background:var(--tag);color:var(--tag-ink);font:400 .74rem/1.6 var(--mono);padding:12px 14px;border-radius:3px;border-block:2px dashed var(--line);text-transform:uppercase;overflow-wrap:anywhere;white-space:pre-wrap}
-.panel{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
-.panel h4{margin:0;font:600 .9rem var(--body);display:flex;align-items:center;gap:8px;justify-content:space-between}
-.panel h4 small{font-weight:400;color:var(--muted);font-size:.78rem}
-.inset{display:flex;gap:10px;flex-wrap:wrap}
-.mini{display:flex;flex-direction:column;gap:5px;width:104px;text-decoration:none;font-size:.76rem;line-height:1.25}
-.mini .ph{border-radius:5px;border:1px solid var(--line)}
-.mini:hover .ph{border-color:var(--ink)}
-.mini em{font-style:normal;color:var(--muted)}
-.olist{max-height:300px;overflow-y:auto;display:flex;flex-direction:column;margin:-4px -6px;padding:0 6px;overscroll-behavior:contain}
-.orow{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:12px;align-items:start;padding:10px 4px;text-decoration:none;border-bottom:1px solid var(--line)}
-.orow:last-child{border-bottom:0}
-.orow:hover b{text-decoration:underline}
-.orow .vpal{display:flex;flex-direction:column;width:10px;align-self:stretch;border-radius:3px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
-.vpal i{flex:1}
-.orow b{font-weight:600;display:block}
-.orow span{display:block;font-size:.8rem;color:var(--muted)}
-.orow time{font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-.empty{color:var(--muted);font-size:.86rem;margin:0}
-.state{padding:60px 0;text-align:center;color:var(--muted)}
-.state h1{color:var(--ink);margin-bottom:10px}
-.state code{font-family:var(--mono);background:var(--chip);padding:1px 6px;border-radius:4px}
-
-/* editable details */
-.edit-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.edit-head h3{margin:0;font:600 .9rem var(--body)}
-.edit-head small{color:var(--muted);font-size:.76rem}
-.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;font-size:.88rem;margin:0;align-items:start}
-.kv dt{color:var(--muted);padding:6px 0}
-.kv dd{margin:0;min-width:0}
-.ev{display:flex;align-items:center;gap:8px;width:100%;min-height:34px;text-align:left;border:1px solid transparent;background:none;border-radius:6px;padding:5px 8px;margin-left:-8px;cursor:pointer;flex-wrap:wrap}
-.ev:hover{background:var(--hover);border-color:var(--line)}
-.ev .pen{margin-left:auto;opacity:0;color:var(--muted);flex:none}
-.ev:hover .pen,.ev:focus-visible .pen{opacity:1}
-.ev .none{color:var(--muted)}
-.ev.block{display:block;padding:8px 10px;margin-left:-10px;width:calc(100% + 20px)}
-.ev.block .pen{position:absolute;right:10px;top:8px}
-.ev.block{position:relative}
-.cchip{display:inline-flex;align-items:center;gap:6px}
-.addnote{color:var(--muted);font-size:.86rem}
-
-/* combobox */
-.cb{position:relative;width:100%}
-.cb input,.txt,.num,textarea.txt{width:100%;font:inherit;font-size:.9rem;color:var(--ink);background:var(--surface);border:1px solid var(--ink);border-radius:6px;padding:6px 9px}
-.cb input{padding-right:30px}
-.cb .caret{position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted)}
-.cb ul{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;margin:0;padding:4px;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px var(--shade);max-height:260px;overflow-y:auto}
-.cb li{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:.88rem}
-.cb li[aria-selected="true"]{background:var(--chip)}
-.cb li.cur::after{content:"current";margin-left:auto;font:400 .7rem var(--mono);color:var(--muted)}
-.cb li.free{color:var(--muted)}
-.cb li.free b{color:var(--ink);font-weight:500}
-.cb.inline ul{position:static;margin-top:4px;box-shadow:none;max-height:200px}
-.cb .nomatch{padding:8px;color:var(--muted);font-size:.84rem}
-.cb.invalid input{border-color:var(--bad)}
-.hintline{font-size:.74rem;color:var(--muted);margin-top:4px}
-.hintline.err{color:var(--bad)}
-.multi{display:flex;flex-direction:column;gap:8px;width:100%}
-.multi .have{display:flex;flex-wrap:wrap;gap:6px}
-.pill{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border-radius:999px;padding:3px 4px 3px 10px;font-size:.82rem}
-.pill button{border:0;background:none;cursor:pointer;color:var(--muted);width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:.95rem;line-height:1}
-.pill button:hover{background:var(--line);color:var(--ink)}
-.btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 14px;cursor:pointer;font:500 .84rem var(--body)}
-.btn:hover{border-color:var(--ink)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.btn.quiet{border-color:transparent;color:var(--muted)}
-.btn.quiet:hover{color:var(--ink);border-color:var(--line)}
-.done-btn{align-self:flex-start}
-
-/* materials editor */
-.mats{display:flex;flex-direction:column;gap:12px;width:100%}
-.mpart{border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px}
-.mpart .top{display:flex;gap:8px;align-items:center}
-.frow{display:grid;grid-template-columns:minmax(0,1fr) 84px auto;gap:6px;align-items:center}
-.num{text-align:right}
-.pct{position:relative}
-.pct::after{content:"%";position:absolute;right:-14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8rem}
-.frow .x,.mpart .x{border:0;background:none;color:var(--muted);cursor:pointer;width:28px;height:28px;border-radius:50%;font-size:1rem;margin-left:12px}
-.frow .x:hover,.mpart .x:hover{background:var(--chip);color:var(--ink)}
-.msum{font:400 .74rem var(--mono);color:var(--muted)}
-.msum.off{color:var(--bad)}
-
-/* outfit page */
-.ohead{display:flex;flex-direction:column;gap:14px;padding-top:22px;max-width:820px}
-.req{color:var(--muted);margin:0}
-.req q{color:var(--ink);quotes:"“" "”"}
-.lede{font-size:1.06rem;max-width:65ch;margin:0}
-.missing{background:var(--tag);color:var(--tag-ink);border-radius:6px;padding:12px 14px;max-width:65ch;font-size:.9rem}
-.missing b{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
-.pieces{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
-.piece{display:flex;flex-direction:column;gap:9px;text-decoration:none;min-width:0}
-.piece .ph{border-radius:8px;border:1px solid var(--line)}
-.piece:hover .ph{border-color:var(--ink)}
-.piece .nm{font-weight:600;line-height:1.25}
-.piece p{margin:0;font-size:.9rem}
-.anchor{display:inline-block;font:500 .66rem var(--body);text-transform:uppercase;letter-spacing:.07em;border:1px solid var(--ink);border-radius:3px;padding:0 5px;margin-left:6px;vertical-align:1px;color:var(--ink)}
-.pager{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.84rem;color:var(--muted)}
-.pager a{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;text-decoration:none;color:var(--ink)}
-.pager a[aria-disabled="true"]{opacity:.35;pointer-events:none}
-.rate{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.rate .seg button{color:var(--ink)}
-.rate .seg button[data-rate="true"][aria-pressed="true"]{background:var(--good);color:#fff}
-.rate .seg button[data-rate="false"][aria-pressed="true"]{background:var(--bad);color:#fff}
-.rate small{color:var(--muted);font-size:.78rem}
-
-/* toast */
-.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--accent);color:var(--on-accent);
-  padding:9px 16px;border-radius:999px;font:500 .86rem var(--body);box-shadow:0 6px 20px var(--shade);max-width:calc(100vw - 32px);opacity:0;pointer-events:none;transition:opacity .2s}
-.toast.show{opacity:1}
-.toast.err{background:var(--bad);color:#fff}
-
-@media (max-width:780px){
-  .detail{grid-template-columns:minmax(0,1fr)}
-  .gallery{position:static}
-  .slide img{max-height:62vh}
-  .stats{gap:14px}
-}
-@media (max-width:480px){
-  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-  .seg a,.seg button{padding:5px 10px}
-  .kv{grid-template-columns:minmax(0,1fr)}
-  .kv dt{padding:8px 0 0}
-}
-@media (prefers-reduced-motion:reduce){.card,.ocard,.toast{transition:none}.card:hover,.ocard:hover{transform:none}}
-</style>
+<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
 <div class="bar"><div class="bar-in">
@@ -307,6 +60,7 @@ const THUMB_DOWN = `<svg viewBox="0 0 16 16" aria-hidden="true" style="transform
 
 const photoName = url => decodeURIComponent(url.split("/").pop()).replace(/\.\w+$/, "");
 const mainPhoto = g => g.photos.length ? g.photos[0].url : null;
+const thumb = g => g.photos.length ? g.photos[0].thumb_url : null;
 
 let toastTimer = null;
 function toast(msg, isErr){
@@ -368,7 +122,6 @@ function palette(o){
 }
 const palBar = (o, cls="") => `<div class="pal ${cls}" role="img" aria-label="Palette: ${esc(palette(o).map(s=>s.c).join(", "))}">${palette(o).map(s => `<i style="flex:${s.n};background:${hex(s.c)}" title="${esc(s.c)}"></i>`).join("")}</div>`;
 const vPal = o => `<span class="vpal" aria-hidden="true">${palette(o).map(s => `<i style="flex:${s.n};background:${hex(s.c)}"></i>`).join("")}</span>`;
-const likeTag = o => o.liked === true ? `<span class="liked">liked</span>` : o.liked === false ? `<span class="disliked">disliked</span>` : "";
 
 /* ================= wardrobe ================= */
 let cat = "all", scope = "any";
@@ -377,18 +130,19 @@ function gCard(g){
   const chips = [g.primary_color, ...g.secondary_colors, ...g.accent_colors].filter(Boolean)
     .map(c => `<span class="chip" title="${esc(c)}" style="background:${hex(c)}"></span>`).join("");
   const n = (outfitsOf[g.id] || []).length;
-  return `<a class="card" href="#garment-${g.id}" aria-label="${esc(title(g))}, ${esc(g.primary_color)}">
-    <div class="ph">${ph(g, mainPhoto(g))}<span class="badge id">#${g.id}</span>
+  const picked = builder.pieces.includes(g.id);
+  return `<div class="cardwrap${picked ? " picked" : ""}"><a class="card" href="#garment-${g.id}" aria-label="${esc(title(g))}, ${esc(g.primary_color)}">
+    <div class="ph">${ph(g, thumb(g))}<span class="badge id">#${g.id}</span>
       ${s ? `<span class="badge set" title="Part of a set: ${esc(setName(s))}">${SET_ICON}<b>${esc(setName(s))}</b></span>` : ""}</div>
     <div class="meta">
       <span class="brand">${esc(g.brand || "unknown brand")}</span>
       <span class="sc">${esc(g.subcategory)}</span>
       <span class="chips">${chips}</span>
       <span class="row"><span class="scales"><span>F${pips(g.formality||0,4)}</span><span>W${pips(g.warmth||0,5)}</span></span><span>${n ? plural(n,"outfit") : "no outfits"}</span></span>
-    </div></a>`;
+    </div></a><span class="addlayer">${pickButton(g)}</span></div>`;
 }
 function wardrobe(){
-  if (!G.length) return `<div class="state"><h1>Your wardrobe is empty</h1><p>Add garments from the command line with <code>enclothed add</code>, then refresh this page.</p></div>`;
+  if (!G.length) return `<div class="state"><h1>Your wardrobe is empty</h1><p>Photograph a garment to add it.</p><p><button type="button" class="btn primary" data-add-garment>+ Add garment</button></p></div>`;
   const inScope = g => scope === "any" || (scope === "sets" && g.set_id) || (scope === "unstyled" && !outfitsOf[g.id]);
   const pool = G.filter(inScope);
   const cats = RAIL_ORDER.filter(c => G.some(g => g.category === c));
@@ -397,9 +151,10 @@ function wardrobe(){
   const btn = (k, v, label, n) => `<button type="button" data-${k}="${esc(v)}" aria-pressed="${(k==='cat'?cat:scope)===v}">${esc(label)} <span>${n}</span></button>`;
   const rails = cats.filter(c => cat === "all" || c === cat).map(c => {
     const items = pool.filter(g => g.category === c);
-    return items.length ? `<section class="rail"><h2>${esc(c)} <span>${items.length}</span></h2><div class="grid">${items.map(gCard).join("")}</div></section>` : "";
+    return items.length ? `<section class="rail" id="rail-${esc(c)}"><h2>${esc(c)} <span>${items.length}</span></h2><div class="grid">${items.map(gCard).join("")}</div></section>` : "";
   }).join("") || `<p class="empty">Nothing matches these filters.</p>`;
-  return `<header class="hero"><div><h1>The wardrobe</h1><p class="sub">Every garment, as tagged from its photos. Open one to see its set, every outfit it has been styled into, and to correct any tag.</p></div>
+  return `<header class="hero"><div><h1>The wardrobe</h1><p class="sub">Every garment, as tagged from its photos. Open one to see its set, every outfit it has been styled into, and to correct any tag.</p>
+      <div class="hero-actions"><button type="button" class="btn primary" data-add-garment>+ Add garment</button><button type="button" class="btn" data-builder-open>${builder.open ? "Outfit builder is open" : "Put together an outfit"}</button></div></div>
     <div class="stats"><div><b>${G.length}</b>garments</div><div><b>${brands}</b>brands</div><div><b>${SETS.length}</b>sets</div><div><b>${O.length}</b>outfits</div></div></header>
     <div class="filters" role="toolbar" aria-label="Filter garments">
       ${btn("cat","all","All",pool.length)}${cats.map(c => btn("cat", c, c, pool.filter(g => g.category === c).length)).join("")}
@@ -411,28 +166,69 @@ function wardrobe(){
 
 /* ================= outfits ================= */
 let req = "all";
+/* An outfit can only be as formal as its least formal piece (a garment's formality is the most
+   formal occasion it can serve), and it's as warm as its warmest top layer (outerwear, top, or
+   one-piece; bottoms, shoes and accessories rarely decide the temperature). Pieces without a
+   value are ignored. Both are computed from the garments, so they stay right after edits. */
+const WARM_LAYERS = new Set(["outerwear", "top", "one-piece"]);
+function outfitFormality(o){ const v = o.pieces.map(p => byId[p.id]?.formality).filter(Boolean); return v.length ? Math.min(...v) : null; }
+function outfitWarmth(o){ const v = o.pieces.map(p => byId[p.id]).filter(g => g && WARM_LAYERS.has(g.category) && g.warmth).map(g => g.warmth); return v.length ? Math.max(...v) : null; }
+function rateButtons(o){
+  const b = (v, icon, verb) => `<button type="button" class="ratebtn" data-rate="${v}" data-rate-id="${o.id}" aria-pressed="${o.liked === v}" aria-label="${verb} ${esc(o.aesthetic)}" title="${o.liked === v ? "Clear rating" : verb}">${icon}</button>`;
+  return `<div class="ocard-rate" role="group" aria-label="Rate this outfit">${b(true, THUMB_UP, "Like")}${b(false, THUMB_DOWN, "Dislike")}</div>`;
+}
 function oCard(o){
   const pcs = o.pieces.map(p => byId[p.id]).filter(Boolean);
-  return `<a class="ocard${o.liked === false ? " disliked" : ""}" href="#outfit-${o.id}">
-    <div class="flat" aria-hidden="true">${pcs.map(g => `<span>${ph(g, mainPhoto(g))}</span>`).join("")}</div>
+  const f = outfitFormality(o), w = outfitWarmth(o);
+  return `<div class="ocardwrap${o.liked === false ? " disliked" : ""}"><a class="ocard" href="#outfit-${o.id}">
+    <div class="flat" aria-hidden="true">${pcs.map(g => `<span>${ph(g, thumb(g))}</span>`).join("")}</div>
     ${palBar(o)}
     <div class="obody"><h3>${esc(o.aesthetic)}</h3><p class="clamp">${esc(o.explanation)}</p>
-      <div class="ofoot"><span>${when(o.timestamp)}</span><span>${plural(pcs.length,"piece")}</span>${o.missing ? "<span>needs extras</span>" : ""}${likeTag(o)}</div></div></a>`;
+      <div class="ofoot"><span>${when(o.timestamp)}</span><span>${plural(pcs.length,"piece")}</span>
+        <span title="Formality: ${f ? esc(levelLabel(OPT.formality, f)) : "unknown"} (least formal piece)">F${pips(f || 0, 4)}</span>
+        <span title="Warmth: ${w ? esc(levelLabel(OPT.warmth, w)) : "unknown"} (warmest top layer)">W${pips(w || 0, 5)}</span>
+        ${o.missing ? "<span>needs extras</span>" : ""}</div></div></a>${rateButtons(o)}</div>`;
+}
+let ofilt = {q: "", from: "", to: "", formality: [], warmth: []};
+const filtersActive = () => !!(ofilt.q.trim() || ofilt.from || ofilt.to || ofilt.formality.length || ofilt.warmth.length);
+const localDay = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+function passesFilters(o){
+  const q = ofilt.q.trim().toLowerCase();
+  if (q && !o.prompt_message.toLowerCase().includes(q)) return false;
+  const day = localDay(o.timestamp);
+  if (ofilt.from && day < ofilt.from) return false;
+  if (ofilt.to && day > ofilt.to) return false;
+  if (ofilt.formality.length && !ofilt.formality.includes(outfitFormality(o))) return false;
+  if (ofilt.warmth.length && !ofilt.warmth.includes(outfitWarmth(o))) return false;
+  return true;
+}
+function filterPanel(){
+  const chip = (kind, l, label, full) => `<button type="button" data-ofilt-${kind}="${l.value}" aria-pressed="${ofilt[kind === "f" ? "formality" : "warmth"].includes(l.value)}" title="${esc(full)}">${esc(label)}</button>`;
+  return `<div class="ofilters" role="search" aria-label="Filter outfits">
+    <div class="field"><label for="of-q">Request contains</label><input id="of-q" class="txt" type="search" data-ofilt="q" value="${esc(ofilt.q)}" placeholder="e.g. dinner" autocomplete="off"></div>
+    <div class="field"><label for="of-from">From</label><input id="of-from" class="txt" type="date" data-ofilt="from" value="${esc(ofilt.from)}" max="${esc(ofilt.to)}"></div>
+    <div class="field"><label for="of-to">To</label><input id="of-to" class="txt" type="date" data-ofilt="to" value="${esc(ofilt.to)}" min="${esc(ofilt.from)}"></div>
+    <div class="field wide"><span class="flabel">Formality <em>(of the least formal piece)</em></span><div class="filters">${OPT.formality.map(l => chip("f", l, l.label, `${l.value} · ${l.label}`)).join("")}</div></div>
+    <div class="field wide"><span class="flabel">Warmth <em>(of the warmest top layer)</em></span><div class="filters">${OPT.warmth.map(l => chip("w", l, l.label.split(",")[0], `${l.value} · ${l.label}`)).join("")}</div></div>
+    ${filtersActive() ? `<button type="button" class="btn quiet" data-ofilt-clear>Clear filters</button>` : ""}
+  </div>`;
 }
 function outfits(){
-  if (!O.length) return `<header class="hero"><div><h1>Outfits</h1></div></header><div class="state"><p>No outfits yet. Ask for some with <code>enclothed outfit</code>, then refresh this page.</p></div>`;
-  const groups = [...REQUESTS].reverse().map(r => ({...r, shown: r.items.filter(visible)})).filter(r => r.shown.length);
+  if (!O.length) return `<header class="hero"><div><h1>Outfits</h1><div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button></div></div></header><div class="state"><p>No outfits yet. Start one with “New outfit”.</p></div>`;
+  const groups = [...REQUESTS].reverse().map(r => ({...r, shown: r.items.filter(o => visible(o) && passesFilters(o))})).filter(r => r.shown.length);
   const nDisliked = O.filter(o => o.liked === false).length;
   if (req !== "all" && !groups.some(r => r.key === req)) req = "all";
   const shownTotal = groups.reduce((n, r) => n + r.shown.length, 0);
   const btn = (k, label, n, full) => `<button type="button" data-req="${k}" aria-pressed="${req===k}" title="${esc(full||label)}">${esc(label)} <span>${n}</span></button>`;
   const toggle = nDisliked ? `<span class="sep" aria-hidden="true"></span><button type="button" data-toggle-disliked aria-pressed="${showDisliked}">${showDisliked ? "Showing" : "Show"} disliked <span>${nDisliked}</span></button>` : "";
   const shown = groups.filter(r => req === "all" || r.key === req);
-  return `<header class="hero"><div><h1>Outfits</h1><p class="sub">Every outfit suggested so far, grouped by what you asked for. The stripe is each piece's main color, outer layer down to shoes.</p></div>
+  return `<header class="hero"><div><h1>Outfits</h1><p class="sub">Every outfit suggested so far, grouped by what you asked for. The stripe is each piece's main color, outer layer down to shoes.</p>
+      <div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button>${builder.session ? `<a class="btn" href="#results" style="text-decoration:none">Latest suggestions</a>` : ""}</div></div>
     <div class="stats"><div><b>${O.length}</b>outfits</div><div><b>${REQUESTS.length}</b>requests</div><div><b>${O.filter(o => o.liked).length}</b>liked</div></div></header>
+    ${filterPanel()}
     <div class="filters" role="toolbar" aria-label="Filter by request">${btn("all","All requests",shownTotal)}${groups.map(r => btn(r.key, r.text, r.shown.length, r.text)).join("")}${toggle}</div>
     <main style="display:flex;flex-direction:column;gap:34px">${shown.length ? shown.map(r => `<section class="rail"><h2 class="req"><q>${esc(r.text)}</q> <span>${plural(r.shown.length,"option")}</span></h2>
-      <div class="ogrid">${r.shown.map(oCard).join("")}</div></section>`).join("") : `<p class="empty">Every outfit here is disliked. Use “Show disliked” to see them.</p>`}</main>`;
+      <div class="ogrid">${r.shown.map(oCard).join("")}</div></section>`).join("") : `<p class="empty">${filtersActive() ? "No outfits match these filters." : "Every outfit here is disliked. Use “Show disliked” to see them."}</p>`}</main>`;
 }
 
 /* ================= outfit page ================= */
@@ -457,7 +253,7 @@ function outfitPage(o){
     </div>
     <section class="pieces" aria-label="Pieces">${o.pieces.map(p => { const g = byId[p.id]; if (!g) return ""; return `
       <a class="piece" href="#garment-${g.id}">
-        <div class="ph">${ph(g, mainPhoto(g))}<span class="badge id">#${g.id}</span>${g.set_id ? `<span class="badge set" title="Part of a set">${SET_ICON}<b>${esc(setName(setById[g.set_id]))}</b></span>` : ""}</div>
+        <div class="ph">${ph(g, thumb(g))}<span class="badge id">#${g.id}</span>${g.set_id ? `<span class="badge set" title="Part of a set">${SET_ICON}<b>${esc(setName(setById[g.set_id]))}</b></span>` : ""}</div>
         <span class="eyebrow">${esc(g.category)}${p.anchor ? `<span class="anchor" title="You asked for the outfit to be built around this piece">anchor</span>` : ""}</span>
         <span class="nm">${esc(title(g))}</span>
         ${p.advice ? `<p>${esc(p.advice)}</p>` : `<p class="empty">No specific advice for this piece.</p>`}
@@ -504,7 +300,7 @@ function garmentPage(g){
     const ids = G.filter(x => x.set_id === s.id).map(x => x.id);
     const together = O.filter(o => ids.every(id => o.pieces.some(p => p.id === id))).length;
     setPanel = `<div class="panel"><h4><span style="display:inline-flex;gap:7px;align-items:center">${SET_ICON} Part of a set: ${esc(setName(s))}</span><small>worn together in ${plural(together,"outfit")}</small></h4>
-      <div class="inset">${others.map(x => `<a class="mini" href="#garment-${x.id}"><div class="ph">${ph(x, mainPhoto(x))}</div><span>${esc(x.subcategory)}</span><em>#${x.id}</em></a>`).join("")}</div></div>`;
+      <div class="inset">${others.map(x => `<a class="mini" href="#garment-${x.id}"><div class="ph">${ph(x, thumb(x))}</div><span>${esc(x.subcategory)}</span><em>#${x.id}</em></a>`).join("")}</div></div>`;
   }
   const allUses = (outfitsOf[g.id] || []).slice().sort((a, b) => b.o.timestamp.localeCompare(a.o.timestamp));
   const uses = allUses.filter(u => visible(u.o));
@@ -516,7 +312,7 @@ function garmentPage(g){
   const co = {};
   uses.forEach(u => u.o.pieces.forEach(p => { if (p.id !== g.id && byId[p.id] && !(g.set_id && byId[p.id].set_id === g.set_id)) co[p.id] = (co[p.id]||0) + 1; }));
   const top = Object.entries(co).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const coPanel = top.length >= 2 ? `<div class="panel"><h4>Often paired with</h4><div class="inset">${top.map(([id, n]) => { const x = byId[id]; return `<a class="mini" href="#garment-${x.id}"><div class="ph">${ph(x, mainPhoto(x))}</div><span>${esc(x.subcategory)}</span><em>together ${n}×</em></a>`; }).join("")}</div></div>` : "";
+  const coPanel = top.length >= 2 ? `<div class="panel"><h4>Often paired with</h4><div class="inset">${top.map(([id, n]) => { const x = byId[id]; return `<a class="mini" href="#garment-${x.id}"><div class="ph">${ph(x, thumb(x))}</div><span>${esc(x.subcategory)}</span><em>together ${n}×</em></a>`; }).join("")}</div></div>` : "";
   const gallery = g.photos.length ? `<div class="track" id="track" tabindex="0" aria-label="Photos">${g.photos.map((p, i) =>
       `<figure class="slide"><img src="${esc(encodeURI(p.url))}" alt="${esc(title(g))}, ${esc(photoName(p.url))}" ${i > 1 ? 'loading="lazy"' : ""}></figure>`).join("")}</div>
       <div class="gnav"><button type="button" id="gprev" aria-label="Previous photo">‹</button><span id="gcount"></span><button type="button" id="gnext" aria-label="Next photo">›</button></div>`
@@ -530,7 +326,8 @@ function garmentPage(g){
     <div class="detail">
     <div class="gallery">${gallery}</div>
     <div class="info">
-      <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(g.category)} · #${g.id}</span><h2>${esc(g.subcategory)}</h2></div>
+      <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(g.category)} · #${g.id}</span><h2>${esc(g.subcategory)}</h2>
+        <div class="hero-actions"><button type="button" class="btn${builder.pieces.includes(g.id) ? " primary" : ""}" data-pick="${g.id}" aria-pressed="${builder.pieces.includes(g.id)}">${builder.pieces.includes(g.id) ? "− Remove from outfit" : "+ Add to outfit"}</button></div></div>
       ${setPanel}
       <p class="notes">${esc(g.styling_notes)}</p>
       ${notes}
@@ -567,7 +364,7 @@ const galleryIndex = () => { const t = document.getElementById("track"); return 
    A text box with a filtered list. Enforced (default): only a listed option can be picked.
    Free: anything typed is accepted, and the list offers suggestions. */
 let comboSeq = 0;
-function combo(host, {options, current, free = false, placeholder = "Type to filter…", onPick, onCancel, keepOpen = false}){
+function combo(host, {options, current, free = false, placeholder = "Type to filter…", onPick, onCancel, keepOpen = false, autofocus = true, collapsed = false}){
   const id = "cb" + (++comboSeq);
   host.innerHTML = `<div class="cb${keepOpen ? " inline" : ""}"><input type="text" role="combobox" aria-expanded="true" aria-controls="${id}" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="${esc(placeholder)}">
     <span class="caret" aria-hidden="true">▾</span><ul role="listbox" id="${id}"></ul></div>
@@ -575,9 +372,11 @@ function combo(host, {options, current, free = false, placeholder = "Type to fil
   const wrap = host.querySelector(".cb"), input = wrap.querySelector("input"), list = wrap.querySelector("ul"), hint = host.querySelector(".hintline");
   const curOpt = options.find(o => o.value === current);
   input.value = curOpt ? curOpt.label : (free && current ? String(current) : "");
-  let typed = false, active = -1, shown = [], done = false;
+  let typed = false, active = -1, shown = [], done = false, opened = !collapsed;
   const norm = s => String(s).toLowerCase().trim();
   function render(){
+    if (!opened){ list.hidden = true; hint.hidden = true; input.setAttribute("aria-expanded", "false"); return; }
+    list.hidden = false; hint.hidden = false; input.setAttribute("aria-expanded", "true");
     const q = typed ? norm(input.value) : "";
     shown = q ? options.filter(o => norm(o.label).includes(q) || norm(o.value ?? "").includes(q)) : options.slice();
     const exact = free && q && options.some(o => norm(o.label) === q);
@@ -591,7 +390,7 @@ function combo(host, {options, current, free = false, placeholder = "Type to fil
     hint.textContent = keepOpen ? (free ? "Enter to add · Esc when done" : "Pick to add · Esc when done") : free ? "Enter to save · Esc to cancel" : "Pick from the list · Esc to cancel";
   }
   const freeRowCount = () => (list.querySelector("[data-free]") ? 1 : 0);
-  function pickIndex(i){ if (done) return; done = !keepOpen; onPick(shown[i].value); if (keepOpen){ input.value = ""; typed = false; active = -1; render(); input.focus(); } }
+  function pickIndex(i){ if (done) return; done = !keepOpen; const v = shown[i].value; if (keepOpen){ input.value = ""; typed = false; active = -1; if (collapsed) opened = false; render(); } onPick(v); }
   function pickFree(){ if (done) return; const v = input.value.trim(); done = !keepOpen; onPick(v === "" ? null : v); if (keepOpen){ input.value = ""; typed = false; render(); input.focus(); } }
   function cancel(){ if (done) return; done = true; onCancel && onCancel(); }
   function reject(){ wrap.classList.add("invalid"); hint.classList.add("err"); hint.textContent = "Not one of the options. Pick one from the list."; }
@@ -604,15 +403,17 @@ function combo(host, {options, current, free = false, placeholder = "Type to fil
     if (shown.length === 1) return pickIndex(0);
     reject();
   }
-  input.addEventListener("input", () => { typed = true; active = norm(input.value) ? 0 : -1; render(); });
+  const collapse = () => { input.value = ""; typed = false; active = -1; opened = false; render(); };
+  input.addEventListener("input", () => { typed = true; opened = true; active = norm(input.value) ? 0 : -1; render(); });
   input.addEventListener("keydown", e => {
     const total = shown.length + freeRowCount();
-    if (e.key === "ArrowDown"){ e.preventDefault(); active = Math.min(total - 1, active + 1); render(); }
+    if (e.key === "ArrowDown"){ e.preventDefault(); if (!opened){ opened = true; active = 0; render(); return; } active = Math.min(total - 1, active + 1); render(); }
     else if (e.key === "ArrowUp"){ e.preventDefault(); active = Math.max(0, active - 1); render(); }
     else if (e.key === "Enter"){ e.preventDefault();
       const sel = list.querySelector('[aria-selected="true"]');
       if (sel && sel.dataset.free) pickFree(); else if (sel && sel.dataset.i !== undefined) pickIndex(+sel.dataset.i); else commitTyped(); }
-    else if (e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); cancel(); }
+    else if (e.key === "Escape"){ e.preventDefault(); e.stopPropagation();
+      if (keepOpen){ if (collapsed && opened) collapse(); else onCancel && onCancel(); } else cancel(); }
     else if (e.key === "Tab" && !keepOpen){ if (typed) commitTyped(); else cancel(); }
   });
   list.addEventListener("mousedown", e => {
@@ -622,7 +423,7 @@ function combo(host, {options, current, free = false, placeholder = "Type to fil
   });
   input.addEventListener("blur", () => setTimeout(() => {
     if (done || host.contains(document.activeElement)) return;
-    if (keepOpen) return;
+    if (keepOpen){ if (collapsed) collapse(); return; }
     if (!typed) return cancel();
     const q = norm(input.value);
     if (free) return pickFree();
@@ -630,7 +431,7 @@ function combo(host, {options, current, free = false, placeholder = "Type to fil
     if (exactI >= 0) pickIndex(exactI); else cancel();
   }, 120));
   render();
-  input.focus(); input.select();
+  if (autofocus){ input.focus(); input.select(); }
   return {input};
 }
 
@@ -711,7 +512,7 @@ function multiEditor(host, g, field, options, free){
     save(g, {[field]: next}).then(() => openEditor(field));
   });
   host.querySelector(".done-btn").addEventListener("click", () => refresh());
-  combo(host.querySelector(".adder"), {options: options.filter(o => !values.includes(o.value)), free, keepOpen: true,
+  combo(host.querySelector(".adder"), {options: options.filter(o => !values.includes(o.value)), free, keepOpen: true, onCancel: () => refresh(),
     placeholder: isColor ? "Add a color…" : "Add a tag…",
     onPick: v => { if (v === null || values.includes(v)) return; save(g, {[field]: [...values, v]}).then(() => openEditor(field)); }});
   host.addEventListener("keydown", e => { if (e.key === "Escape") refresh(); });
@@ -788,9 +589,289 @@ async function rate(o, value){
     const updated = adoptOutfit(await api(`/api/outfits/${o.id}`, {method: "PATCH", body: {liked: next}}));
     const i = O.findIndex(x => x.id === o.id);
     O[i] = updated; reindex();
-    toast(next === true ? "Liked" : next === false ? "Disliked" : "Rating cleared");
+    toast(next === true ? "Liked" : next === false ? (current === "outfits" && !showDisliked ? "Disliked, and hidden. “Show disliked” brings it back." : "Disliked") : "Rating cleared");
   } catch (e) { toast(e.message, true); }
   refresh();
+}
+
+/* ================= outfit builder =================
+   A floating panel for putting an outfit together: pick pieces, add details, then either
+   ask for suggestions (the pieces become anchors) or save it as your own outfit.
+   A "session" is one run of suggestions: retrying after a change adds to the same results page. */
+const builder = Object.assign({open: false, min: false, pieces: [], details: "", manual: false, form: {aesthetic: "", explanation: "", missing: "", advice: {}}, session: null},
+  store.get("enclothed-builder", {}));
+let builderBusy = false, restoringTree = false;
+const saveBuilder = () => store.set("enclothed-builder", {open: builder.open, min: builder.min, pieces: builder.pieces, details: builder.details,
+  manual: builder.manual, form: builder.form, session: builder.session});
+const sortedPieces = () => builder.pieces.map(id => byId[id]).filter(Boolean).sort((a, b) => catRank(a) - catRank(b) || a.id - b.id);
+const sameSet = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+const unchangedSinceLast = () => builder.session && sameSet(builder.pieces, builder.session.last.pieces) && builder.details.trim() === builder.session.last.details.trim();
+
+function pickButton(g){
+  const on = builder.pieces.includes(g.id);
+  return `<button type="button" class="addbtn" data-pick="${g.id}" aria-pressed="${on}" aria-label="${on ? "Remove from outfit" : "Add to outfit"}: ${esc(title(g))}" title="${on ? "Remove from outfit" : "Add to outfit"}">${on ? "−" : "+"}</button>`;
+}
+function togglePiece(id){
+  id = +id;
+  if (builder.pieces.includes(id)) builder.pieces = builder.pieces.filter(x => x !== id);
+  else { builder.pieces = [...builder.pieces, id]; if (!builder.open){ builder.open = true; builder.min = isPhone(); } }
+  saveBuilder(); renderBuilder(); refresh();
+}
+const isPhone = () => matchMedia("(max-width:900px)").matches;
+function openBuilder(){ builder.open = true; builder.min = false; saveBuilder(); renderBuilder(); refresh(); }
+function closeBuilder(){ builder.open = false; saveBuilder(); renderBuilder(); refresh(); }
+function newOutfit(){
+  Object.assign(builder, {open: true, min: false, pieces: [], details: "", manual: false, form: {aesthetic: "", explanation: "", missing: "", advice: {}}, session: null});
+  saveBuilder(); renderBuilder();
+  if (location.hash !== "#wardrobe") location.hash = "#wardrobe"; else refresh();
+}
+function scrollToCategory(c){
+  const goScroll = () => document.getElementById("rail-" + c)?.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start"});
+  if (cat !== "all" && cat !== c) cat = "all";
+  scope = "any";
+  if (current !== "wardrobe"){ location.hash = "#wardrobe"; setTimeout(goScroll, 60); }
+  else { refresh(); goScroll(); }
+}
+
+function renderBuilder(){
+  let el = document.getElementById("builder");
+  if (!el){ el = document.createElement("aside"); el.id = "builder"; el.className = "builder"; el.setAttribute("aria-label", "Outfit builder"); document.body.appendChild(el); }
+  document.body.classList.toggle("with-builder", builder.open);
+  document.body.classList.toggle("builder-min", builder.open && builder.min);
+  el.hidden = !builder.open;
+  el.classList.toggle("min", builder.min);
+  if (!builder.open) return;
+  const keepScroll = el.querySelector(".bbody")?.scrollTop || 0;
+  const openTrees = [...el.querySelectorAll("details[data-tree][open]")].map(d => d.dataset.tree);
+  const pieces = sortedPieces();
+  const hasDetails = builder.details.trim().length > 0;
+  const retry = !!builder.session;
+  let suggestBlock = "";
+  let reason = "";
+  if (!pieces.length && !hasDetails) reason = "Pick at least one piece or describe the occasion.";
+  else if (retry && unchangedSinceLast()) reason = "Change the pieces or details to get new suggestions.";
+  const cats = RAIL_ORDER.filter(c => G.some(g => g.category === c));
+  const tree = cats.map(c => { const items = G.filter(g => g.category === c); return `<details data-tree="${esc(c)}"><summary><span>${esc(c)}</span><em>${items.length}</em></summary><ul>${items.map(g => {
+      const on = builder.pieces.includes(g.id);
+      return `<li><span class="chip" style="background:${hex(g.primary_color)}"></span><span>${esc(title(g))}</span><button type="button" class="small-add" data-pick="${g.id}" aria-pressed="${on}" aria-label="${on ? "Remove" : "Add"} ${esc(title(g))}">${on ? "−" : "+"}</button></li>`; }).join("")}</ul></details>`; }).join("");
+  const pieceRows = pieces.length ? pieces.map(g => `<div class="bpiece">
+      <div class="ph">${ph(g, thumb(g))}<button type="button" class="rm" data-pick="${g.id}" aria-label="Remove ${esc(title(g))} from outfit">×</button></div>
+      <div><span class="eyebrow">${esc(g.category)}</span><br><a class="nm" href="#garment-${g.id}">${esc(title(g))}</a>
+        ${builder.manual ? `<input class="txt" data-advice="${g.id}" value="${esc(builder.form.advice[g.id] || "")}" placeholder="How to wear it (optional)" aria-label="How to wear ${esc(title(g))}">` : ""}</div>
+    </div>`).join("") : `<p class="bhint">No pieces yet. Use the + on any garment, the list below, or type a name.</p>`;
+
+  const manualForm = `<div class="bsec">
+      <div class="field"><label for="b-aes">Name <span class="req-star" aria-hidden="true">*</span></label><input id="b-aes" class="txt" data-form="aesthetic" value="${esc(builder.form.aesthetic)}" placeholder="e.g. Sunday errands" required></div>
+      <div class="field"><label for="b-exp">Why it works <span class="req-star" aria-hidden="true">*</span></label><textarea id="b-exp" class="txt" rows="3" data-form="explanation" placeholder="A sentence or two for future you" required>${esc(builder.form.explanation)}</textarea></div>
+      <div class="field"><label for="b-mis">Still missing <em>(optional)</em></label><input id="b-mis" class="txt" data-form="missing" value="${esc(builder.form.missing)}" placeholder="e.g. a darker belt"></div>
+    </div>`;
+  const busy = builderBusy ? `<div class="busy" role="status"><span class="spin" aria-hidden="true"></span>${builder.manual ? "Saving…" : "Asking for outfit suggestions… this can take up to a minute."}</div>` : "";
+  const manualReason = !pieces.length ? "Add at least one piece." : (!builder.form.aesthetic.trim() || !builder.form.explanation.trim()) ? "Fill in the name and why it works." : "";
+  const foot = builder.manual
+    ? `${busy}<button type="button" class="btn primary wide" data-save-own ${manualReason || builderBusy ? "disabled" : ""}>Save outfit</button>
+       <p class="bhint" id="b-reason">${esc(manualReason)}</p>
+       <button type="button" class="btn quiet wide" data-manual="off" ${builderBusy ? "disabled" : ""}>Back to suggestions</button>`
+    : `${busy}<button type="button" class="btn primary wide" data-suggest ${reason || builderBusy ? "disabled" : ""}>${retry ? "Suggest again" : "Generate outfit suggestions"}</button>
+       <p class="bhint" id="b-reason">${esc(reason)}</p>
+       <button type="button" class="btn quiet wide" data-manual="on" ${builderBusy ? "disabled" : ""}>Save as my own outfit instead</button>`;
+
+  el.innerHTML = `<div class="bhead"><h2>${retry ? "Refine outfit" : "New outfit"}</h2><small>${plural(pieces.length, "piece")}</small>
+      <button type="button" class="iconbtn" data-builder-min aria-label="${builder.min ? "Expand" : "Minimize"} outfit builder" aria-expanded="${!builder.min}">${builder.min ? "▴" : "▾"}</button>
+      <button type="button" class="iconbtn" data-builder-close aria-label="Close outfit builder">×</button></div>
+    <div class="bbody">
+      <div class="bsec"><h3>${builder.manual ? "Pieces" : "Pieces to build around"}</h3><div class="bpieces">${pieceRows}</div></div>
+      <div class="bsec"><h3>Add pieces</h3><div id="b-search"></div><div class="tree">${tree}</div></div>
+      <div class="bsec"><div class="field"><label for="b-details">${builder.manual ? "Occasion" : "Occasion and details"} <em>(optional${pieces.length || builder.manual ? "" : " if you pick pieces"})</em></label>
+        <textarea id="b-details" class="txt" rows="3" data-details placeholder="${builder.manual ? "e.g. rainy Sunday" : "e.g. dinner downtown, about 10°C, want to wear the new boots"}">${esc(builder.details)}</textarea></div></div>
+      ${builder.manual ? manualForm : ""}
+    </div>
+    <div class="bfoot">${foot}</div>`;
+
+  restoringTree = true;
+  openTrees.forEach(c => { const d = el.querySelector(`details[data-tree="${CSS.escape(c)}"]`); if (d) d.open = true; });
+  setTimeout(() => { restoringTree = false; }, 60);
+  el.querySelector(".bbody").scrollTop = keepScroll;
+  const options = G.filter(g => !builder.pieces.includes(g.id)).sort((a, b) => catRank(a) - catRank(b))
+    .map(g => ({value: g.id, label: `${title(g)} · ${g.primary_color} · #${g.id}`, hex: hex(g.primary_color)}));
+  combo(el.querySelector("#b-search"), {options, keepOpen: true, autofocus: false, collapsed: true, placeholder: "Type a garment name to add it…", onPick: id => { togglePiece(id); document.querySelector("#b-search input")?.focus(); }});
+}
+function updateBuilderButtons(){
+  const el = document.getElementById("builder"); if (!el) return;
+  const pieces = sortedPieces();
+  const reasonEl = el.querySelector("#b-reason");
+  if (builder.manual){
+    const reason = !pieces.length ? "Add at least one piece." : (!builder.form.aesthetic.trim() || !builder.form.explanation.trim()) ? "Fill in the name and why it works." : "";
+    el.querySelector("[data-save-own]").disabled = !!reason || builderBusy; reasonEl.textContent = reason;
+  } else {
+    let reason = "";
+    if (!pieces.length && !builder.details.trim()) reason = "Pick at least one piece or describe the occasion.";
+    else if (builder.session && unchangedSinceLast()) reason = "Change the pieces or details to get new suggestions.";
+    el.querySelector("[data-suggest]").disabled = !!reason || builderBusy; reasonEl.textContent = reason;
+  }
+}
+document.addEventListener("input", e => {
+  if (!e.target.closest("#builder")) return;
+  const t = e.target;
+  if (t.hasAttribute("data-details")) builder.details = t.value;
+  else if (t.dataset.form) builder.form[t.dataset.form] = t.value;
+  else if (t.dataset.advice) builder.form.advice[t.dataset.advice] = t.value;
+  else return;
+  saveBuilder(); updateBuilderButtons();
+});
+document.addEventListener("toggle", e => {
+  const d = e.target;
+  if (!restoringTree && d.matches && d.matches("#builder details[data-tree]") && d.open) scrollToCategory(d.dataset.tree);
+}, true);
+
+async function suggest(){
+  if (builderBusy) return;
+  const fresh = !builder.session;
+  const sent = {pieces: builder.pieces.slice(), details: builder.details};
+  builderBusy = true; renderBuilder();
+  try {
+    const created = (await api("/api/outfits/suggestions", {method: "POST", body: {anchors: sent.pieces, details: sent.details}})).map(adoptOutfit);
+    if (!created.length) throw new Error("No complete outfits came back this time. Try again, or adjust the pieces or details.");
+    O.push(...created); reindex();
+    const ids = created.map(o => o.id);
+    builder.session = fresh ? {ids, last: sent} : {ids: [...builder.session.ids, ...ids], last: sent};
+    builder.open = false;
+    saveBuilder();
+    toast(`${plural(created.length, "new outfit")}`);
+    builderBusy = false; renderBuilder();
+    if (location.hash === "#results") refresh(); else location.hash = "#results";
+    return;
+  } catch (e) { toast(e.message, true); }
+  builderBusy = false; renderBuilder();
+}
+async function saveOwn(){
+  if (builderBusy) return;
+  builderBusy = true; renderBuilder();
+  try {
+    const body = {aesthetic: builder.form.aesthetic, explanation: builder.form.explanation, missing: builder.form.missing || null, details: builder.details || null,
+      garments: sortedPieces().map(g => ({garment_id: g.id, styling_advice: builder.form.advice[g.id] || null}))};
+    const created = adoptOutfit(await api("/api/outfits", {method: "POST", body}));
+    O.push(created); reindex();
+    Object.assign(builder, {open: false, pieces: [], details: "", manual: false, form: {aesthetic: "", explanation: "", missing: "", advice: {}}, session: null});
+    saveBuilder(); builderBusy = false; renderBuilder();
+    toast("Outfit saved");
+    location.hash = "#outfit-" + created.id;
+    return;
+  } catch (e) { toast(e.message, true); }
+  builderBusy = false; renderBuilder();
+}
+function handleBuilderClick(e){
+  const t = e.target.closest("[data-pick],[data-new-outfit],[data-builder-open],[data-results-retry],[data-results-done],[data-add-garment]");
+  if (!t) return false;
+  if (t.dataset.pick){ e.preventDefault(); togglePiece(t.dataset.pick); }
+  else if (t.hasAttribute("data-new-outfit")) newOutfit();
+  else if (t.hasAttribute("data-builder-open")) openBuilder();
+  else if (t.hasAttribute("data-add-garment")) openUpload();
+  else if (t.hasAttribute("data-results-retry")){ builder.open = true; builder.min = false; builder.manual = false; saveBuilder(); renderBuilder(); location.hash = "#wardrobe"; }
+  else if (t.hasAttribute("data-results-done")){
+    Object.assign(builder, {open: false, pieces: [], details: "", manual: false, session: null}); saveBuilder(); renderBuilder(); location.hash = "#outfits"; }
+  return true;
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest("#builder")) return;
+  if (handleBuilderClick(e)) return;
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.hasAttribute("data-builder-close")) closeBuilder();
+  else if (t.hasAttribute("data-builder-min")){ builder.min = !builder.min; saveBuilder(); renderBuilder(); }
+  else if (t.hasAttribute("data-suggest")) suggest();
+  else if (t.hasAttribute("data-save-own")) saveOwn();
+  else if (t.dataset.manual){ builder.manual = t.dataset.manual === "on"; saveBuilder(); renderBuilder(); }
+});
+
+/* ================= results ================= */
+function resultsPage(){
+  const s = builder.session;
+  if (!s || !s.ids.length) return `<div class="state"><h1>No new suggestions</h1><p>Start one from <a href="#outfits">Outfits</a> with “New outfit”.</p></div>`;
+  const list = s.ids.map(id => outById[id]).filter(Boolean).reverse();
+  const requests = [...new Set(list.map(o => o.prompt_message))];
+  const anchors = s.last.pieces.map(id => byId[id]).filter(Boolean);
+  return `<header class="hero"><div><h1>New suggestions</h1>
+      <p class="sub">${plural(list.length, "outfit")} for ${requests.map(r => `<q>${esc(r)}</q>`).join(", ")}${anchors.length ? `, built around ${anchors.map(g => esc(title(g))).join(", ")}` : ""}. Newest first; open one to like or dislike it.</p>
+      <div class="hero-actions results-actions"><button type="button" class="btn primary" data-results-retry>Change pieces or details and try again</button><button type="button" class="btn" data-results-done>Done</button></div></div></header>
+    <main><div class="ogrid">${list.map(oCard).join("")}</div></main>`;
+}
+
+/* ================= add a garment ================= */
+let upload = {files: [], busy: false};
+function openUpload(){
+  upload = {files: [], busy: false, prompt: "", notes: ""};
+  let ov = document.getElementById("upload");
+  if (!ov){ ov = document.createElement("div"); ov.id = "upload"; ov.className = "overlay"; document.body.appendChild(ov);
+    ov.addEventListener("click", uploadClick); ov.addEventListener("change", uploadChange); ov.addEventListener("input", e => {
+      if (e.target.id === "u-prompt") upload.prompt = e.target.value; if (e.target.id === "u-notes") upload.notes = e.target.value; });
+    ov.addEventListener("keydown", e => { if (e.key === "Escape" && !upload.busy) closeUpload(); }); }
+  ov.hidden = false; document.body.style.overflow = "hidden";
+  renderUpload();
+  ov.querySelector("[data-u-close]").focus();
+}
+function closeUpload(){
+  upload.files.forEach(f => URL.revokeObjectURL(f.url));
+  const ov = document.getElementById("upload"); ov.hidden = true; ov.innerHTML = ""; document.body.style.overflow = "";
+}
+function renderUpload(){
+  const ov = document.getElementById("upload");
+  const n = upload.files.length;
+  ov.innerHTML = `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="u-title">
+    <div class="bhead"><h2 id="u-title">Add a garment</h2><button type="button" class="iconbtn" data-u-close aria-label="Close" ${upload.busy ? "disabled" : ""}>×</button></div>
+    <div class="bbody">
+      <ul class="tips"><li><b>Front</b> and <b>back</b> of the whole garment, on a hanger or laid flat</li><li>Every <b>label</b>: brand, size, and the care tag with the fabric content</li><li>Close-ups of any details worth noting (optional). Up to ${OPT_UPLOAD_MAX} photos.</li></ul>
+      <div class="pickers">
+        <label class="btn primary">Take a photo<input type="file" accept="image/*" capture="environment" data-u-input ${upload.busy ? "disabled" : ""}></label>
+        <label class="btn">Choose photos<input type="file" accept="image/*" multiple data-u-input ${upload.busy ? "disabled" : ""}></label>
+      </div>
+      ${n ? `<div class="previews">${upload.files.map((f, i) => `<div class="ph"><img src="${f.url}" alt="Photo ${i + 1}" data-u-img="${i}"><button type="button" class="rm" data-u-rm="${i}" aria-label="Remove photo ${i + 1}" ${upload.busy ? "disabled" : ""}>×</button></div>`).join("")}</div>`
+        : `<p class="bhint">No photos yet. On a phone, “Take a photo” opens the camera; take one at a time and repeat.</p>`}
+      <div class="field"><label for="u-prompt">Anything the photos don't show <em>(optional, helps the tagging)</em></label>
+        <textarea id="u-prompt" class="txt" rows="2" placeholder="e.g. the true color is navy, not black; vintage 1990s; runs small" ${upload.busy ? "disabled" : ""}>${esc(upload.prompt)}</textarea></div>
+      <div class="field"><label for="u-notes">Your notes <em>(optional, kept private, never sent to the AI)</em></label>
+        <textarea id="u-notes" class="txt" rows="2" placeholder="e.g. bought at 2nd Street Taipei; hemmed 2 cm" ${upload.busy ? "disabled" : ""}>${esc(upload.notes)}</textarea></div>
+      <p class="formerr" id="u-err" role="alert"></p>
+    </div>
+    <div class="bfoot">${upload.busy ? `<div class="busy" role="status"><span class="spin" aria-hidden="true"></span>Tagging your garment… this can take up to a minute.</div>` : ""}
+      <button type="button" class="btn primary wide" data-u-submit ${!n || upload.busy ? "disabled" : ""}>${n ? `Tag and add (${plural(n, "photo")})` : "Add at least one photo"}</button></div>
+  </div>`;
+  ov.querySelectorAll("[data-u-img]").forEach(img => { img.onerror = () => {
+    const name = document.createElement("span"); name.className = "fname"; name.textContent = upload.files[+img.dataset.uImg]?.file.name || "photo"; img.replaceWith(name); }; });
+}
+const OPT_UPLOAD_MAX = 10;
+function uploadChange(e){
+  const input = e.target.closest("[data-u-input]"); if (!input) return;
+  const room = OPT_UPLOAD_MAX - upload.files.length;
+  const picked = [...input.files].slice(0, room);
+  if (input.files.length > room) toast(`Only ${OPT_UPLOAD_MAX} photos per garment; the rest were skipped.`, true);
+  upload.files.push(...picked.map(file => ({file, url: URL.createObjectURL(file)})));
+  renderUpload();
+}
+async function uploadClick(e){
+  if (e.target.id === "upload" && !upload.busy) return closeUpload();
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.hasAttribute("data-u-close")) closeUpload();
+  else if (t.dataset.uRm){ const [gone] = upload.files.splice(+t.dataset.uRm, 1); URL.revokeObjectURL(gone.url); renderUpload(); }
+  else if (t.hasAttribute("data-u-submit")){
+    upload.busy = true; renderUpload();
+    const form = new FormData();
+    upload.files.forEach(f => form.append("photos", f.file, f.file.name || "photo.jpg"));
+    if (upload.prompt.trim()) form.append("prompt_message", upload.prompt);
+    if (upload.notes.trim()) form.append("notes", upload.notes);
+    try {
+      let res;
+      try { res = await fetch("/api/garments", {method: "POST", body: form}); }
+      catch (err) { throw new Error("Couldn't reach the server. Is it still running?"); }
+      let data = null; try { data = await res.json(); } catch (err) {}
+      if (!res.ok) throw new Error(errorText(data, res.status));
+      G.push(data); reindex();
+      closeUpload();
+      toast("Added. Check the tags and fix anything that's off.");
+      location.hash = "#garment-" + data.id;
+    } catch (err) {
+      upload.busy = false; renderUpload();
+      const box = document.getElementById("u-err"); if (box) box.textContent = err.message;
+    }
+  }
 }
 
 /* ================= routing ================= */
@@ -813,14 +894,16 @@ function render(){
     html = o ? outfitPage(o) : `<div class="state"><h1>Outfit not found</h1><p><a href="#outfits">Back to outfits</a></p></div>`;
     document.title = o ? `${o.aesthetic} · enclothed` : "enclothed";
   } else if (h === "outfits"){ view = "outfits"; html = outfits(); document.title = "Outfits · enclothed"; }
+  else if (h === "results"){ view = "results"; html = resultsPage(); document.title = "New suggestions · enclothed"; }
   else { html = wardrobe(); document.title = "enclothed"; }
   app.innerHTML = html;
-  const section = (view === "outfit" || view === "outfits") ? "outfits" : "wardrobe";
+  const section = (view === "outfit" || view === "outfits" || view === "results") ? "outfits" : "wardrobe";
   for (const k of ["wardrobe", "outfits"]){ const n = document.getElementById("nav-" + k);
     if (k === section) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current"); }
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;
   const bk = app.querySelector("[data-back]");
-  if (bk && prev){ const pm = prev.match(/^#(garment|outfit)-/); bk.textContent = pm ? `← Back to ${pm[1]}` : (prev === "#outfits" ? "← Outfits" : "← Wardrobe"); }
+  if (bk && prev){ const pm = prev.match(/^#(garment|outfit)-/);
+    bk.textContent = pm ? `← Back to ${pm[1]}` : prev === "#results" ? "← New suggestions" : prev === "#outfits" ? "← Outfits" : "← Wardrobe"; }
   return view;
 }
 function route(){
@@ -851,12 +934,34 @@ app.addEventListener("click", e => {
     if (f.hasAttribute("data-toggle-disliked")){ showDisliked = !showDisliked; store.set("enclothed-show-disliked", showDisliked); }
     refresh(); return;
   }
+  const of = e.target.closest("[data-ofilt-f],[data-ofilt-w],[data-ofilt-clear]");
+  if (of){
+    const toggle = (list, v) => list.includes(v) ? list.filter(x => x !== v) : [...list, v];
+    if (of.dataset.ofiltF) ofilt.formality = toggle(ofilt.formality, +of.dataset.ofiltF);
+    else if (of.dataset.ofiltW) ofilt.warmth = toggle(ofilt.warmth, +of.dataset.ofiltW);
+    else ofilt = {q: "", from: "", to: "", formality: [], warmth: []};
+    refresh(); return;
+  }
   const ed = e.target.closest("[data-edit]");
   if (ed){ openEditor(ed.dataset.edit); return; }
+  if (handleBuilderClick(e)) return;
   const r = e.target.closest("[data-rate]");
-  if (r){ const m = location.hash.match(/^#outfit-(\d+)$/); if (m && outById[m[1]]) rate(outById[m[1]], r.dataset.rate === "true"); return; }
+  if (r){ const id = r.dataset.rateId || (location.hash.match(/^#outfit-(\d+)$/) || [])[1]; if (id && outById[id]) rate(outById[id], r.dataset.rate === "true"); return; }
   const b = e.target.closest("[data-back]");
   if (b){ if (stack.length > 1) history.back(); else location.hash = b.dataset.back; }
+});
+/* Typing in a filter redraws the page, so put the cursor back where it was. */
+let filterTimer = null;
+app.addEventListener("input", e => {
+  const el = e.target.closest("[data-ofilt]"); if (!el) return;
+  ofilt[el.dataset.ofilt] = el.value;
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(() => {
+    const id = el.id, start = el.selectionStart, end = el.selectionEnd;
+    refresh();
+    const again = document.getElementById(id);
+    if (again){ again.focus(); try { again.setSelectionRange(start, end); } catch (err) {} }
+  }, el.type === "date" ? 0 : 200);
 });
 addEventListener("keydown", e => {
   if (!galleryGo || e.target.closest("input,textarea,[role=combobox]")) return;
@@ -885,6 +990,9 @@ paintTheme();
     HEX = Object.fromEntries(options.colors.map(c => [c.name, c.hex]));
     document.getElementById("who").textContent = profile.name;
     reindex();
+    builder.pieces = builder.pieces.filter(id => byId[id]);
+    if (builder.session) builder.session.ids = builder.session.ids.filter(id => outById[id]);
+    renderBuilder();
     route();
   } catch (e) {
     app.innerHTML = `<div class="state"><h1>Couldn't load your wardrobe</h1><p>${esc(e.message)}</p><p>Check that the server is running (<code>uv run fastapi dev src/enclothed/api.py</code>), then refresh.</p></div>`;
