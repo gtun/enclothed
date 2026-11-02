@@ -34,6 +34,17 @@ WARMTH_LABELS = {
 
 Fit = Literal["slim", "regular", "relaxed", "oversized"]
 Sheen = Literal["matte", "low", "high"]
+FIT_LABELS: dict[Fit, str] = {
+    "slim": "slim (close to the body)",
+    "regular": "regular (standard cut)",
+    "relaxed": "relaxed (roomy)",
+    "oversized": "oversized (deliberately large)",
+}
+SHEEN_LABELS: dict[Sheen, str] = {
+    "matte": "matte (no shine)",
+    "low": "low (soft luster)",
+    "high": "high (shiny, like satin or patent leather)",
+}
 Category = Literal["top", "bottom", "one-piece", "outerwear", "shoes", "accessory"]
 CATEGORY_ORDER = {category: position for position, category in enumerate(get_args(Category))}
 
@@ -205,12 +216,16 @@ class LevelOption(BaseModel):
     value: int
     label: str
 
+class ChoiceOption(BaseModel):
+    value: str
+    label: str
+
 class OptionsOut(BaseModel):
     """The fixed choices for editing a garment, so the front end never keeps its own copy."""
     categories: list[Category]
     subcategories: dict[Category, list[str]]
     colors: list[ColorOption]
-    fits: list[Fit]
-    sheens: list[Sheen]
+    fits: list[ChoiceOption]
+    sheens: list[ChoiceOption]
     formality: list[LevelOption]
     warmth: list[LevelOption]

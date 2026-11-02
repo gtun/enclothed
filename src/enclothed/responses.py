@@ -3,8 +3,8 @@ from pathlib import Path
 from enclothed import db
 from typing import get_args
 from enclothed.models import (
-    Category, Color, Fit, Sheen, SUBCATEGORIES, COLOR_HEX, FORMALITY_LABELS, WARMTH_LABELS,
-    ColorOption, Garment, GarmentOut, LevelOption, OptionsOut, OutfitGarmentOut, OutfitOut, SetOut,
+    Category, Color, Fit, Sheen, SUBCATEGORIES, COLOR_HEX, FIT_LABELS, SHEEN_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
+    ChoiceOption, ColorOption, Garment, GarmentOut, LevelOption, OptionsOut, OutfitGarmentOut, OutfitOut, SetOut,
 )
 from enclothed.photos import get_garment_photos
 
@@ -54,8 +54,8 @@ def get_options() -> OptionsOut:
         categories=list(get_args(Category)),
         subcategories={category: _sorted_other_last(SUBCATEGORIES[category]) for category in get_args(Category)},
         colors=[ColorOption(name=color, hex=COLOR_HEX[color]) for color in get_args(Color)],
-        fits=list(get_args(Fit)),
-        sheens=list(get_args(Sheen)),
+        fits=[ChoiceOption(value=fit, label=FIT_LABELS[fit]) for fit in get_args(Fit)],
+        sheens=[ChoiceOption(value=sheen, label=SHEEN_LABELS[sheen]) for sheen in get_args(Sheen)],
         formality=[LevelOption(value=value, label=label) for value, label in FORMALITY_LABELS.items()],
         warmth=[LevelOption(value=value, label=label) for value, label in WARMTH_LABELS.items()],
     )

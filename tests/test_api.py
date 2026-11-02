@@ -96,8 +96,8 @@ def test_options_match_the_models(client):
 
     assert body["categories"] == list(get_args(Category))
     assert [color["name"] for color in body["colors"]] == list(get_args(Color))
-    assert body["fits"] == list(get_args(Fit))
-    assert body["sheens"] == list(get_args(Sheen))
+    assert [fit["value"] for fit in body["fits"]] == list(get_args(Fit))
+    assert [sheen["value"] for sheen in body["sheens"]] == list(get_args(Sheen))
     for category, choices in body["subcategories"].items():
         assert set(choices) == SUBCATEGORIES[category]
         assert choices[-1] == "other"
@@ -107,3 +107,5 @@ def test_options_levels_are_numbered_labels(client):
     body = client.get("/api/options").json()
     assert body["formality"][0] == {"value": 1, "label": "casual"}
     assert [level["value"] for level in body["warmth"]] == [1, 2, 3, 4, 5]
+    assert body["fits"][0] == {"value": "slim", "label": "slim (close to the body)"}
+    assert body["sheens"][1] == {"value": "low", "label": "low (soft luster)"}
