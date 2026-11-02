@@ -34,6 +34,7 @@ app = FastAPI(title="enclothed")
 
 GARMENTS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/photos", StaticFiles(directory=GARMENTS_DIR), name="photos")
+app.mount("/static", StaticFiles(directory=PUBLIC_DIR), name="static")  # the page's CSS
 
 
 def _anthropic_client() -> anthropic.Anthropic:

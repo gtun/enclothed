@@ -129,8 +129,10 @@ Then open http://localhost:8000.
 
 - **Wardrobe:** every garment by category, with filters for sets and garments not in any outfit. **+ Add garment** takes photos (camera or library, on iPhone and Android), with a box for details the photos don't show and one for private notes; it tags the garment and opens it.
 - **Garment page:** photos, its set, every outfit it's in, and the garments it's most often paired with. Click any detail to correct it. Fixed lists (category, colors, formality, warmth, fit, sheen) use a dropdown you can type into to filter, and only accept listed values.
-- **Outfits:** every outfit, grouped by request. **+ New outfit** opens the outfit builder: pick pieces with the + on any garment, the category list, or by typing a name; add the occasion; then **Generate outfit suggestions** (your pieces are anchors) or **Save as my own outfit**. Suggestions open on a results page; change the pieces or details to try again, and the new ones are added to the same page.
+- **Outfits:** every outfit, grouped by request, with filters for request text, date range, formality (of the least formal piece) and warmth (of the warmest top layer), and like/dislike buttons on each card. **+ New outfit** opens the outfit builder: pick pieces with the + on any garment, the category list, or by typing a name; add the occasion; then **Generate outfit suggestions** (your pieces are anchors) or **Save as my own outfit**. Suggestions open on a results page; change the pieces or details to try again, and the new ones are added to the same page.
 - Like or dislike an outfit on its page; disliked outfits are hidden unless you turn on "Show disliked".
+
+To change colors or fonts, edit `public/css/theme.css`: Day values are at the top, Evening values below, and anything set only in the Evening block applies only there. Layout lives in `public/css/app.css`.
 
 Uploaded photos are turned upright, converted to JPEG and resized (longest side 2000 px), so phone photos (including iPhone HEIC) fit the API's limits. Thumbnails are made on first view and cached in `data/thumbs/`.
 

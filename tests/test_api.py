@@ -129,6 +129,13 @@ def test_profile_falls_back_to_os_login(client, monkeypatch):
     assert client.get("/api/profile").json() == {"name": "oslogin"}
 
 
+@pytest.mark.parametrize("path", ["/static/css/theme.css", "/static/css/app.css"])
+def test_stylesheets_are_served(client, path):
+    response = client.get(path)
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/css")
+
+
 def test_root_serves_the_front_end(client):
     response = client.get("/")
     assert response.status_code == 200

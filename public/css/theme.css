@@ -1,0 +1,74 @@
+/* theme.css: the colors and fonts of enclothed. Edit freely.
+
+   :root                    = Day (the default, bright and neutral)
+   :root[data-theme="dark"] = Evening
+
+   Every value here is a variable that app.css uses as var(--name). Change one
+   in :root to change it everywhere; set it again inside the Evening block to
+   change it only for Evening. The same works for fonts: add --body (or
+   --display / --mono) to the Evening block to use a different font there.
+
+   Fonts load from Google Fonts. To swap a font, change the @import URL to the
+   family you want, then the matching --display / --body / --mono value. */
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+/* ---- Day ---------------------------------------------------------------- */
+:root{
+  /* fonts */
+  --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;   /* page and card titles */
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;  /* everything else */
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;          /* ids, counts, label text */
+
+  /* surfaces: a gallery-white floor so each garment reads true */
+  --bg:#f6f6f5;          /* page background */
+  --surface:#ffffff;     /* cards, panels, dialogs */
+  --photo:#eeeeec;       /* behind photos */
+  --chip:#f0f0ee;        /* tags, pills, highlighted list rows */
+  --hover:#f2f2f0;       /* editable values on hover */
+  --line:#e3e3e0;        /* borders and dividers */
+
+  /* text */
+  --ink:#1d1d1c;         /* main text */
+  --muted:#6b6b68;       /* secondary text */
+
+  /* buttons and selected states */
+  --accent:#1d1d1c;
+  --on-accent:#ffffff;   /* text on --accent */
+
+  /* the care-tag label block and "To finish the look" box */
+  --tag:#f4f0e6;
+  --tag-ink:#3a3528;
+
+  /* like / dislike, errors */
+  --good:#2f6b3a;
+  --bad:#a3332b;
+  --on-status:#ffffff;   /* text on --good / --bad */
+
+  /* depth */
+  --shade:rgba(0,0,0,.06);   /* shadows */
+  --overlay:rgba(0,0,0,.45); /* behind dialogs */
+}
+
+/* ---- Evening ------------------------------------------------------------- */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121212;
+  --surface:#1b1b1b;
+  --photo:#232322;
+  --chip:#262625;
+  --hover:#232322;
+  --line:#2e2e2d;
+  --ink:#ececea;
+  --muted:#9c9c98;
+  --accent:#ececea;
+  --on-accent:#121212;
+  --tag:#2a2720;
+  --tag-ink:#e6dfc9;
+  --good:#7fc48c;
+  --bad:#f08c84;
+  --on-status:#121212;
+  --shade:rgba(0,0,0,.4);
+  --overlay:rgba(0,0,0,.6);
+  /* example: a different body font only in Evening
+  --body:"IBM Plex Serif",Georgia,serif; */
+}
