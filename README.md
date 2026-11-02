@@ -132,7 +132,18 @@ Then open http://localhost:8000.
 - **Outfits:** every outfit, grouped by request, with filters for request text, date range, formality (of the least formal piece) and warmth (of the warmest top layer), and like/dislike buttons on each card. **+ New outfit** opens the outfit builder: pick pieces with the + on any garment, the category list, or by typing a name; add the occasion; then **Generate outfit suggestions** (your pieces are anchors) or **Save as my own outfit**. Suggestions open on a results page; change the pieces or details to try again, and the new ones are added to the same page.
 - Like or dislike an outfit on its page; disliked outfits are hidden unless you turn on "Show disliked".
 
-To change colors or fonts, edit `public/css/theme.css`: Day values are at the top, Evening values below, and anything set only in the Evening block applies only there. Layout lives in `public/css/app.css`.
+### Customizing the pages
+
+Everything is plain files in `public/`; edit one and refresh the browser (no build step).
+
+| To change | Edit |
+|---|---|
+| Colors and fonts (Day and Evening separately) | `css/theme.css` |
+| Date formats and language | `js/settings.js` |
+| Any text or layout on a page | the matching file in `js/templates/` (e.g. `outfitPage.js` for “Asked for …”, `garmentCard.js` for the wardrobe cards, `garmentPage.js` for the details labels) |
+| Spacing, sizes, layout rules | `css/app.css` |
+
+`js/core/` holds data and helpers, `js/features/` the behavior (editing, the outfit builder, uploads, filters), and `js/main.js` routing and start-up. The scripts share one set of names and load in the order listed in `index.html`.
 
 Uploaded photos are turned upright, converted to JPEG and resized (longest side 2000 px), so phone photos (including iPhone HEIC) fit the API's limits. Thumbnails are made on first view and cached in `data/thumbs/`.
 
