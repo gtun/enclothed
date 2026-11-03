@@ -137,6 +137,7 @@ class Garment(BaseModel):
     brand: str | None = None
     date_added: SkipJsonSchema[date | None] = None
     set_id: SkipJsonSchema[int | None] = None
+    disowned_on: SkipJsonSchema[date | None] = None
 
     @property
     def name(self) -> str:
@@ -201,6 +202,7 @@ class OutfitOut(BaseModel):
     explanation: str
     missing: str | None = None
     liked: bool | None = None
+    wear_count: int = 0
     garments: list[OutfitGarmentOut]
 
 class SetOut(BaseModel):

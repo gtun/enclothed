@@ -99,6 +99,15 @@ def select_all_garments(db_path: Path) -> list[Garment]:
             rows = conn.execute("SELECT * from garments ORDER BY id").fetchall()
             return [_row_to_garment(row) for row in rows]
 
+
+def select_owned_garments(db_path: Path) -> list[Garment]:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT * from garments WHERE disowned_on IS NULL ORDER BY id").fetchall()
+            return [_row_to_garment(row) for row in rows]
+
+
 def _row_to_garment(row:sqlite3.Row) -> Garment:
     garment_dict = dict(row)
     for key in DB_JSON_COLUMNS:
@@ -147,6 +156,7 @@ def insert_outfits(db_path: Path, valid_outfits: list[Outfit], anchors: list[int
 
 OUTFIT_SELECT = (
     "SELECT o.id, o.timestamp, o.prompt_message, o.aesthetic, o.explanation, o.missing, o.liked, "
+    "(SELECT COUNT(*) FROM wears AS w WHERE w.outfit_id = o.id) AS wear_count, "
     "json_group_array(json_object("
     "'garment_id', og.garment_id, "
     "'styling_advice', og.styling_advice, "

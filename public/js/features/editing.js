@@ -2,16 +2,18 @@
 "use strict";
 
 let saving = false;
+/* Swap in a garment the server just returned, everywhere it's held. */
+function adoptGarment(updated){
+  G[G.findIndex(x => x.id === updated.id)] = updated;
+  O.forEach(o => o.garments.forEach(x => { if (x.garment.id === updated.id) x.garment = updated; }));
+  reindex();
+}
 async function save(g, changes){
   if (saving) return false;
   saving = true;
   let ok = false;
   try {
-    const updated = await api(`/api/garments/${g.id}`, {method: "PATCH", body: changes});
-    const i = G.findIndex(x => x.id === g.id);
-    G[i] = updated;
-    O.forEach(o => o.garments.forEach(x => { if (x.garment.id === g.id) x.garment = updated; }));
-    reindex();
+    adoptGarment(await api(`/api/garments/${g.id}`, {method: "PATCH", body: changes}));
     toast("Saved");
     ok = true;
   } catch (e) {

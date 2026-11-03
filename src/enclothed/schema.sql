@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS garments (
     sheen TEXT,
     brand TEXT,
     date_added TEXT NOT NULL DEFAULT (date('now', 'localtime')),
-    set_id INTEGER REFERENCES sets(id)
+    set_id INTEGER REFERENCES sets(id),
+    disowned_on TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sets (

@@ -2,6 +2,7 @@
 "use strict";
 
 let G = [], O = [], SETS = [], OPT = null;
+let OWNED = [], SHOWN = [];   // the garments still in the wardrobe, and the outfits not hidden (indexes.js)
 let byId = {}, outById = {}, setById = {}, outfitsOf = {}, REQUESTS = [], HEX = {};
 const RAIL_ORDER = ["outerwear", "top", "bottom", "one-piece", "shoes", "accessory"];
 

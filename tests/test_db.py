@@ -1,10 +1,11 @@
 import sqlite3
+from datetime import date
 from contextlib import closing
 
 import pytest
 from pydantic import ValidationError
 
-from enclothed.db import select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked
+from enclothed.db import select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked, select_owned_garments, select_all_garments, select_outfit, select_all_outfits
 from enclothed.models import Garment, Outfit
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -352,11 +353,86 @@ def test_preferences_migration_adds_table_to_an_existing_db(tmp_path):
     old_schema = tmp_path / "old_schema.sql"
     old_schema.write_text(SCHEMA_PATH.read_text().split("CREATE TABLE IF NOT EXISTS preferences")[0])
     old_migrations = tmp_path / "old_migrations"; old_migrations.mkdir()
-    for m in sorted(MIGRATIONS_DIR.glob("*.sql"))[:2]:
+    upto_003 = tmp_path / "upto_003"; upto_003.mkdir()
+    migrations = sorted(MIGRATIONS_DIR.glob("*.sql"))
+    for m in migrations[:2]:
         (old_migrations / m.name).write_text(m.read_text())
+    for m in migrations[:3]:
+        (upto_003 / m.name).write_text(m.read_text())
     init_db(path, old_schema, old_migrations)  # a database as it was before preferences existed
 
-    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    init_db(path, old_schema, upto_003)  # old_schema has no preferences table, so only migration 003 can create it
     with closing(sqlite3.connect(path)) as conn:
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
         assert conn.execute("SELECT name FROM sqlite_master WHERE name = 'preferences'").fetchone()
+
+
+# --- disowning garments -----------------------------------------------------------------
+def disown(db_path, garment_id, day="2026-11-03"):
+    garment = select_garment(db_path, garment_id)
+    update_garment(db_path, garment.model_copy(update={"disowned_on": date.fromisoformat(day)}))
+
+
+def test_disowned_on_migration_leaves_existing_garments_owned(tmp_path):
+    path = tmp_path / "old.db"
+    old_schema = tmp_path / "old_schema.sql"
+    old_schema.write_text(SCHEMA_PATH.read_text().replace(",\n    disowned_on TEXT", ""))
+    upto_003 = tmp_path / "upto_003"; upto_003.mkdir()
+    for m in sorted(MIGRATIONS_DIR.glob("*.sql"))[:3]:
+        (upto_003 / m.name).write_text(m.read_text())
+    init_db(path, old_schema, upto_003)
+    with closing(sqlite3.connect(path)) as conn:
+        assert "disowned_on" not in {col[1] for col in conn.execute("PRAGMA table_info(garments)")}
+        conn.execute("INSERT INTO garments (category, subcategory, primary_color, styling_notes) VALUES ('top', 't-shirt', 'black', '')")
+        conn.commit()
+
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+
+    with closing(sqlite3.connect(path)) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM garments WHERE disowned_on IS NULL").fetchone()[0] == 1
+
+
+def test_disowned_on_round_trips(db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    disown(db_path, garment_id)
+    assert select_garment(db_path, garment_id).disowned_on == date(2026, 11, 3)
+
+
+def test_select_owned_garments_leaves_out_disowned(db_path):
+    kept = insert_garment(db_path, TEST_GARMENT)
+    gone = insert_garment(db_path, TEST_GARMENT)
+    disown(db_path, gone)
+    assert [g.id for g in select_owned_garments(db_path)] == [kept]
+
+
+def test_select_all_garments_keeps_disowned(db_path):
+    kept = insert_garment(db_path, TEST_GARMENT)
+    gone = insert_garment(db_path, TEST_GARMENT)
+    disown(db_path, gone)
+    assert [g.id for g in select_all_garments(db_path)] == [kept, gone]
+
+
+# --- wear_count ---------------------------------------------------------------------------
+def outfit_with_garments(db_path, count):
+    garment_ids = [insert_garment(db_path, TEST_GARMENT) for _ in range(count)]
+    outfit = Outfit(aesthetic="a", explanation="b", garments=[{"garment_id": i} for i in garment_ids])
+    [outfit_id] = insert_outfits(db_path, [outfit], None, "dinner", "2026-11-01T00:00:00+00:00")
+    return outfit_id
+
+
+def add_wears(db_path, outfit_id, count):
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            for _ in range(count):
+                conn.execute("INSERT INTO wears (outfit_id, date) VALUES (?, '2026-11-01')", (outfit_id,))
+
+
+def test_wear_count_is_zero_without_wears(db_path):
+    assert select_outfit(db_path, outfit_with_garments(db_path, 2))["wear_count"] == 0
+
+
+def test_wear_count_is_not_multiplied_by_garments(db_path):
+    outfit_id = outfit_with_garments(db_path, 4)
+    add_wears(db_path, outfit_id, 2)
+    assert select_outfit(db_path, outfit_id)["wear_count"] == 2
+    assert select_all_outfits(db_path)[0]["wear_count"] == 2

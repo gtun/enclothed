@@ -5,15 +5,20 @@ function adoptOutfit(o){
   o.pieces = o.garments.map(x => ({id: x.garment.id, advice: x.styling_advice, anchor: x.is_anchor}));
   return o;
 }
+const isDisowned = g => !!g?.disowned_on;
+/* Hidden: has a piece you no longer own, was never worn, and isn't liked. A hidden outfit's own link still works. */
+const outfitHidden = o => !o.wear_count && !o.liked && o.pieces.some(p => isDisowned(byId[p.id]));
 function reindex(){
   byId = Object.fromEntries(G.map(g => [g.id, g]));
+  OWNED = G.filter(g => !isDisowned(g));
+  SHOWN = O.filter(o => !outfitHidden(o));
   outById = Object.fromEntries(O.map(o => [o.id, o]));
   setById = Object.fromEntries(SETS.map(s => [s.id, s]));
   O.forEach(o => o.pieces.sort((a, b) => catRank(byId[a.id]) - catRank(byId[b.id])));
   outfitsOf = {};
-  O.forEach(o => o.pieces.forEach(p => (outfitsOf[p.id] ||= []).push({o, advice: p.advice, anchor: p.anchor})));
+  SHOWN.forEach(o => o.pieces.forEach(p => (outfitsOf[p.id] ||= []).push({o, advice: p.advice, anchor: p.anchor})));
   REQUESTS = [];
-  O.forEach(o => { let r = REQUESTS.find(x => x.text === o.prompt_message); if (!r) REQUESTS.push(r = {text: o.prompt_message, items: []}); r.items.push(o); });
+  SHOWN.forEach(o => { let r = REQUESTS.find(x => x.text === o.prompt_message); if (!r) REQUESTS.push(r = {text: o.prompt_message, items: []}); r.items.push(o); });
   REQUESTS.forEach((r, i) => r.key = "r" + i);
   applyLlmColors();   // AI button color can depend on the wardrobe (settings.js)
 }

@@ -16,7 +16,7 @@ const LIGHT_GARMENT = 0.3;   // primary colors brighter than this count as "ligh
 /* The most common accent among light (or dark) garments that is colorful and stands out on bg. */
 function wardrobeAccent(lightGarments, bg){
   const counts = {};
-  G.forEach(g => {
+  OWNED.forEach(g => {
     if ((luminance(hex(g.primary_color)) > LIGHT_GARMENT) !== lightGarments) return;
     g.accent_colors.forEach(c => { counts[c] = (counts[c] || 0) + 1; });
   });
