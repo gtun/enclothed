@@ -407,3 +407,14 @@ body.with-builder .wrap{margin-right:max(392px,calc((100% - 1180px)/2))}
   .kv dt{padding:8px 0 0}
 }
 @media (prefers-reduced-motion:reduce){.cardwrap,.card,.ocardwrap,.ocard,.toast{transition:none}.cardwrap:hover,.ocardwrap:hover{transform:none}.spin{animation-duration:3s}}
+
+/* garments you no longer own, where old outfits and sets still show them */
+.disowned img,.disowned .sw{opacity:var(--disowned-photo)}
+.flat span.disowned{position:relative}
+.gone{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max-content;max-width:calc(100% - 8px);text-align:center;
+  font:500 .68rem/1.2 var(--body);background:var(--surface);color:var(--ink);padding:3px 6px;border-radius:4px;box-shadow:0 1px 2px var(--shade)}
+.gonenote{margin:10px 0 0;font-size:.86rem;color:var(--muted)}
+.dialog.small{width:min(440px,100%)}
+.dialog.small h2{overflow-wrap:anywhere}
+.dnote{margin:0;font-size:.9rem;color:var(--muted)}
+.dbtns{display:flex;flex-direction:row;gap:8px;flex-wrap:wrap}

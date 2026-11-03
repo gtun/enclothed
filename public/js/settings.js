@@ -23,4 +23,14 @@ const SETTINGS = {
                  theme.css when nothing colorful enough is found.
      "theme":    always use --llm / --on-llm from css/theme.css. */
   aiButtonColor: "wardrobe",
+
+  /* Garments you no longer own, in the places they can still appear through old links.
+     "fade": show them dimmed, marked "no longer owned".
+     "hide": leave them out. */
+  disowned: {
+    outfitPage: "fade",   // the pieces on an outfit's page
+    outfitCard: "fade",   // the photo strip on outfit cards
+    sets: "fade",         // "Part of a set" on a garment's page
+    pairedWith: "hide",   // "Often paired with" on a garment's page
+  },
 };

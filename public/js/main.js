@@ -79,6 +79,7 @@ app.addEventListener("click", e => {
     if (onText && (e.target.closest("a") || String(getSelection()))) return;
     openEditor(ed.dataset.edit); return;
   }
+  if (e.target.closest("[data-disown]")){ const g = currentGarment(); if (g) openDisown(g); return; }
   if (handleNotesCheckClick(e)) return;
   if (handleBuilderClick(e)) return;
   const r = e.target.closest("[data-rate]");
@@ -128,7 +129,7 @@ paintTheme();
     HEX = Object.fromEntries(options.colors.map(c => [c.name, c.hex]));
     document.getElementById("who").textContent = profile.name;
     reindex();
-    builder.pieces = builder.pieces.filter(id => byId[id]);
+    builder.pieces = builder.pieces.filter(id => byId[id] && !isDisowned(byId[id]));
     if (builder.session) builder.session.ids = builder.session.ids.filter(id => outById[id]);
     renderBuilder();
     route();

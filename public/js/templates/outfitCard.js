@@ -6,10 +6,10 @@ function rateButtons(o){
   return `<div class="ocard-rate" role="group" aria-label="Rate this outfit">${b(true, THUMB_UP, "Like")}${b(false, THUMB_DOWN, "Dislike")}</div>`;
 }
 function oCard(o){
-  const pcs = o.pieces.map(p => byId[p.id]).filter(Boolean);
+  const pcs = o.pieces.map(p => byId[p.id]).filter(g => g && showDisowned(g, "outfitCard"));
   const f = outfitFormality(o), w = outfitWarmth(o);
   return `<div class="ocardwrap${o.liked === false ? " disliked" : ""}"><a class="ocard" href="#outfit-${o.id}">
-    <div class="flat" aria-hidden="true">${pcs.map(g => `<span>${ph(g, thumb(g))}</span>`).join("")}</div>
+    <div class="flat" aria-hidden="true">${pcs.map(g => `<span class="${fadeClass(g).trim()}">${ph(g, thumb(g))}${goneMark(g)}</span>`).join("")}</div>
     ${palBar(o)}
     <div class="obody"><h3>${esc(o.aesthetic)}</h3><p class="clamp">${esc(o.explanation)}</p>
       <div class="ofoot"><span>${when(o.timestamp)}</span><span>${plural(pcs.length,"piece")}</span>

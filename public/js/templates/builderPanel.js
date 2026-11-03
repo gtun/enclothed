@@ -17,8 +17,8 @@ function builderPanel(){
   const pieces = sortedPieces();
   const retry = !!builder.session;
   const reason = suggestBlockedReason(pieces);
-  const cats = RAIL_ORDER.filter(c => G.some(g => g.category === c));
-  const tree = cats.map(c => { const items = G.filter(g => g.category === c); return `<details data-tree="${esc(c)}"><summary><span>${esc(c)}</span><em>${items.length}</em></summary><ul>${items.map(g => {
+  const cats = RAIL_ORDER.filter(c => OWNED.some(g => g.category === c));
+  const tree = cats.map(c => { const items = OWNED.filter(g => g.category === c); return `<details data-tree="${esc(c)}"><summary><span>${esc(c)}</span><em>${items.length}</em></summary><ul>${items.map(g => {
       const on = builder.pieces.includes(g.id);
       return `<li><span class="chip" style="background:${hex(g.primary_color)}"></span><span>${esc(title(g))}</span><button type="button" class="small-add" data-pick="${g.id}" aria-pressed="${on}" aria-label="${on ? "Remove" : "Add"} ${esc(title(g))}">${on ? "−" : "+"}</button></li>`; }).join("")}</ul></details>`; }).join("");
   const pieceRows = pieces.length ? pieces.map(g => `<div class="bpiece">

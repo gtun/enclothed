@@ -48,6 +48,10 @@
   /* buttons that call the AI and spend tokens (class "llm-action"). settings.js can pick
      these from your wardrobe instead; set aiButtonColor: "theme" there to always use these. */
   --llm:#a05a14;
+
+  /* how far the photo of a garment you no longer own is faded. It fades toward the
+     --photo color behind it, so it reads lighter in Day and darker in Evening. */
+  --disowned-photo:.32;
   --on-llm:#ffffff;
 
   /* highlighted words in text */
