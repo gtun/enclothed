@@ -74,7 +74,12 @@ app.addEventListener("click", e => {
     refresh(); return;
   }
   const ed = e.target.closest("[data-edit]");
-  if (ed){ openEditor(ed.dataset.edit); return; }
+  if (ed){
+    const onText = ed.tagName !== "BUTTON";   // notes: a link is followed, and text can be selected, without opening the editor
+    if (onText && (e.target.closest("a") || String(getSelection()))) return;
+    openEditor(ed.dataset.edit); return;
+  }
+  if (handleNotesCheckClick(e)) return;
   if (handleBuilderClick(e)) return;
   const r = e.target.closest("[data-rate]");
   if (r){ const id = r.dataset.rateId || (location.hash.match(/^#outfit-(\d+)$/) || [])[1]; if (id && outById[id]) rate(outById[id], r.dataset.rate === "true"); return; }
@@ -95,6 +100,7 @@ app.addEventListener("input", e => {
   }, el.type === "date" ? 0 : 200);
 });
 addEventListener("keydown", e => {
+  if (e.key === "Escape" && e.target.closest(".notecheck")){ e.target.closest(".notecheck").querySelector('[data-nc="no"]').click(); return; }
   if (!galleryGo || e.target.closest("input,textarea,[role=combobox]")) return;
   if (e.key === "ArrowRight"){ e.preventDefault(); galleryGo(1); }
   if (e.key === "ArrowLeft"){ e.preventDefault(); galleryGo(-1); }

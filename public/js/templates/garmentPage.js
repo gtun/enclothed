@@ -31,6 +31,22 @@ function displayValue(g, f){
   }
 }
 const evButton = (field, label, inner, cls="") => `<button type="button" class="ev ${cls}" data-edit="${field}" aria-label="Edit ${esc(label)}">${inner}${PEN}</button>`;
+/* For text that can hold links, which can't sit inside a button: click the text to edit, or Tab to the pen. */
+const evText = (field, label, inner) => `<div class="ev block" data-edit="${field}">${inner}<button type="button" class="penbtn" data-edit="${field}" aria-label="Edit ${esc(label)}">${PEN}</button></div>`;
+
+/* The prompt after a color edit, when the styling notes still mention the old color. */
+function notesCheckDock(g){
+  const c = currentCheck(g); if (!c) return "";
+  const n = colorMentions(g.styling_notes, c.from).length;
+  const message = c.to
+    ? `The styling notes mention <b>${esc(c.from)}</b>${n > 1 ? ` ${n} times` : ""}, and you changed that color to <b>${esc(c.to)}</b>. Update the notes?`
+    : `You removed <b>${esc(c.from)}</b>, but the styling notes still mention it. Add a replacement color to swap it in, or:`;
+  return `<aside class="notecheck" role="group" aria-label="Check the styling notes">
+    <p class="ncmsg">${message}</p>
+    <p class="nctext">${highlightMentions(g.styling_notes, c.from)}</p>
+    <div class="btns">${c.to ? `<button type="button" class="btn primary" data-nc="yes">Yes, change to ${esc(c.to)}</button><button type="button" class="btn" data-nc="no">No, leave it</button>` : `<button type="button" class="btn" data-nc="no">Leave it</button>`}<button type="button" class="btn" data-nc="manual">Do it manually</button></div>
+  </aside>`;
+}
 
 function garmentPage(g){
   const s = setById[g.set_id];
@@ -60,7 +76,8 @@ function garmentPage(g){
   const rows = FIELDS.map(f => `<dt>${esc(f.label)}</dt><dd data-field="${f.key}">${evButton(f.key, f.label, `<span>${displayValue(g, f)}</span>`)}</dd>`).join("");
   const tags = `<div data-field="style_tags">${evButton("style_tags", "style tags",
       g.style_tags.length ? `<span class="tags">${g.style_tags.map(t => `<span class="tg">${esc(t)}</span>`).join("")}</span>` : `<span class="addnote">+ Add style tags</span>`)}</div>`;
-  const notes = `<div data-field="notes">${evButton("notes", "your notes", g.notes ? `<p class="notes mine">${esc(g.notes)}</p>` : `<span class="addnote">+ Add your own notes</span>`, "block")}</div>`;
+  const notes = `<div data-field="notes">${g.notes ? evText("notes", "your notes", `<p class="notes mine">${linkify(g.notes)}</p>`) : evButton("notes", "your notes", `<span class="addnote">+ Add your own notes</span>`, "block")}</div>`;
+  const stylingNotes = `<div data-field="styling_notes">${g.styling_notes ? evText("styling_notes", "styling notes", `<p class="notes">${linkify(g.styling_notes)}</p>`) : evButton("styling_notes", "styling notes", `<span class="addnote">+ Add styling notes</span>`, "block")}</div>`;
   const label = `<div data-field="label_text">${evButton("label_text", "label text", g.label_text ? `<div class="label">${esc(g.label_text)}</div>` : `<span class="addnote">+ Add label text</span>`, "block")}</div>`;
   return `<button type="button" class="back" data-back="wardrobe" style="margin-top:20px">← Wardrobe</button>
     <div class="detail">
@@ -69,7 +86,7 @@ function garmentPage(g){
       <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(g.category)} · #${g.id}</span><h2>${esc(g.subcategory)}</h2>
         <div class="hero-actions"><button type="button" class="btn${builder.pieces.includes(g.id) ? " primary" : ""}" data-pick="${g.id}" aria-pressed="${builder.pieces.includes(g.id)}">${builder.pieces.includes(g.id) ? "− Remove from outfit" : "+ Add to outfit"}</button></div></div>
       ${setPanel}
-      <p class="notes">${esc(g.styling_notes)}</p>
+      ${stylingNotes}
       ${notes}
       ${outPanel}
       ${coPanel}
@@ -79,5 +96,6 @@ function garmentPage(g){
         ${tags}
       </div>
       ${label}
-    </div></div>`;
+    </div></div>
+    ${notesCheckDock(g)}`;
 }

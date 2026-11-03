@@ -3,6 +3,25 @@
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const hex = c => HEX[c] || "#999999";
+/* Drop punctuation that ends the sentence rather than the address, and a closing bracket with no opening one. */
+function trimUrl(url){
+  for (;;){
+    const t = url.replace(/[.,;:!?'"”’]+$/, ""), last = t.slice(-1), open = {")": "(", "]": "[", "}": "{"}[last];
+    if (!open || t.split(last).length <= t.split(open).length) return t;
+    url = t.slice(0, -1);
+  }
+}
+/* Text as safe HTML, with http(s):// and www. addresses as links that open in a new tab. */
+function linkify(text){
+  const s = String(text ?? "");
+  let html = "", at = 0;
+  for (const m of s.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>"]+/gi)){
+    const url = trimUrl(m[0]), href = /^www\./i.test(url) ? `https://${url}` : url;
+    html += `${esc(s.slice(at, m.index))}<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`;
+    at = m.index + url.length;
+  }
+  return html + esc(s.slice(at));
+}
 const pips = (n, max) => `<span class="pips">${Array.from({length:max},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join("")}</span>`;
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 /* Date formats are set in settings.js. A timestamp from the server is UTC; it's shown in your local time.

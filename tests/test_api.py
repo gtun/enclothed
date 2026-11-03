@@ -43,6 +43,20 @@ def outfit_id(db_path):
     return new_id
 
 
+# --- PATCH /api/garments/{id} --------------------------------------------------------
+@pytest.mark.parametrize("text", ["Now in navy.\nSee https://example.com", ""])
+def test_patch_styling_notes_persists(client, db_path, text):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    response = client.patch(f"/api/garments/{garment_id}", json={"styling_notes": text})
+    assert response.status_code == 200
+    assert client.get(f"/api/garments/{garment_id}").json()["styling_notes"] == text
+
+
+def test_patch_styling_notes_cannot_be_null(client, db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    assert client.patch(f"/api/garments/{garment_id}", json={"styling_notes": None}).status_code == 422
+
+
 # --- PATCH /api/outfits/{id} ---------------------------------------------------------
 
 @pytest.mark.parametrize("liked", [True, False, None])
