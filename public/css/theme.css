@@ -30,6 +30,7 @@
   /* text */
   --ink:#1d1d1c;         /* main text */
   --muted:#6b6b68;       /* secondary text */
+  --link-line:#8a8a86;   /* the thin underline on links in notes */
 
   /* buttons and selected states */
   --accent:#1d1d1c;
@@ -49,6 +50,10 @@
   --llm:#a05a14;
   --on-llm:#ffffff;
 
+  /* highlighted words in text */
+  --mark:#fbe7a1;
+  --mark-ink:#1d1d1c;
+
   /* depth */
   --shade:rgba(0,0,0,.06);   /* shadows */
   --overlay:rgba(0,0,0,.45); /* behind dialogs */
@@ -65,6 +70,9 @@
   --line:#2e2e2d;
   --ink:#ececea;
   --muted:#9c9c98;
+  --link-line:#7d7d79;
+  --mark:#5d4e1b;
+  --mark-ink:#fbf0c8;
   --accent:#ececea;
   --on-accent:#121212;
   --tag:#2a2720;

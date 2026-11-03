@@ -3,8 +3,9 @@
 
 let saving = false;
 async function save(g, changes){
-  if (saving) return;
+  if (saving) return false;
   saving = true;
+  let ok = false;
   try {
     const updated = await api(`/api/garments/${g.id}`, {method: "PATCH", body: changes});
     const i = G.findIndex(x => x.id === g.id);
@@ -12,12 +13,14 @@ async function save(g, changes){
     O.forEach(o => o.garments.forEach(x => { if (x.garment.id === g.id) x.garment = updated; }));
     reindex();
     toast("Saved");
+    ok = true;
   } catch (e) {
     toast(e.message, true);
   } finally {
     saving = false;
     refresh();
   }
+  return ok;
 }
 const colorOptions = () => OPT.colors.map(c => ({value: c.name, label: c.name, hex: c.hex}));
 const NONE = {value: null, label: "— none"};
@@ -34,13 +37,17 @@ function openEditor(field){
       onPick: v => {
         if (v === g.category) return refresh();
         const sub = document.querySelector('[data-field="subcategory"]');
-        host.innerHTML = `<span class="cchip">${esc(v)}</span><div class="hintline">Now pick a ${esc(v)} subcategory to save</div>`;
+        host.innerHTML = `<div class="ontrack"><span class="cchip">${esc(v)}</span><span class="hintline">pick a subcategory to save</span></div>`;
         subcategoryEditor(sub, g, v);
       }});
   } else if (field === "subcategory"){
     subcategoryEditor(host, g, g.category);
   } else if (f && f.kind === "color"){
-    combo(host, {options: colorOptions(), current: g[field], onCancel: cancel, onPick: setOne});
+    combo(host, {options: colorOptions(), current: g[field], onCancel: cancel, onPick: v => {
+      if (v === g[field]) return refresh();
+      const was = g[field];
+      save(g, {[field]: v}).then(ok => { if (ok){ flagColorChange(g.id, was, v); refresh(); focusNotesCheck(); } });
+    }});
   } else if (f && f.kind === "colors"){
     multiEditor(host, g, field, colorOptions(), false);
   } else if (f && (f.kind === "level" || f.kind === "choice")){
@@ -52,7 +59,7 @@ function openEditor(field){
     materialsEditor(host, g);
   } else if (field === "style_tags"){
     multiEditor(host, g, field, unique(G.flatMap(x => x.style_tags)).map(t => ({value: t, label: t})), true);
-  } else if (field === "notes" || field === "label_text"){
+  } else if (field === "notes" || field === "styling_notes" || field === "label_text"){
     textEditor(host, g, field);
   }
 }
@@ -68,25 +75,36 @@ function subcategoryEditor(host, g, category){
 function multiEditor(host, g, field, options, free){
   const values = g[field].slice();
   const isColor = field !== "style_tags";
-  host.innerHTML = `<div class="multi"><div class="have">${values.map((v, i) => `<span class="pill">${isColor ? `<span class="chip" style="background:${hex(v)}"></span>` : ""}${esc(v)}<button type="button" data-rm="${i}" aria-label="Remove ${esc(v)}">×</button></span>`).join("") || `<span class="empty">None yet</span>`}</div>
+  /* The editor floats over the row, which stays in place (hidden) so nothing below it moves. */
+  host.querySelector(".ev").style.visibility = "hidden";
+  host.insertAdjacentHTML("beforeend", `<div class="multi float"><div class="have">${values.map((v, i) => `<span class="pill">${isColor ? `<span class="chip" style="background:${hex(v)}"></span>` : ""}${esc(v)}<button type="button" data-rm="${i}" aria-label="Remove ${esc(v)}">×</button></span>`).join("") || `<span class="empty">None yet</span>`}</div>
     <div class="btns"><button type="button" class="btn done-btn">Done</button><span class="hintline">Changes save as you go</span></div>
-    <div class="adder"></div></div>`;
+    <div class="adder"></div></div>`);
   host.querySelector(".have").addEventListener("click", e => {
     const b = e.target.closest("[data-rm]"); if (!b) return;
-    const next = values.filter((_, i) => i !== +b.dataset.rm);
-    save(g, {[field]: next}).then(() => openEditor(field));
+    const removed = values[+b.dataset.rm], next = values.filter((_, i) => i !== +b.dataset.rm);
+    save(g, {[field]: next}).then(ok => {
+      if (ok && isColor && !garmentColors(byId[g.id]).includes(removed)){ flagColorChange(g.id, removed, null); refresh(); }
+      openEditor(field);
+    });
   });
   host.querySelector(".done-btn").addEventListener("click", () => refresh());
-  combo(host.querySelector(".adder"), {options: options.filter(o => !values.includes(o.value)), free, keepOpen: true, onCancel: () => refresh(),
+  combo(host.querySelector(".adder"), {options: options.filter(o => !values.includes(o.value)), free, keepOpen: true, scope: host, onCancel: () => refresh(),
     placeholder: isColor ? "Add a color…" : "Add a tag…",
-    onPick: v => { if (v === null || values.includes(v)) return; save(g, {[field]: [...values, v]}).then(() => openEditor(field)); }});
+    onPick: v => { if (v === null || values.includes(v)) return;
+      save(g, {[field]: [...values, v]}).then(ok => {
+        if (ok && isColor){ pairReplacement(g.id, v); refresh(); }
+        openEditor(field);
+      }); }});
   host.addEventListener("keydown", e => { if (e.key === "Escape") refresh(); });
 }
 function textEditor(host, g, field){
-  host.innerHTML = `<textarea class="txt" rows="${field === "label_text" ? 5 : 3}" spellcheck="${field === "notes"}">${esc(g[field] || "")}</textarea>
+  const rows = {notes: 3, styling_notes: 7, label_text: 5}[field];
+  host.innerHTML = `<textarea class="txt" rows="${rows}" spellcheck="${field !== "label_text"}">${esc(g[field] || "")}</textarea>
     <div class="btns" style="margin-top:8px"><button type="button" class="btn primary" data-act="save">Save</button><button type="button" class="btn quiet" data-act="cancel">Cancel</button><span class="hintline">Ctrl+Enter to save · Esc to cancel</span></div>`;
   const ta = host.querySelector("textarea");
-  const commit = () => { const v = ta.value.trim() || null; if (v === (g[field] || null)) return refresh(); save(g, {[field]: v}); };
+  const blank = field === "styling_notes" ? "" : null;   // styling notes are text in the DB, never null
+  const commit = () => { const v = ta.value.trim() || blank; if (v === (g[field] || blank)) return refresh(); save(g, {[field]: v}); };
   host.querySelector('[data-act="save"]').onclick = commit;
   host.querySelector('[data-act="cancel"]').onclick = () => refresh();
   ta.addEventListener("keydown", e => {

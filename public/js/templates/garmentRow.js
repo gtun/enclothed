@@ -21,7 +21,7 @@ function garmentRow(g){
         <span><b>Warmth</b> ${g.warmth ? esc(levelLabel(OPT.warmth, g.warmth).split(",")[0]) : "—"}</span>
         <span>${n ? plural(n, "outfit") : "no outfits"}</span>
       </div>
-      <p class="gnotes">${esc(g.styling_notes)}</p>
+      <p class="gnotes">${linkify(g.styling_notes)}</p>
     </div>
   </article>`;
 }
