@@ -25,8 +25,31 @@ Rules:
   how its proportions behave, and what pairs well with it. Be specific, not generic.
 - Read the user prompt, if provided, for additional details about the garment to adjust the styling_notes and style_tags. Any absolute details from the user take precedence over your evaluation; for example, if the message states the garment's primary color is black, accept it.
 - style_tags are lowercase
-- Only fill Fit if the owner's context states it; otherwise leave it out.
+- fit: how the garment is cut, judged from its proportions in the photos: where the
+  shoulder seam falls, sleeve and body width against length, leg width through the
+  thigh and hem. A hanger or flat lay shows the cut, not how it sits on a person, so
+  judge the cut. If the owner's context states the fit, use theirs. Leave fit out for
+  shoes and accessories.
+  - slim: cut close to the body; narrow sleeves or legs, little extra room.
+  - regular: standard room; neither close nor roomy.
+  - relaxed: noticeably roomy; a wider body or legs, possibly dropped shoulders.
+  - oversized: deliberately large; shoulders dropped well past the shoulder point,
+    a very wide body or legs, extra length.
+  Volume that is the design (wide trousers, balloon or sarouel pants, hakama) is
+  relaxed or oversized, never regular.
+- sheen: how much light the surface reflects, judged from highlights in the photos
+  and from the materials. Always fill it; for shoes, judge the main upper.
+  - matte: no visible reflection. Brushed or napped cotton, fleece, flannel, most
+    knits, wool, linen, canvas, suede, nubuck, roughout leather.
+  - low: a soft luster with gentle highlights. Sateen and high-density cotton,
+    nylon or polyester shells, smooth or polished leather, mercerized cotton, smooth
+    fine-gauge knits.
+  - high: clearly shiny, with strong highlights. Satin, patent leather, metallic or
+    coated finishes, glossy technical nylon.
+- Leave secondary_colors empty for solid garments; shading, heathering and fabric texture are not colors.
 - Use accent_colors to describe trims, small panels, contrasting stitching, prominent buttons, and other design features. Do not use accent_colors to describe tags or labels
+- White garments under warm light are still white; use cream or beige only when clearly tinted.
+- Indigo-dyed fabrics (denim, aizome) are indigo, not navy.
 
 Photo roles:
 - Images are labeled "Image 0:", "Image 1:", etc. Return exactly one PhotoTag
