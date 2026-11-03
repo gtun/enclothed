@@ -26,7 +26,7 @@ Rules:
 - Read the user prompt, if provided, for additional details about the garment to adjust the styling_notes and style_tags. Any absolute details from the user take precedence over your evaluation; for example, if the message states the garment's primary color is black, accept it.
 - style_tags are lowercase
 - Only fill Fit if the owner's context states it; otherwise leave it out.
-- Use accent_colors to describe trims, small panels, contrasting stitching, prominent buttons, and other design features, and not labels
+- Use accent_colors to describe trims, small panels, contrasting stitching, prominent buttons, and other design features. Do not use accent_colors to describe tags or labels
 
 Photo roles:
 - Images are labeled "Image 0:", "Image 1:", etc. Return exactly one PhotoTag
