@@ -202,6 +202,7 @@ class OutfitOut(BaseModel):
     explanation: str
     missing: str | None = None
     liked: bool | None = None
+    wear_count: int = 0
     garments: list[OutfitGarmentOut]
 
 class SetOut(BaseModel):
