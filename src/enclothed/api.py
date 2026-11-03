@@ -34,9 +34,18 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="enclothed")
 
+
+class RevalidatedStaticFiles(StaticFiles):
+    """Page files the browser must re-check before reusing, so updates show up on a normal refresh."""
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 GARMENTS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/photos", StaticFiles(directory=GARMENTS_DIR), name="photos")
-app.mount("/static", StaticFiles(directory=PUBLIC_DIR), name="static")  # the page's CSS
+app.mount("/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="static")  # the page's CSS
 
 
 def _anthropic_client() -> anthropic.Anthropic:
@@ -256,4 +265,4 @@ def get_thumbnail(garment_id: int, filename: str) -> FileResponse:
 # --- front end -----------------------
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
-    return FileResponse(PUBLIC_DIR / "index.html")
+    return FileResponse(PUBLIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
