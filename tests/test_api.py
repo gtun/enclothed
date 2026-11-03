@@ -386,3 +386,17 @@ def test_suggestions_without_preferences_send_no_block(client, basics, llm):
     llm.result = OutfitResult.model_validate({"outfits": [suggestion([b["top"], b["bottom"], b["shoes"]])]})
     client.post("/api/outfits/suggestions", json={"details": "dinner"})
     assert not any("<preferences>" in block["text"] for block in llm.calls[-1])
+
+
+# --- caching of the page's files ------------------------------------------------------
+@pytest.mark.parametrize("path", ["/", "/static/js/main.js", "/static/css/app.css"])
+def test_page_files_must_be_rechecked(client, path):
+    response = client.get(path)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_unchanged_page_file_is_not_sent_again(client):
+    first = client.get("/static/js/main.js")
+    second = client.get("/static/js/main.js", headers={"If-None-Match": first.headers["etag"]})
+    assert second.status_code == 304
