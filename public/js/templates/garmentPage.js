@@ -54,17 +54,17 @@ function garmentPage(g){
   if (s){
     const others = G.filter(x => x.set_id === s.id && x.id !== g.id && showDisowned(x, "sets"));
     const ids = G.filter(x => x.set_id === s.id).map(x => x.id);
-    const together = SHOWN.filter(o => ids.every(id => o.pieces.some(p => p.id === id))).length;
+    const together = (isDisowned(g) ? O : SHOWN).filter(o => ids.every(id => o.pieces.some(p => p.id === id))).length;
     setPanel = `<div class="panel"><h4><span style="display:inline-flex;gap:7px;align-items:center">${SET_ICON} Part of a set: ${esc(setName(s))}</span><small>worn together in ${plural(together,"outfit")}</small></h4>
       <div class="inset">${others.map(x => `<a class="mini" href="#garment-${x.id}"><div class="ph${fadeClass(x)}">${ph(x, thumb(x))}${goneMark(x)}</div><span>${esc(x.subcategory)}</span><em>#${x.id}</em></a>`).join("")}</div></div>`;
   }
-  const allUses = (outfitsOf[g.id] || []).slice().sort((a, b) => b.o.timestamp.localeCompare(a.o.timestamp));
+  const allUses = ((isDisowned(g) ? allOutfitsOf : outfitsOf)[g.id] || []).slice().sort((a, b) => b.o.timestamp.localeCompare(a.o.timestamp));
   const uses = allUses.filter(u => visible(u.o));
   const hidden = allUses.length - uses.length;
   const outPanel = `<div class="panel"><h4>In outfits <small>${uses.length ? plural(uses.length,"outfit") : ""}${hidden ? ` · ${hidden} disliked hidden` : ""}</small></h4>
     ${uses.length ? `<div class="olist" tabindex="0" aria-label="Outfits with this garment">${uses.map(u => `
       <a class="orow" href="#outfit-${u.o.id}">${vPal(u.o)}<span><b>${esc(u.o.aesthetic)}</b><span>${u.advice ? esc(u.advice) : esc(u.o.prompt_message)}</span></span><time>${when(u.o.timestamp)}</time></a>`).join("")}</div>`
-      : `<p class="empty">${hidden ? "Only in disliked outfits." : O.some(o => o.pieces.some(p => p.id === g.id)) ? "No outfits to show." : "Not in any outfit yet."}</p>`}</div>`;
+      : `<p class="empty">${hidden ? "Only in disliked outfits." : allOutfitsOf[g.id] ? `Only in <a href="#disowned-outfits">disowned outfits</a>.` : "Not in any outfit yet."}</p>`}</div>`;
   const co = {};
   uses.forEach(u => u.o.pieces.forEach(p => { if (p.id !== g.id && byId[p.id] && showDisowned(byId[p.id], "pairedWith") && !(g.set_id && byId[p.id].set_id === g.set_id)) co[p.id] = (co[p.id]||0) + 1; }));
   const top = Object.entries(co).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -84,7 +84,7 @@ function garmentPage(g){
     <div class="gallery">${gallery}</div>
     <div class="info">
       <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(g.category)} · #${g.id}</span><h2>${esc(g.subcategory)}</h2>
-        ${isDisowned(g) ? `<p class="gonenote">No longer owned · since ${esc(whenDay(g.disowned_on))}</p>`
+        ${isDisowned(g) ? `<p class="gonenote">No longer owned · since ${esc(whenDay(g.disowned_on))}</p><div class="hero-actions"><button type="button" class="btn primary" data-reown>Add this to my wardrobe again</button></div>`
           : `<div class="hero-actions"><button type="button" class="btn${builder.pieces.includes(g.id) ? " primary" : ""}" data-pick="${g.id}" aria-pressed="${builder.pieces.includes(g.id)}">${builder.pieces.includes(g.id) ? "− Remove from outfit" : "+ Add to outfit"}</button><button type="button" class="btn quiet" data-disown>I no longer own this</button></div>`}</div>
       ${setPanel}
       ${stylingNotes}

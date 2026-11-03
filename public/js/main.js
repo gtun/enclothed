@@ -21,16 +21,18 @@ function render(){
     document.title = o ? `${o.aesthetic} · enclothed` : "enclothed";
   } else if (h === "outfits"){ view = "outfits"; html = outfits(); document.title = "Outfits · enclothed"; }
   else if (h === "results"){ view = "results"; html = resultsPage(); document.title = "New suggestions · enclothed"; }
+  else if (h === "disowned-garments"){ view = "disowned-garments"; html = disownedGarments(); document.title = "Disowned garments · enclothed"; }
+  else if (h === "disowned-outfits"){ view = "disowned-outfits"; html = disownedOutfits(); document.title = "Disowned outfits · enclothed"; }
   else if (h === "style"){ view = "style"; html = stylePage(); document.title = "Your style · enclothed"; }
   else { html = wardrobe(); document.title = "enclothed"; }
   app.innerHTML = html;
-  const section = (view === "outfit" || view === "outfits" || view === "results") ? "outfits" : view === "style" ? "style" : "wardrobe";
+  const section = (view === "outfit" || view === "outfits" || view === "results" || view === "disowned-outfits") ? "outfits" : view === "style" ? "style" : "wardrobe";
   for (const k of ["wardrobe", "outfits", "style"]){ const n = document.getElementById("nav-" + k);
     if (k === section) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current"); }
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;
   const bk = app.querySelector("[data-back]");
   if (bk && prev){ const pm = prev.match(/^#(garment|outfit)-/);
-    bk.textContent = pm ? `← Back to ${pm[1]}` : prev === "#results" ? "← New suggestions" : prev === "#outfits" ? "← Outfits" : "← Wardrobe"; }
+    bk.textContent = pm ? `← Back to ${pm[1]}` : prev === "#results" ? "← New suggestions" : prev === "#outfits" ? "← Outfits" : prev === "#disowned-garments" ? "← Disowned garments" : prev === "#disowned-outfits" ? "← Disowned outfits" : "← Wardrobe"; }
   return view;
 }
 function route(){
@@ -80,6 +82,7 @@ app.addEventListener("click", e => {
     openEditor(ed.dataset.edit); return;
   }
   if (e.target.closest("[data-disown]")){ const g = currentGarment(); if (g) openDisown(g); return; }
+  if (e.target.closest("[data-reown]")){ const g = currentGarment(); if (g) reown(g); return; }
   if (handleNotesCheckClick(e)) return;
   if (handleBuilderClick(e)) return;
   const r = e.target.closest("[data-rate]");

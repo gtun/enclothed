@@ -24,7 +24,8 @@ const SETTINGS = {
      "theme":    always use --llm / --on-llm from css/theme.css. */
   aiButtonColor: "wardrobe",
 
-  /* Garments you no longer own, in the places they can still appear through old links.
+  /* Garments you no longer own, in the places they can still appear. outfitCard applies on the
+     Disowned outfits page, and outfitPage on any outfit with a disowned piece.
      "fade": show them dimmed, marked "no longer owned".
      "hide": leave them out. */
   disowned: {

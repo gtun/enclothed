@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from enclothed import api, photos
 from enclothed import outfit as outfit_module
-from enclothed.db import init_db, insert_garment, insert_outfits, insert_set
+from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, select_owned_garments
 from enclothed.models import Category, Color, Fit, Outfit, OutfitResult, Sheen, SUBCATEGORIES
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -470,3 +470,12 @@ def test_disowned_garment_is_not_sent_to_the_llm(client, db_path, monkeypatch):
 
     wardrobe = json.loads(sent["wardrobe"].split("<wardrobe>")[1].split("</wardrobe>")[0])
     assert set(wardrobe) == {str(kept)}
+
+
+def test_clearing_disowned_on_puts_a_garment_back(client, db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    disown(client, garment_id)
+    response = client.patch(f"/api/garments/{garment_id}", json={"disowned_on": None})
+    assert response.status_code == 200
+    assert response.json()["disowned_on"] is None
+    assert [g.id for g in select_owned_garments(db_path)] == [garment_id]
