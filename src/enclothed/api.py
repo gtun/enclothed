@@ -159,7 +159,7 @@ def suggest_outfits(body: OutfitSuggestIn) -> list[OutfitOut]:
     if not anchors and not details:
         raise HTTPException(status_code=422, detail="Add at least one piece or some details.")
 
-    wardrobe = {g.id: g for g in db.select_all_garments(DB_PATH)}
+    wardrobe = {g.id: g for g in db.select_owned_garments(DB_PATH)}
     unknown = [i for i in anchors if i not in wardrobe]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
@@ -180,7 +180,7 @@ def create_outfit(body: OutfitCreateIn) -> OutfitOut:
     ids = [g.garment_id for g in body.garments]
     if len(set(ids)) < len(ids):
         raise HTTPException(status_code=422, detail="The same garment is in the outfit twice.")
-    known = {g.id for g in db.select_all_garments(DB_PATH)}
+    known = {g.id for g in db.select_owned_garments(DB_PATH)}
     unknown = [i for i in ids if i not in known]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")

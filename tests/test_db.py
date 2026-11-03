@@ -352,11 +352,15 @@ def test_preferences_migration_adds_table_to_an_existing_db(tmp_path):
     old_schema = tmp_path / "old_schema.sql"
     old_schema.write_text(SCHEMA_PATH.read_text().split("CREATE TABLE IF NOT EXISTS preferences")[0])
     old_migrations = tmp_path / "old_migrations"; old_migrations.mkdir()
-    for m in sorted(MIGRATIONS_DIR.glob("*.sql"))[:2]:
+    upto_003 = tmp_path / "upto_003"; upto_003.mkdir()
+    migrations = sorted(MIGRATIONS_DIR.glob("*.sql"))
+    for m in migrations[:2]:
         (old_migrations / m.name).write_text(m.read_text())
+    for m in migrations[:3]:
+        (upto_003 / m.name).write_text(m.read_text())
     init_db(path, old_schema, old_migrations)  # a database as it was before preferences existed
 
-    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    init_db(path, old_schema, upto_003)  # old_schema has no preferences table, so only migration 003 can create it
     with closing(sqlite3.connect(path)) as conn:
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
         assert conn.execute("SELECT name FROM sqlite_master WHERE name = 'preferences'").fetchone()

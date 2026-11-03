@@ -96,7 +96,7 @@ def main() -> int:
 
     # --- list ------------------
     elif args.command == "list":
-        wardrobe = db.select_all_garments(config.DB_PATH)
+        wardrobe = db.select_owned_garments(config.DB_PATH)
         if not wardrobe:
             print("Sorry, you have no items in your wardrobe to list. Go shopping and add something with: enclothed add <photos>")
             return 0
@@ -116,7 +116,7 @@ def main() -> int:
         load_dotenv()
         if not args.anchors and not args.prompt_message:
             outfit_parser.error("At least one of -p/--prompt-message or -w/--with required")
-        wardrobe = {g.id: g for g in db.select_all_garments(config.DB_PATH)}
+        wardrobe = {g.id: g for g in db.select_owned_garments(config.DB_PATH)}
         if args.anchors:
             missing = [i for i in args.anchors if i not in wardrobe]
             if missing:
@@ -133,7 +133,7 @@ def main() -> int:
         garment_ids = set(args.garment_ids)
         if len(garment_ids) < 2:
             set_parser.error("At least two unique garments required to create a set. Add them with -g/--garment <ID>")
-        wardrobe = {g.id: g for g in db.select_all_garments(config.DB_PATH)}
+        wardrobe = {g.id: g for g in db.select_owned_garments(config.DB_PATH)}
         valid_garments = garment_ids & wardrobe.keys()
         if len(valid_garments) < len(garment_ids):
             set_parser.error(f"Garment IDs {', '.join(map(str, garment_ids - valid_garments))} not found")
