@@ -9,6 +9,7 @@
 let comboSeq = 0;
 function combo(host, {options, current, free = false, placeholder = "Type to filter…", onPick, onCancel, keepOpen = false, autofocus = true, collapsed = false, scope = host}){
   const id = "cb" + (++comboSeq);
+  if (!keepOpen) host.style.minHeight = `${host.getBoundingClientRect().height}px`;   // the row keeps its height, so nothing below it moves
   host.innerHTML = `<div class="cb${collapsed ? " inline" : ""}"><input type="text" role="combobox" aria-expanded="true" aria-controls="${id}" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="${esc(placeholder)}">
     <span class="caret" aria-hidden="true">▾</span><div class="pop"><ul role="listbox" id="${id}"></ul><div class="hintline"></div></div></div>`;
   const wrap = host.querySelector(".cb"), input = wrap.querySelector("input"), pop = wrap.querySelector(".pop"), list = wrap.querySelector("ul"), hint = wrap.querySelector(".hintline");
