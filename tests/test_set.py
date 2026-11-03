@@ -2,6 +2,7 @@ import re
 import sqlite3
 import sys
 from contextlib import closing
+from datetime import date
 
 import pytest
 
@@ -131,3 +132,20 @@ def test_duplicate_ids_collapse_into_one_set(db_path, monkeypatch):
     assert len(sets) == 1
     new_set_id, _ = sets[0]
     assert set_ids_by_garment(db_path) == {1: new_set_id, 2: new_set_id, 3: None}
+
+
+def test_set_rejects_a_disowned_garment(db_path, monkeypatch, capsys):
+    gone = db.select_garment(db_path, 2)
+    db.update_garment(db_path, gone.model_copy(update={"disowned_on": date(2026, 11, 3)}))
+    with pytest.raises(SystemExit):
+        run_set(monkeypatch, "-g", "1", "2")
+    assert "2" in capsys.readouterr().err
+    assert db.select_garment(db_path, 1).set_id is None
+
+
+def test_list_leaves_out_disowned(db_path, monkeypatch, capsys):
+    gone = db.select_garment(db_path, 2)
+    db.update_garment(db_path, gone.model_copy(update={"disowned_on": date(2026, 11, 3)}))
+    monkeypatch.setattr(sys, "argv", ["enclothed", "list"])
+    assert main() == 0
+    assert "2 garments" in capsys.readouterr().out

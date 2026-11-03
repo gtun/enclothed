@@ -1,11 +1,13 @@
+import json
 from typing import get_args
 
 import pytest
 from fastapi.testclient import TestClient
 
 from enclothed import api, photos
+from enclothed import outfit as outfit_module
 from enclothed.db import init_db, insert_garment, insert_outfits, insert_set
-from enclothed.models import Category, Color, Fit, Outfit, Sheen, SUBCATEGORIES
+from enclothed.models import Category, Color, Fit, Outfit, OutfitResult, Sheen, SUBCATEGORIES
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
 
@@ -400,3 +402,71 @@ def test_unchanged_page_file_is_not_sent_again(client):
     first = client.get("/static/js/main.js")
     second = client.get("/static/js/main.js", headers={"If-None-Match": first.headers["etag"]})
     assert second.status_code == 304
+
+
+# --- disowning garments -----------------------------------------------------------------
+def disown(client, garment_id, day="2026-11-03"):
+    return client.patch(f"/api/garments/{garment_id}", json={"disowned_on": day})
+
+
+def test_disown_through_patch(client, db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    response = disown(client, garment_id)
+    assert response.status_code == 200
+    assert response.json()["disowned_on"] == "2026-11-03"
+    assert client.get(f"/api/garments/{garment_id}").json()["disowned_on"] == "2026-11-03"
+
+
+def test_disown_rejects_a_bad_date(client, db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    assert disown(client, garment_id, "someday").status_code == 422
+    assert client.get(f"/api/garments/{garment_id}").json()["disowned_on"] is None
+
+
+def test_garment_list_keeps_disowned(client, db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    disown(client, garment_id)
+    assert [g["id"] for g in client.get("/api/garments").json()] == [garment_id]
+
+
+def test_outfit_with_a_disowned_piece_still_loads(client, outfit_id):
+    piece = client.get(f"/api/outfits/{outfit_id}").json()["garments"][0]["garment"]["id"]
+    disown(client, piece)
+    assert client.get(f"/api/outfits/{outfit_id}").status_code == 200
+    [listed] = client.get("/api/outfits").json()
+    assert listed["wear_count"] == 0
+    assert piece in [g["garment"]["id"] for g in listed["garments"]]
+
+
+def test_disowned_anchor_is_rejected(client, db_path, monkeypatch):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    disown(client, garment_id)
+    monkeypatch.setattr(api, "_anthropic_client", lambda: None)
+    response = client.post("/api/outfits/suggestions", json={"anchors": [garment_id]})
+    assert response.status_code == 422
+    assert str(garment_id) in response.json()["detail"]
+
+
+def test_saving_an_outfit_with_a_disowned_piece_is_rejected(client, db_path):
+    garment_id = insert_garment(db_path, TEST_GARMENT)
+    disown(client, garment_id)
+    response = client.post("/api/outfits", json={"aesthetic": "a", "explanation": "b", "garments": [{"garment_id": garment_id}]})
+    assert response.status_code == 422
+
+
+def test_disowned_garment_is_not_sent_to_the_llm(client, db_path, monkeypatch):
+    kept = insert_garment(db_path, TEST_GARMENT)
+    gone = insert_garment(db_path, TEST_GARMENT)
+    disown(client, gone)
+    sent = {}
+
+    def fake_recommend(_client, context):
+        sent["wardrobe"] = context[0]["text"]
+        return OutfitResult(outfits=[]), None
+
+    monkeypatch.setattr(api, "_anthropic_client", lambda: None)
+    monkeypatch.setattr(outfit_module, "recommend_outfits", fake_recommend)
+    assert client.post("/api/outfits/suggestions", json={"details": "dinner"}).status_code == 200
+
+    wardrobe = json.loads(sent["wardrobe"].split("<wardrobe>")[1].split("</wardrobe>")[0])
+    assert set(wardrobe) == {str(kept)}
