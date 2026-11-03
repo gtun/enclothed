@@ -5,7 +5,8 @@ function gCard(g){
   const s = setById[g.set_id];
   const chips = [g.primary_color, ...g.secondary_colors, ...g.accent_colors].filter(Boolean)
     .map(c => `<span class="chip" title="${esc(c)}" style="background:${hex(c)}"></span>`).join("");
-  const n = (outfitsOf[g.id] || []).length;
+  const gone = isDisowned(g);
+  const n = ((gone ? allOutfitsOf : outfitsOf)[g.id] || []).length;
   const picked = builder.pieces.includes(g.id);
   return `<div class="cardwrap${picked ? " picked" : ""}"><a class="card" href="#garment-${g.id}" aria-label="${esc(title(g))}, ${esc(g.primary_color)}">
     <div class="ph">${ph(g, thumb(g))}<span class="badge id">#${g.id}</span>
@@ -14,6 +15,6 @@ function gCard(g){
       <span class="brand">${esc(g.brand || "unknown brand")}</span>
       <span class="sc">${esc(g.subcategory)}</span>
       <span class="chips">${chips}</span>
-      <span class="row"><span class="scales"><span>F${pips(g.formality||0,4)}</span><span>W${pips(g.warmth||0,5)}</span></span><span>${n ? plural(n,"outfit") : "no outfits"}</span></span>
-    </div></a><span class="addlayer">${pickButton(g)}</span></div>`;
+      <span class="row">${gone ? `<span>Disowned ${esc(whenDay(g.disowned_on))}</span>` : `<span class="scales"><span>F${pips(g.formality||0,4)}</span><span>W${pips(g.warmth||0,5)}</span></span><span>${n ? plural(n,"outfit") : "no outfits"}</span>`}</span>
+    </div></a>${gone ? "" : `<span class="addlayer">${pickButton(g)}</span>`}</div>`;
 }

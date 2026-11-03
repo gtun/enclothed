@@ -3,7 +3,7 @@
 
 let req = "all";
 function outfits(){
-  if (!SHOWN.length) return `<header class="hero"><div><h1>Outfits</h1><div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button></div></div></header><div class="state"><p>No outfits yet. Start one with “New outfit”.</p></div>`;
+  if (!SHOWN.length) return `<header class="hero"><div><h1>Outfits</h1><div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button>${disownedLink("disowned-outfits", "Disowned", DISOWNED_O.length)}</div></div></header><div class="state"><p>No outfits yet. Start one with “New outfit”.</p></div>`;
   const groups = [...REQUESTS].reverse().map(r => ({...r, shown: r.items.filter(o => visible(o) && passesFilters(o))})).filter(r => r.shown.length);
   const nDisliked = SHOWN.filter(o => o.liked === false).length;
   if (req !== "all" && !groups.some(r => r.key === req)) req = "all";
@@ -12,7 +12,7 @@ function outfits(){
   const toggle = nDisliked ? `<span class="sep" aria-hidden="true"></span><button type="button" data-toggle-disliked aria-pressed="${showDisliked}">${showDisliked ? "Showing" : "Show"} disliked <span>${nDisliked}</span></button>` : "";
   const shown = groups.filter(r => req === "all" || r.key === req);
   return `<header class="hero"><div><h1>Outfits</h1><p class="sub">Every outfit suggested so far, grouped by what you asked for. The stripe is each piece's main color, outer layer down to shoes.</p>
-      <div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button>${builder.session ? `<a class="btn" href="#results" style="text-decoration:none">Latest suggestions</a>` : ""}</div></div>
+      <div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button>${builder.session ? `<a class="btn" href="#results" style="text-decoration:none">Latest suggestions</a>` : ""}${disownedLink("disowned-outfits", "Disowned", DISOWNED_O.length)}</div></div>
     <div class="stats"><div><b>${SHOWN.length}</b>outfits</div><div><b>${REQUESTS.length}</b>requests</div><div><b>${SHOWN.filter(o => o.liked).length}</b>liked</div></div></header>
     ${filterPanel()}
     <div class="filters" role="toolbar" aria-label="Filter by request">${btn("all","All requests",shownTotal)}${groups.map(r => btn(r.key, r.text, r.shown.length, r.text)).join("")}${toggle}</div>

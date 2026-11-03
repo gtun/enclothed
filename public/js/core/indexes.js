@@ -6,17 +6,21 @@ function adoptOutfit(o){
   return o;
 }
 const isDisowned = g => !!g?.disowned_on;
-/* Hidden: has a piece you no longer own, was never worn, and isn't liked. A hidden outfit's own link still works. */
-const outfitHidden = o => !o.wear_count && !o.liked && o.pieces.some(p => isDisowned(byId[p.id]));
+/* An outfit with a piece you no longer own lives on the Disowned outfits page, not the Outfits page. Its own link still works. */
+const outfitHidden = o => o.pieces.some(p => isDisowned(byId[p.id]));
 function reindex(){
   byId = Object.fromEntries(G.map(g => [g.id, g]));
   OWNED = G.filter(g => !isDisowned(g));
+  DISOWNED = G.filter(isDisowned);
   SHOWN = O.filter(o => !outfitHidden(o));
+  DISOWNED_O = O.filter(outfitHidden);
   outById = Object.fromEntries(O.map(o => [o.id, o]));
   setById = Object.fromEntries(SETS.map(s => [s.id, s]));
   O.forEach(o => o.pieces.sort((a, b) => catRank(byId[a.id]) - catRank(byId[b.id])));
   outfitsOf = {};
-  SHOWN.forEach(o => o.pieces.forEach(p => (outfitsOf[p.id] ||= []).push({o, advice: p.advice, anchor: p.anchor})));
+  allOutfitsOf = {};
+  O.forEach(o => o.pieces.forEach(p => (allOutfitsOf[p.id] ||= []).push({o, advice: p.advice, anchor: p.anchor})));
+  outfitsOf = Object.fromEntries(Object.entries(allOutfitsOf).map(([id, uses]) => [id, uses.filter(u => !outfitHidden(u.o))]).filter(([, uses]) => uses.length));
   REQUESTS = [];
   SHOWN.forEach(o => { let r = REQUESTS.find(x => x.text === o.prompt_message); if (!r) REQUESTS.push(r = {text: o.prompt_message, items: []}); r.items.push(o); });
   REQUESTS.forEach((r, i) => r.key = "r" + i);

@@ -1,4 +1,5 @@
 /* "I no longer own this": asks first, then records today's date on the garment. Its markup is in templates/disownDialog.js.
+   "Add this to my wardrobe again" clears the date.
    The garment stays in G because old outfits still show it. OWNED (indexes.js) is everything still in the wardrobe. */
 "use strict";
 
@@ -17,6 +18,20 @@ function closeDisown(){
   if (disowning) return;
   const ov = document.getElementById("disown"); ov.hidden = true; ov.innerHTML = ""; document.body.style.overflow = "";
   document.querySelector("[data-disown]")?.focus();
+}
+async function reown(g){
+  if (disowning) return;
+  disowning = true;
+  try {
+    adoptGarment(await api(`/api/garments/${g.id}`, {method: "PATCH", body: {disowned_on: null}}));
+    renderBuilder();
+    toast(`${title(g)} is back in your wardrobe`);
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    disowning = false;
+    refresh();
+  }
 }
 async function disownClick(e){
   if (e.target.id === "disown" || e.target.closest("[data-d-no]")) return closeDisown();
