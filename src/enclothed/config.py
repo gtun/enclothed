@@ -12,6 +12,7 @@ TAGGING_LOG_PATH = DATA_DIR / "tagging_log.jsonl"
 OUTFIT_LOG_PATH = DATA_DIR / "outfit_log.jsonl"
 PREFERENCES_LOG_PATH = DATA_DIR / "preferences_log.jsonl"
 BACKUPS_DIR = PROJECT_ROOT / "backups"
+SNAPSHOTS_DIR = DATA_DIR / "snapshots"
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
 PUBLIC_DIR = PROJECT_ROOT / "public"
 
