@@ -237,21 +237,17 @@ def select_all_sets(db_path) -> dict[int, str | None]:
 
 
 # --- preferences -------------
-def select_preferences(db_path: Path) -> tuple[str, str] | None:
+def select_preferences(db_path: Path, user_id: int) -> tuple[str, str] | None:
     """The saved (text, updated_at), or None when nothing is saved."""
     with closing(_connect(db_path)) as conn:
-        row = conn.execute("SELECT text, updated_at FROM preferences WHERE id = 1").fetchone()
-    return (row[0], row[1]) if row else None
+        row = conn.execute("SELECT style_notes, style_updated_at FROM users WHERE id = ?", (user_id,)).fetchone()
+    return (row[0], row[1]) if row and row[0] else None
 
-def save_preferences(db_path: Path, text: str | None, timestamp: str) -> None:
+def save_preferences(db_path: Path, user_id: int, text: str | None, timestamp: str) -> None:
     """Save the preferences text; empty or None removes it."""
     with closing(_connect(db_path)) as conn:
         with conn:
-            if text:
-                conn.execute(
-                    "INSERT INTO preferences (id, text, updated_at) VALUES (1, :text, :updated_at) "
-                    "ON CONFLICT (id) DO UPDATE SET text = excluded.text, updated_at = excluded.updated_at",
-                    {"text": text, "updated_at": timestamp},
-                )
-            else:
-                conn.execute("DELETE FROM preferences WHERE id = 1")
+            conn.execute(
+                "UPDATE users SET style_notes = ?, style_updated_at = ? WHERE id = ?",
+                (text or None, timestamp if text else None, user_id),
+            )

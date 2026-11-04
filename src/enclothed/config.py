@@ -16,6 +16,7 @@ SNAPSHOTS_DIR = DATA_DIR / "snapshots"
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
 PUBLIC_DIR = PROJECT_ROOT / "public"
 
+DEFAULT_USER_ID = 1
 CLAUDE_MODEL = "claude-sonnet-5-5"
 TEST_CLAUDE_MODEL = "claude-haiku-5-5"
 MAX_LLM_ATTEMPTS = 2
