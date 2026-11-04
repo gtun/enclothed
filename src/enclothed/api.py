@@ -116,7 +116,7 @@ def add_garment_from_photos(
             paths.append(str(photo))
 
         try:
-            garment_id = add_garment(paths, DB_PATH, GARMENTS_DIR, INTAKE_DIR, TAGGING_LOG_PATH, client, False,
+            garment_id = add_garment(DEFAULT_USER_ID, paths, DB_PATH, GARMENTS_DIR, INTAKE_DIR, TAGGING_LOG_PATH, client, False,
                                      _blank_to_none(prompt_message), _blank_to_none(notes))
         except anthropic.APIError as error:
             raise _llm_failed(error)
@@ -124,7 +124,7 @@ def add_garment_from_photos(
     return responses.get_garment(DB_PATH, garment_id)
 
 
-EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id"}
+EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id", "user_id"}
 
 @app.patch("/api/garments/{garment_id}")
 def edit_garment(garment_id: int, changes: dict[str, Any]) -> GarmentOut:
@@ -175,7 +175,7 @@ def suggest_outfits(body: OutfitSuggestIn) -> list[OutfitOut]:
     client = _anthropic_client()
     try:
         saved = db.select_preferences(DB_PATH, DEFAULT_USER_ID)
-        _, new_ids = generate_outfits(DB_PATH, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
+        _, new_ids = generate_outfits(DB_PATH, DEFAULT_USER_ID, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
                                       details or "everyday wear", False, preferences=saved[0] if saved else None)
     except anthropic.APIError as error:
         raise _llm_failed(error)
@@ -200,7 +200,7 @@ def create_outfit(body: OutfitCreateIn) -> OutfitOut:
         garments=[OutfitGarment(garment_id=g.garment_id, styling_advice=_blank_to_none(g.styling_advice)) for g in body.garments],
     )
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    [outfit_id] = db.insert_outfits(DB_PATH, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp)
+    [outfit_id] = db.insert_outfits(DB_PATH, DEFAULT_USER_ID, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp)
     return responses.get_outfit(DB_PATH, outfit_id)
 
 

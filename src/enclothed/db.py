@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-DB_DEFAULT_FIELDS = {"id","date_added"}
+DB_DEFAULT_FIELDS = {"id", "date_added", "user_id"}
 DB_JSON_COLUMNS = [
     "secondary_colors",
     "accent_colors",
@@ -62,8 +62,8 @@ def _garment_to_db_dict(garment: Garment) -> dict:
         for key, value in garment_dict.items()}
 
 
-def insert_garment(db_path:Path, garment:Garment) -> int:
-    garment_dict = _garment_to_db_dict(garment)
+def insert_garment(db_path:Path, user_id: int, garment:Garment) -> int:
+    garment_dict = {**_garment_to_db_dict(garment), "user_id": user_id}
     columns = ", ".join(garment_dict)
     placeholders = ", ".join(f":{name}" for name in garment_dict)
     with closing(_connect(db_path)) as conn:
@@ -116,7 +116,7 @@ def _row_to_garment(row:sqlite3.Row) -> Garment:
 
 
 # --- outfit defs -------------
-def insert_outfits(db_path: Path, valid_outfits: list[Outfit], anchors: list[int] | None, prompt_message: str, timestamp: str) -> list[int]:
+def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anchors: list[int] | None, prompt_message: str, timestamp: str) -> list[int]:
     anchor_ids = set(anchors or [])
     new_ids: list[int] = []
 
@@ -124,9 +124,10 @@ def insert_outfits(db_path: Path, valid_outfits: list[Outfit], anchors: list[int
         with conn:
             for outfit in valid_outfits:
                 cursor = conn.execute(
-                    "INSERT INTO outfits (timestamp, prompt_message, aesthetic, explanation, missing) "
-                    "VALUES (:timestamp, :prompt_message, :aesthetic, :explanation, :missing)",
+                    "INSERT INTO outfits (user_id, timestamp, prompt_message, aesthetic, explanation, missing) "
+                    "VALUES (:user_id, :timestamp, :prompt_message, :aesthetic, :explanation, :missing)",
                     {
+                        "user_id": user_id,
                         "timestamp": timestamp,
                         "prompt_message": prompt_message,
                         "aesthetic": outfit.aesthetic,
@@ -208,18 +209,18 @@ def set_outfit_liked(db_path: Path, outfit_id: int, liked: bool | None) -> bool:
 
 
 # --- set defs ----------------
-def insert_set(db_path: Path, garment_ids: list[int], set_name: str | None) -> int:
+def insert_set(db_path: Path, user_id: int, garment_ids: list[int], set_name: str | None) -> int:
     with closing(_connect(db_path)) as conn:
         with conn:
             cursor = conn.execute(
-                "INSERT INTO sets (name) VALUES (:name)",
-                {"name": set_name,}
+                "INSERT INTO sets (user_id, name) VALUES (:user_id, :name)",
+                {"user_id": user_id, "name": set_name}
             )
             set_id = cursor.lastrowid
 
             cursor = conn.executemany(
-                "UPDATE garments SET set_id = ? WHERE id = ? and set_id is null",
-                [(set_id, garment_id) for garment_id in garment_ids],
+                "UPDATE garments SET set_id = ? WHERE id = ? AND set_id IS NULL AND user_id = ?",
+                [(set_id, garment_id, user_id) for garment_id in garment_ids],
             )
             if cursor.rowcount != len(garment_ids):
                 raise ValueError(

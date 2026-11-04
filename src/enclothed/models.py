@@ -138,6 +138,7 @@ class Garment(BaseModel):
     date_added: SkipJsonSchema[date | None] = None
     set_id: SkipJsonSchema[int | None] = None
     disowned_on: SkipJsonSchema[date | None] = None
+    user_id: SkipJsonSchema[int | None] = None
 
     @property
     def name(self) -> str:

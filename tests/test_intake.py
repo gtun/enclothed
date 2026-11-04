@@ -85,6 +85,7 @@ def test_invalid_photo_filepath(tmp_path):
 
     with pytest.raises(FileNotFoundError):
         add_garment(
+            1,
             photos,
             tmp_path / "enclothed.db",
             tmp_path / "garments",

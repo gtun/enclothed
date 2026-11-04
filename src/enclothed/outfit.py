@@ -71,11 +71,11 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None) -> OutfitResult:
-    result, _ = generate_outfits(db_path, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences)
+def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None) -> OutfitResult:
+    result, _ = generate_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences)
     return result
 
-def generate_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None) -> tuple[OutfitResult, list[int]]:
+def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None) -> tuple[OutfitResult, list[int]]:
     """Ask the LLM for outfits, save the valid ones, and return the result plus the new outfit ids."""
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
@@ -126,7 +126,7 @@ def generate_outfits(db_path: Path, wardrobe: dict[int, Garment], anchors: list[
     if not is_test:
         if len(valid_outfits) < len(wrapper.outfits):
             logger.warning("Saving %d of %d outfits", len(valid_outfits), len(wrapper.outfits))
-        new_ids = insert_outfits(db_path, valid_outfits, anchors, prompt_message, timestamp)
+        new_ids = insert_outfits(db_path, user_id, valid_outfits, anchors, prompt_message, timestamp)
 
     log_outfit(logging_path, anchors, wrapper, usage, "\n".join(block["text"] for block in context), problems, timestamp)
 

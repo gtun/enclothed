@@ -19,12 +19,14 @@ CREATE TABLE IF NOT EXISTS garments (
     brand TEXT,
     date_added TEXT NOT NULL DEFAULT (date('now', 'localtime')),
     set_id INTEGER REFERENCES sets(id),
-    disowned_on TEXT
+    disowned_on TEXT,
+    user_id INTEGER REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS sets (
     id INTEGER PRIMARY KEY NOT NULL,
-    name TEXT
+    name TEXT,
+    user_id INTEGER REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS outfits (
@@ -35,6 +37,7 @@ CREATE TABLE IF NOT EXISTS outfits (
     explanation TEXT NOT NULL,
     missing TEXT,
     liked INTEGER DEFAULT NULL,
+    user_id INTEGER REFERENCES users(id),
     CHECK (liked in (0, 1))
 );
 

@@ -60,7 +60,7 @@ TEST_GARMENT = Garment(
 def is_url(text: str) -> bool:
     return urlparse(text).scheme in ("http", "https")
 
-def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None) -> int:
+def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None) -> int:
     logger.info("Staging your photos...")
     with tempfile.TemporaryDirectory(dir=intake_dir, ignore_cleanup_errors=True, prefix="staging-") as tmp:
         run_dir = Path(tmp)
@@ -85,7 +85,7 @@ def add_garment(image_paths:list[str], garment_db_path:Path, garments_path:Path,
         if notes:
             wrapper.garment.notes = notes
 
-        new_garment_id = insert_garment(garment_db_path, wrapper.garment)
+        new_garment_id = insert_garment(garment_db_path, user_id, wrapper.garment)
 
         log_tagging(logging_path, new_garment_id, wrapper, usage, prompt_message)
         file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
