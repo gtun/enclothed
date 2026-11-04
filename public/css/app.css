@@ -430,3 +430,8 @@ body.with-builder .wrap{margin-right:max(392px,calc((100% - 1180px)/2))}
 .actbar select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:3px 6px}
 .actbar button{font:inherit;color:inherit;background:none;border:1px solid currentColor;border-radius:6px;padding:3px 10px;cursor:pointer}
 .actbar.acting{color:var(--mark-ink);background:var(--mark);border-top-color:var(--mark)}
+
+/* help: the ? in the top bar */
+.iconbtn.helpbtn{background:none;color:var(--muted);font:500 .84rem var(--body)}
+.iconbtn.helpbtn:hover{color:var(--ink)}
+.iconbtn.helpbtn[hidden]{display:none}

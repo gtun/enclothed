@@ -4,23 +4,25 @@
 const app = document.getElementById("app");
 const scrollMem = {};
 let current = null;
+let pageFound = true;   // false on "not found" pages, which skip the first-visit help
 const stack = [location.hash || "#wardrobe"];
 function currentGarment(){ const m = location.hash.match(/^#garment-(\d+)$/); return m ? byId[m[1]] : null; }
 function render(){
   const h = location.hash.slice(1);
   let m, view = "wardrobe", html;
+  pageFound = true;
   if ((m = h.match(/^garment-(\d+)$/))){
     const g = byId[m[1]];
-    view = "garment";
+    view = "garment"; pageFound = !!g;
     html = g ? garmentPage(g) : `<div class="state"><h1>Garment not found</h1><p><a href="#wardrobe">Back to the wardrobe</a></p></div>`;
     document.title = g ? `${title(g)} · enclothed` : "enclothed";
   } else if ((m = h.match(/^outfit-(\d+)$/))){
     const o = outById[m[1]];
-    view = "outfit";
+    view = "outfit"; pageFound = !!o;
     html = o ? outfitPage(o) : `<div class="state"><h1>Outfit not found</h1><p><a href="#outfits">Back to outfits</a></p></div>`;
     document.title = o ? `${o.aesthetic} · enclothed` : "enclothed";
   } else if (h === "outfits"){ view = "outfits"; html = outfits(); document.title = "Outfits · enclothed"; }
-  else if (h === "results"){ view = "results"; html = resultsPage(); document.title = "New suggestions · enclothed"; }
+  else if (h === "results"){ view = "results"; pageFound = !!builder.session?.ids.length; html = resultsPage(); document.title = "New suggestions · enclothed"; }
   else if (h === "disowned-garments"){ view = "disowned-garments"; html = disownedGarments(); document.title = "Disowned garments · enclothed"; }
   else if (h === "disowned-outfits"){ view = "disowned-outfits"; html = disownedOutfits(); document.title = "Disowned outfits · enclothed"; }
   else if (h === "style"){ view = "style"; html = stylePage(); document.title = "Your style · enclothed"; }
@@ -36,11 +38,13 @@ function render(){
   return view;
 }
 function route(){
+  closeHelp();
   if (current === "wardrobe" || current === "outfits") scrollMem[current] = scrollY;
   const view = render();
   current = view;
   if (view === "garment") wireGallery();
   scrollTo(0, (view === "wardrobe" || view === "outfits") ? (scrollMem[view] || 0) : 0);
+  if (pageFound) showHelpOnce(view);
 }
 /* Re-draw the current page after a change, keeping scroll and photo position. */
 function refresh(){
@@ -133,6 +137,7 @@ paintTheme();
     HEX = Object.fromEntries(options.colors.map(c => [c.name, c.hex]));
     document.getElementById("who").textContent = profile.name;
     renderActAs(profile);
+    startHelp(profile.signed_in_as || profile.name);
     reindex();
     builder.pieces = builder.pieces.filter(id => byId[id] && !isDisowned(byId[id]));
     if (builder.session) builder.session.ids = builder.session.ids.filter(id => outById[id]);
