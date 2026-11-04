@@ -86,7 +86,7 @@ def main() -> int:
 
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
-        new_garment_id = add_garment(args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
+        new_garment_id = add_garment(config.DEFAULT_USER_ID, args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
 
         new_garment = db.select_garment(config.DB_PATH, new_garment_id)
         if new_garment is None:
@@ -124,7 +124,7 @@ def main() -> int:
         user_prompt = args.prompt_message or "everyday wear"
         client = None if args.test else Anthropic()
         saved_preferences = db.select_preferences(config.DB_PATH, config.DEFAULT_USER_ID)
-        result = get_outfits(config.DB_PATH, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test, args.cache,
+        result = get_outfits(config.DB_PATH, config.DEFAULT_USER_ID, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test, args.cache,
                              preferences=saved_preferences[0] if saved_preferences else None)
         print(format_outfit_result(result, wardrobe))
 
@@ -144,7 +144,7 @@ def main() -> int:
         if garments_in_sets:
             set_parser.error(f"{', '.join(map(str, garments_in_sets))} already belongs to a set")
         logger.info("Creating set %s with garment IDs %s...", repr(args.name) if args.name else "(no name)", ", ".join(map(str, sorted(garment_ids))))
-        db.insert_set(config.DB_PATH, valid_garments, args.name)
+        db.insert_set(config.DB_PATH, config.DEFAULT_USER_ID, valid_garments, args.name)
 
     return 0
 
