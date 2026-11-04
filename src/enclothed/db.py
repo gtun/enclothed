@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from enclothed.models import Garment, Outfit
+from enclothed.models import Garment, Outfit, User
 from contextlib import closing
 import json
 import logging

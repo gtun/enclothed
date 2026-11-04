@@ -274,5 +274,5 @@ class OptionsOut(BaseModel):
 class User(BaseModel):
     id: int
     username: str
-    email: str
+    email: str | None = None
     is_admin: bool = False

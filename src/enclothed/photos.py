@@ -6,7 +6,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
 from enclothed.config import GARMENTS_DIR, THUMBS_DIR, THUMB_SIZE, UPLOAD_MAX_SIDE
-from enclothed.models import Photo, PhotoRole, User
+from enclothed.models import Photo, PhotoRole
 
 register_heif_opener()  # lets Pillow open iPhone HEIC photos
 logger = logging.getLogger(__name__)
