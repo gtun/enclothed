@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from enclothed import api, intake, outfit
+from enclothed import api, config, intake, outfit
 from enclothed.auth import signed_in_user
 from enclothed.config import DEFAULT_USER_ID, MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.db import init_db
@@ -104,6 +104,7 @@ def logged(tmp_path, monkeypatch):
             conn.execute("INSERT INTO users (id, username) VALUES (3, 'carol')")
     tagging, outfits, style = tmp_path / "tagging.jsonl", tmp_path / "outfit.jsonl", tmp_path / "style.jsonl"
     monkeypatch.setattr(api, "DB_PATH", path)
+    monkeypatch.setattr(config, "DB_PATH", path)   # auth.current_user reads it from config
     monkeypatch.setattr(api, "TAGGING_LOG_PATH", tagging)
     monkeypatch.setattr(api, "OUTFIT_LOG_PATH", outfits)
     monkeypatch.setattr(api, "PREFERENCES_LOG_PATH", style)
