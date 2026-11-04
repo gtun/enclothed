@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from enclothed.models import Garment, Outfit
+from enclothed.models import Garment, Outfit, User
 from contextlib import closing
 import json
 import logging
@@ -252,3 +252,34 @@ def save_preferences(db_path: Path, user_id: int, text: str | None, timestamp: s
                 "UPDATE users SET style_notes = ?, style_updated_at = ? WHERE id = ?",
                 (text or None, timestamp if text else None, user_id),
             )
+
+
+# --- users -------------
+def _row_to_user(row: sqlite3.Row) -> User:
+    return User.model_validate(dict(row))
+
+def select_user_by_username(db_path: Path, username: str) -> User | None:
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM users WHERE username = :username",
+            { "username" : username }
+        ).fetchone()
+
+        if row is None:
+            logger.debug("Username %s not found", username)
+            return None
+        return _row_to_user(row)
+
+def select_user_by_email(db_path: Path, email: str) -> User | None:
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM users WHERE LOWER(email) = LOWER(:email)",
+            { "email" : email }
+        ).fetchone()
+
+        if row is None:
+            logger.debug("Email %s not found", email)
+            return None
+        return _row_to_user(row)

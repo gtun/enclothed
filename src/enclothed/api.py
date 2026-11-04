@@ -1,4 +1,3 @@
-import getpass
 import json
 import logging
 import os
@@ -6,11 +5,11 @@ import shutil
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import anthropic
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,19 +17,22 @@ from pydantic import ValidationError
 from contextlib import asynccontextmanager
 
 from enclothed import db, photos, responses
+from enclothed.auth import current_user
 from enclothed.config import (
     DB_PATH, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
-    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, DEFAULT_USER_ID,
+    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH,
 )
 from enclothed.intake import add_garment
 from enclothed.models import (
     Garment, GarmentOut, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
-    OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut,
+    OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, User,
 )
 from enclothed.llm import improve_preferences
 from enclothed.outfit import generate_outfits
 
 load_dotenv()
+
+CurrentUser = Annotated[User, Depends(current_user)]
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
@@ -75,12 +77,12 @@ def _blank_to_none(text: str | None) -> str | None:
 
 # --- garments -----------------------
 @app.get("/api/garments")
-def list_garments() -> list[GarmentOut]:
+def list_garments(user: CurrentUser) -> list[GarmentOut]:
     return responses.list_garments(DB_PATH)
 
 
 @app.get("/api/garments/{garment_id}")
-def get_garment(garment_id: int) -> GarmentOut:
+def get_garment(garment_id: int, user: CurrentUser) -> GarmentOut:
     garment = responses.get_garment(DB_PATH, garment_id)
     if garment is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
@@ -89,6 +91,7 @@ def get_garment(garment_id: int) -> GarmentOut:
 
 @app.post("/api/garments", status_code=201)
 def add_garment_from_photos(
+    user: CurrentUser,
     photos_in: list[UploadFile] = File(alias="photos"),
     prompt_message: str | None = Form(None),
     notes: str | None = Form(None),
@@ -116,7 +119,7 @@ def add_garment_from_photos(
             paths.append(str(photo))
 
         try:
-            garment_id = add_garment(DEFAULT_USER_ID, paths, DB_PATH, GARMENTS_DIR, INTAKE_DIR, TAGGING_LOG_PATH, client, False,
+            garment_id = add_garment(user.id, paths, DB_PATH, GARMENTS_DIR, INTAKE_DIR, TAGGING_LOG_PATH, client, False,
                                      _blank_to_none(prompt_message), _blank_to_none(notes))
         except anthropic.APIError as error:
             raise _llm_failed(error)
@@ -127,7 +130,7 @@ def add_garment_from_photos(
 EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id", "user_id"}
 
 @app.patch("/api/garments/{garment_id}")
-def edit_garment(garment_id: int, changes: dict[str, Any]) -> GarmentOut:
+def edit_garment(garment_id: int, changes: dict[str, Any], user: CurrentUser) -> GarmentOut:
     garment = db.select_garment(DB_PATH, garment_id)
     if garment is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
@@ -147,12 +150,12 @@ def edit_garment(garment_id: int, changes: dict[str, Any]) -> GarmentOut:
 
 # --- outfits -------------------------
 @app.get("/api/outfits")
-def list_outfits() -> list[OutfitOut]:
+def list_outfits(user: CurrentUser) -> list[OutfitOut]:
     return responses.list_outfits(DB_PATH)
 
 
 @app.get("/api/outfits/{outfit_id}")
-def get_outfit(outfit_id: int) -> OutfitOut:
+def get_outfit(outfit_id: int, user: CurrentUser) -> OutfitOut:
     outfit = responses.get_outfit(DB_PATH, outfit_id)
     if outfit is None:
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
@@ -160,7 +163,7 @@ def get_outfit(outfit_id: int) -> OutfitOut:
 
 
 @app.post("/api/outfits/suggestions")
-def suggest_outfits(body: OutfitSuggestIn) -> list[OutfitOut]:
+def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]:
     """Ask the LLM for outfits built around the anchors and details; returns only the new, valid ones."""
     details = _blank_to_none(body.details)
     anchors = list(dict.fromkeys(body.anchors))
@@ -174,8 +177,8 @@ def suggest_outfits(body: OutfitSuggestIn) -> list[OutfitOut]:
 
     client = _anthropic_client()
     try:
-        saved = db.select_preferences(DB_PATH, DEFAULT_USER_ID)
-        _, new_ids = generate_outfits(DB_PATH, DEFAULT_USER_ID, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
+        saved = db.select_preferences(DB_PATH, user.id)
+        _, new_ids = generate_outfits(DB_PATH, user.id, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
                                       details or "everyday wear", False, preferences=saved[0] if saved else None)
     except anthropic.APIError as error:
         raise _llm_failed(error)
@@ -183,7 +186,7 @@ def suggest_outfits(body: OutfitSuggestIn) -> list[OutfitOut]:
 
 
 @app.post("/api/outfits", status_code=201)
-def create_outfit(body: OutfitCreateIn) -> OutfitOut:
+def create_outfit(body: OutfitCreateIn, user: CurrentUser) -> OutfitOut:
     """Save an outfit the user put together themselves, without the LLM."""
     ids = [g.garment_id for g in body.garments]
     if len(set(ids)) < len(ids):
@@ -200,12 +203,12 @@ def create_outfit(body: OutfitCreateIn) -> OutfitOut:
         garments=[OutfitGarment(garment_id=g.garment_id, styling_advice=_blank_to_none(g.styling_advice)) for g in body.garments],
     )
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    [outfit_id] = db.insert_outfits(DB_PATH, DEFAULT_USER_ID, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp)
+    [outfit_id] = db.insert_outfits(DB_PATH, user.id, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp)
     return responses.get_outfit(DB_PATH, outfit_id)
 
 
 @app.patch("/api/outfits/{outfit_id}")
-def edit_outfit_liked(outfit_id: int, body: OutfitLikedIn) -> OutfitOut:
+def edit_outfit_liked(outfit_id: int, body: OutfitLikedIn, user: CurrentUser) -> OutfitOut:
     if not db.set_outfit_liked(DB_PATH, outfit_id, body.liked):
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
     return responses.get_outfit(DB_PATH, outfit_id)
@@ -217,20 +220,20 @@ def _now() -> str:
 
 
 @app.get("/api/preferences")
-def get_preferences() -> PreferencesOut:
-    saved = db.select_preferences(DB_PATH, DEFAULT_USER_ID)
+def get_preferences(user: CurrentUser) -> PreferencesOut:
+    saved = db.select_preferences(DB_PATH, user.id)
     return PreferencesOut(text=saved[0], updated_at=saved[1]) if saved else PreferencesOut()
 
 
 @app.put("/api/preferences")
-def put_preferences(body: PreferencesIn) -> PreferencesOut:
+def put_preferences(body: PreferencesIn, user: CurrentUser) -> PreferencesOut:
     """Save the user's style preferences (sent with every outfit request). Empty text clears them."""
-    db.save_preferences(DB_PATH, DEFAULT_USER_ID, _blank_to_none(body.text), _now())
-    return get_preferences()
+    db.save_preferences(DB_PATH, user.id, _blank_to_none(body.text), _now())
+    return get_preferences(user)
 
 
 @app.post("/api/preferences/improve")
-def improve_preferences_text(body: PreferencesImproveIn) -> PreferencesIn:
+def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> PreferencesIn:
     """Ask the LLM to rewrite the text into a clearer brief. Returns the rewrite; saves nothing."""
     client = _anthropic_client()
     try:
@@ -244,21 +247,21 @@ def improve_preferences_text(body: PreferencesImproveIn) -> PreferencesIn:
 
 # --- sets ----------------------------
 @app.get("/api/sets")
-def list_sets() -> list[SetOut]:
+def list_sets(user: CurrentUser) -> list[SetOut]:
     return responses.list_sets(DB_PATH)
 
 
 # --- options -------------------------
 @app.get("/api/options")
-def get_options() -> OptionsOut:
+def get_options(user: CurrentUser) -> OptionsOut:
     return responses.get_options()
 
 
 # --- profile -------------------------
 @app.get("/api/profile")
-def get_profile() -> ProfileOut:
+def get_profile(user: CurrentUser) -> ProfileOut:
     """Display name for the page header: ENCLOTHED_USER_NAME, else the OS login name."""
-    return ProfileOut(name=os.getenv("ENCLOTHED_USER_NAME") or getpass.getuser())
+    return ProfileOut(name=user.username)
 
 
 # --- thumbnails ----------------------

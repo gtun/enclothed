@@ -9,7 +9,17 @@ from enclothed import outfit as outfit_module
 from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, select_owned_garments
 from enclothed.models import Category, Color, Fit, Outfit, OutfitResult, Sheen, SUBCATEGORIES
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
+from enclothed.auth import current_user
 from enclothed.intake import TEST_GARMENT
+from enclothed.models import User
+
+
+@pytest.fixture
+def signed_in():
+    """Every request counts as the owner. test_auth.py covers real sign-in."""
+    api.app.dependency_overrides[current_user] = lambda: User(id=1, username="owner", is_admin=True)
+    yield
+    api.app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -29,7 +39,7 @@ def db_path(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def client(db_path):
+def client(db_path, signed_in):
     return TestClient(api.app)
 
 
@@ -140,15 +150,8 @@ def test_options_levels_are_numbered_labels(client):
 
 # --- GET /api/profile and the page ------------------------------------------------------
 
-def test_profile_uses_env_name(client, monkeypatch):
-    monkeypatch.setenv("ENCLOTHED_USER_NAME", "tester")
-    assert client.get("/api/profile").json() == {"name": "tester"}
-
-
-def test_profile_falls_back_to_os_login(client, monkeypatch):
-    monkeypatch.delenv("ENCLOTHED_USER_NAME", raising=False)
-    monkeypatch.setattr("getpass.getuser", lambda: "oslogin")
-    assert client.get("/api/profile").json() == {"name": "oslogin"}
+def test_profile_returns_the_signed_in_username(client):
+    assert client.get("/api/profile").json() == {"name": "owner"}
 
 
 @pytest.mark.parametrize("path", ["/static/css/theme.css", "/static/css/app.css"])
@@ -487,7 +490,7 @@ def test_clearing_disowned_on_puts_a_garment_back(client, db_path):
 
 
 # --- startup -----------------------------------------------------------------------------
-def test_server_start_creates_the_db(tmp_path, monkeypatch):
+def test_server_start_creates_the_db(tmp_path, monkeypatch, signed_in):
     path = tmp_path / "new.db"
     monkeypatch.setattr(api, "DB_PATH", path)
     assert not path.exists()

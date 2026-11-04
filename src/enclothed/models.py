@@ -269,3 +269,10 @@ class OptionsOut(BaseModel):
     sheens: list[ChoiceOption]
     formality: list[LevelOption]
     warmth: list[LevelOption]
+
+
+class User(BaseModel):
+    id: int
+    username: str
+    email: str | None = None
+    is_admin: bool = False
