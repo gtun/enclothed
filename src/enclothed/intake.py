@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 from enclothed.db import insert_garment
 from anthropic import Anthropic
-from enclothed.llm import tag_garment
+from enclothed.llm import UnusableResponse, tag_garment
+from enclothed.usage import log_failed_call
 from collections import defaultdict
 import logging
 import tempfile
@@ -78,7 +79,11 @@ def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garme
         else:
             logger.info(f"Sending {len(staged_paths)} photos for analysis...")
             start = time.perf_counter()
-            wrapper, usage = tag_garment(client, staged_paths, prompt_message)
+            try:
+                wrapper, usage = tag_garment(client, staged_paths, prompt_message)
+            except UnusableResponse as error:
+                log_failed_call(logging_path, user_id, error.usage, str(error))
+                raise
             elapsed = time.perf_counter() - start
             logger.info(f"Tagged in {elapsed:.1f}s: {wrapper.garment.name}")
 

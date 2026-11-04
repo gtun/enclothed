@@ -1,6 +1,7 @@
 from anthropic import Anthropic
 from enclothed.models import Garment, TokenUsage, Outfit, OutfitResult, Category
-from enclothed.llm import recommend_outfits
+from enclothed.llm import UnusableResponse, recommend_outfits
+from enclothed.usage import log_failed_call
 from enclothed import config
 from enclothed.db import insert_outfits
 import logging
@@ -114,7 +115,11 @@ def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], 
         }
         context.append(request_block)
 
-    wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
+    try:
+        wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
+    except UnusableResponse as error:
+        log_failed_call(logging_path, user_id, error.usage, str(error))
+        raise
 
     problems, valid_outfits = validate_outfits(wrapper, wardrobe, anchors)
     for problem in problems:

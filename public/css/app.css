@@ -435,3 +435,38 @@ body.with-builder .wrap{margin-right:max(392px,calc((100% - 1180px)/2))}
 .iconbtn.helpbtn{background:none;color:var(--muted);font:500 .84rem var(--body)}
 .iconbtn.helpbtn:hover{color:var(--ink)}
 .iconbtn.helpbtn[hidden]{display:none}
+
+/* usage */
+.usage{display:flex;flex-direction:column;gap:18px;margin-top:18px}
+.utable{overflow-x:auto}
+.utable table{border-collapse:collapse;width:100%;font-size:.84rem;font-variant-numeric:tabular-nums}
+.utable th,.utable td{padding:6px 10px 6px 0;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+.utable tbody tr:last-child th,.utable tbody tr:last-child td{border-bottom:0}
+.utable thead th{font-weight:500;color:var(--muted);font-size:.78rem}
+.utable tbody th{font-weight:500}
+.utable .n{text-align:right;padding:6px 0 6px 14px}
+.only-sm{display:none}
+@media (max-width:560px){.utable .opt{display:none}.only-sm{display:inline}}
+.ulink{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-color:var(--link-line);text-underline-offset:2px}
+.ulink[aria-pressed="true"]{font-weight:700;text-decoration-color:var(--ink)}
+.ulegend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--muted)}
+.ulegend span{display:inline-flex;align-items:center;gap:6px}
+.ulegend i,.utip i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.ukey-tagging{background:var(--series-tagging)}
+.ukey-outfits{background:var(--series-outfits)}
+.ukey-style{background:var(--series-style)}
+.useg-tagging{fill:var(--series-tagging)}
+.useg-outfits{fill:var(--series-outfits)}
+.useg-style{fill:var(--series-style)}
+.uchart{position:relative}
+.uchart svg{display:block;width:100%;height:auto}
+.ugrid{stroke:var(--line);stroke-width:1}
+.uaxis{fill:var(--muted);font:400 11px var(--body);font-variant-numeric:tabular-nums}
+.uhit{fill:transparent;outline:none}
+.uhit:hover,.uhit:focus-visible{fill:var(--ink);fill-opacity:.06}
+.utip{position:absolute;top:0;z-index:2;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:6px;box-shadow:0 4px 14px var(--shade);padding:6px 9px;font-size:.78rem;color:var(--muted);white-space:nowrap}
+.utip[hidden]{display:none}
+.utip div{display:flex;align-items:center;gap:6px}
+.utip b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.panel details summary{cursor:pointer;font-size:.8rem;color:var(--muted)}
+.panel details .utable{margin-top:8px}

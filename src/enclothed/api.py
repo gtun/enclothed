@@ -9,7 +9,7 @@ from typing import Annotated, Any
 
 import anthropic
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,10 +25,12 @@ from enclothed.config import (
 from enclothed.intake import add_garment
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
-    OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, User, UserOut,
+    OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
+    User, UserOut,
 )
-from enclothed.llm import improve_preferences
+from enclothed.llm import UnusableResponse, improve_preferences
 from enclothed.outfit import generate_outfits
+from enclothed.usage import log_failed_call, read_calls
 
 load_dotenv()
 
@@ -240,6 +242,9 @@ def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> P
         text, usage = improve_preferences(client, body.text)
     except anthropic.APIError as error:
         raise _llm_failed(error)
+    except UnusableResponse as error:
+        log_failed_call(PREFERENCES_LOG_PATH, user.id, error.usage, str(error))
+        raise
     with PREFERENCES_LOG_PATH.open("a", encoding="utf-8") as log:
         log.write(json.dumps({"timestamp": _now(), "user_id": user.id, "usage": usage.model_dump(), "input": body.text, "output": text}, ensure_ascii=False) + "\n")
     return PreferencesIn(text=text)
@@ -262,6 +267,28 @@ def get_options(user: CurrentUser) -> OptionsOut:
 def get_profile(user: CurrentUser, me: SignedInUser) -> ProfileOut:
     """Whose wardrobe is showing, and what the page should offer the person looking at it."""
     return ProfileOut(name=user.username, is_admin=me.is_admin, signed_in_as=me.username if me.id != user.id else None)
+
+
+# --- usage ---------------------------
+DateParam = Annotated[datetime | None, Query()]
+FromParam = Annotated[datetime | None, Query(alias="from")]
+
+
+def _usage_logs() -> dict[str, Path]:
+    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH}
+
+
+@app.get("/api/usage")
+def get_usage(user: CurrentUser, from_: FromParam = None, to: DateParam = None) -> list[UsageCall]:
+    """This person's LLM calls, oldest first. to is exclusive."""
+    return [call for call in read_calls(_usage_logs(), from_, to) if call.user_id == user.id]
+
+
+@app.get("/api/usage/all")
+def get_all_usage(me: SignedInUser, from_: FromParam = None, to: DateParam = None) -> UsageAllOut:
+    """Everyone's LLM calls, for an admin. Goes by who's signed in, so it doesn't change while acting as someone."""
+    _require_admin(me)
+    return UsageAllOut(users=list_users(me), calls=read_calls(_usage_logs(), from_, to))
 
 
 # --- acting as another user ----------
