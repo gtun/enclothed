@@ -486,7 +486,7 @@ def test_clearing_disowned_on_puts_a_garment_back(client, db_path):
     response = client.patch(f"/api/garments/{garment_id}", json={"disowned_on": None})
     assert response.status_code == 200
     assert response.json()["disowned_on"] is None
-    assert [g.id for g in select_owned_garments(db_path)] == [garment_id]
+    assert [g.id for g in select_owned_garments(db_path, 1)] == [garment_id]
 
 
 # --- startup -----------------------------------------------------------------------------

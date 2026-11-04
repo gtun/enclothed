@@ -128,16 +128,17 @@ def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], 
             logger.warning("Saving %d of %d outfits", len(valid_outfits), len(wrapper.outfits))
         new_ids = insert_outfits(db_path, user_id, valid_outfits, anchors, prompt_message, timestamp)
 
-    log_outfit(logging_path, anchors, wrapper, usage, "\n".join(block["text"] for block in context), problems, timestamp)
+    log_outfit(logging_path, user_id, anchors, wrapper, usage, "\n".join(block["text"] for block in context), problems, timestamp)
 
     return wrapper, new_ids
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS, exclude_none=True) for key, value in wardrobe.items()}
 
-def log_outfit(log_path: Path, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str], timestamp: str) -> None:
+def log_outfit(log_path: Path, user_id: int, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str], timestamp: str) -> None:
     entry = {
         "timestamp": timestamp,
+        "user_id": user_id,
         "anchors": anchors,
         "usage": usage.model_dump() if usage else None,
         "result": result.model_dump(mode="json"),

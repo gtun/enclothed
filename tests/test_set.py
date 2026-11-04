@@ -135,17 +135,17 @@ def test_duplicate_ids_collapse_into_one_set(db_path, monkeypatch):
 
 
 def test_set_rejects_a_disowned_garment(db_path, monkeypatch, capsys):
-    gone = db.select_garment(db_path, 2)
-    db.update_garment(db_path, gone.model_copy(update={"disowned_on": date(2026, 11, 3)}))
+    gone = db.select_garment(db_path, 1, 2)
+    db.update_garment(db_path, 1, gone.model_copy(update={"disowned_on": date(2026, 11, 3)}))
     with pytest.raises(SystemExit):
         run_set(monkeypatch, "-g", "1", "2")
     assert "2" in capsys.readouterr().err
-    assert db.select_garment(db_path, 1).set_id is None
+    assert db.select_garment(db_path, 1, 1).set_id is None
 
 
 def test_list_leaves_out_disowned(db_path, monkeypatch, capsys):
-    gone = db.select_garment(db_path, 2)
-    db.update_garment(db_path, gone.model_copy(update={"disowned_on": date(2026, 11, 3)}))
+    gone = db.select_garment(db_path, 1, 2)
+    db.update_garment(db_path, 1, gone.model_copy(update={"disowned_on": date(2026, 11, 3)}))
     monkeypatch.setattr(sys, "argv", ["enclothed", "list"])
     assert main() == 0
     assert "2 garments" in capsys.readouterr().out

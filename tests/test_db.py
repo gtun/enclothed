@@ -32,14 +32,14 @@ def test_garment_matches_table(db_path):
 
 def test_insert_select_round_trip(db_path):
     garment_id = insert_garment(db_path, 1, TEST_GARMENT)
-    new_garment = select_garment(db_path, garment_id)
+    new_garment = select_garment(db_path, 1, garment_id)
 
     assert new_garment is not None, f"Garment {garment_id} was not found"
     assert new_garment.id == garment_id
     assert TEST_GARMENT.model_dump(exclude=DB_DEFAULT_FIELDS) == new_garment.model_dump(exclude=DB_DEFAULT_FIELDS)
 
 def test_select_missing_id_returns_none(db_path):
-    new_garment = select_garment(db_path, -5)
+    new_garment = select_garment(db_path, 1, -5)
 
     assert new_garment is None
 
@@ -50,7 +50,7 @@ def test_select_rejects_out_of_range_formality(db_path):
             conn.execute("UPDATE garments SET formality=8 WHERE id = :id;", {"id":garment_id})
 
     with pytest.raises(ValidationError):
-        select_garment(db_path, garment_id)
+        select_garment(db_path, 1, garment_id)
 
 def test_select_rejects_null_accent_colors(db_path):
     garment_id = insert_garment(db_path, 1, TEST_GARMENT)
@@ -59,15 +59,15 @@ def test_select_rejects_null_accent_colors(db_path):
             conn.execute("UPDATE garments SET accent_colors=NULL WHERE id = :id;", {"id":garment_id})
 
     with pytest.raises(ValidationError):
-        select_garment(db_path, garment_id)
+        select_garment(db_path, 1, garment_id)
 
 def test_update_changes_fields(db_path):
     garment_id = insert_garment(db_path, 1, TEST_GARMENT)
-    original = select_garment(db_path, garment_id)
+    original = select_garment(db_path, 1, garment_id)
 
     edited = original.model_copy(update={"primary_color": "navy", "style_tags": ["edited"], "notes": "faded"})
-    update_garment(db_path, edited)
-    updated = select_garment(db_path, garment_id)
+    update_garment(db_path, 1, edited)
+    updated = select_garment(db_path, 1, garment_id)
 
     assert updated.primary_color == "navy"
     assert updated.style_tags == ["edited"]
@@ -79,10 +79,10 @@ def test_update_only_touches_its_own_row(db_path):
     target_id = insert_garment(db_path, 1, TEST_GARMENT)
     other_id = insert_garment(db_path, 1, TEST_GARMENT)
 
-    edited = select_garment(db_path, target_id).model_copy(update={"primary_color": "navy"})
-    update_garment(db_path, edited)
+    edited = select_garment(db_path, 1, target_id).model_copy(update={"primary_color": "navy"})
+    update_garment(db_path, 1, edited)
 
-    assert select_garment(db_path, other_id).primary_color == TEST_GARMENT.primary_color
+    assert select_garment(db_path, 1, other_id).primary_color == TEST_GARMENT.primary_color
 
 
 # --- insert_outfits -----------------------------------------------------------------
@@ -290,25 +290,25 @@ def _insert_two_garments(db_path):
 def test_named_set(db_path):
     garment_ids = _insert_two_garments(db_path)
     set_id = insert_set(db_path, 1, garment_ids, "navy suit")
-    assert select_all_sets(db_path) == {set_id: "navy suit"}
+    assert select_all_sets(db_path, 1) == {set_id: "navy suit"}
 
 
 def test_unnamed_set(db_path):
     garment_ids = _insert_two_garments(db_path)
     set_id = insert_set(db_path, 1, garment_ids, None)
-    assert select_all_sets(db_path) == {set_id: None}
+    assert select_all_sets(db_path, 1) == {set_id: None}
 
 
 def test_empty_sets_table(db_path):
-    assert select_all_sets(db_path) == {}
+    assert select_all_sets(db_path, 1) == {}
 
 def test_insert_set_unknown_garment_raises_and_rolls_back(db_path):
     garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     with pytest.raises(ValueError, match="updated 1"):
         insert_set(db_path, 1, [garment_id, 999], "ghost suit")
     # The rollback undid both the sets row and the garment's update.
-    assert select_all_sets(db_path) == {}
-    assert select_garment(db_path, garment_id).set_id is None
+    assert select_all_sets(db_path, 1) == {}
+    assert select_garment(db_path, 1, garment_id).set_id is None
 
 
 def test_insert_set_garment_already_in_set_raises_and_rolls_back(db_path):
@@ -317,9 +317,9 @@ def test_insert_set_garment_already_in_set_raises_and_rolls_back(db_path):
     with pytest.raises(ValueError, match="updated 1"):
         insert_set(db_path, 1, [trousers, shoes], None)
     # Only the first set exists; trousers kept their set, shoes stayed free.
-    assert select_all_sets(db_path) == {first_set: "navy suit"}
-    assert select_garment(db_path, trousers).set_id == first_set
-    assert select_garment(db_path, shoes).set_id is None
+    assert select_all_sets(db_path, 1) == {first_set: "navy suit"}
+    assert select_garment(db_path, 1, trousers).set_id == first_set
+    assert select_garment(db_path, 1, shoes).set_id is None
 
 
 # --- set_outfit_liked ---------------------------------------------------------------
@@ -331,24 +331,24 @@ def liked_value(db_path, outfit_id):
 @pytest.mark.parametrize("liked, stored", [(True, 1), (False, 0), (None, None)])
 def test_set_outfit_liked_stores_value(db_path, garment_ids, liked, stored):
     [outfit_id] = insert_outfits(db_path, 1, [make_outfit(garment_ids)], None, "dinner", TIMESTAMP)
-    assert set_outfit_liked(db_path, outfit_id, liked) is True
+    assert set_outfit_liked(db_path, 1, outfit_id, liked) is True
     assert liked_value(db_path, outfit_id) == stored
 
 
 def test_set_outfit_liked_can_clear_back_to_unrated(db_path, garment_ids):
     [outfit_id] = insert_outfits(db_path, 1, [make_outfit(garment_ids)], None, "dinner", TIMESTAMP)
-    set_outfit_liked(db_path, outfit_id, True)
-    set_outfit_liked(db_path, outfit_id, None)
+    set_outfit_liked(db_path, 1, outfit_id, True)
+    set_outfit_liked(db_path, 1, outfit_id, None)
     assert liked_value(db_path, outfit_id) is None
 
 
 def test_set_outfit_liked_missing_id_returns_false(db_path):
-    assert set_outfit_liked(db_path, 999, True) is False
+    assert set_outfit_liked(db_path, 1, 999, True) is False
 
 
 def test_set_outfit_liked_only_touches_its_own_row(db_path, garment_ids):
     target_id, other_id = insert_outfits(db_path, 1, [make_outfit(garment_ids), make_outfit(garment_ids)], None, "dinner", TIMESTAMP)
-    set_outfit_liked(db_path, target_id, True)
+    set_outfit_liked(db_path, 1, target_id, True)
     assert liked_value(db_path, other_id) is None
 
 
@@ -356,7 +356,7 @@ def test_set_outfit_liked_only_touches_its_own_row(db_path, garment_ids):
 def test_set_outfit_liked_rejects_bad_values(db_path, garment_ids, bad):
     [outfit_id] = insert_outfits(db_path, 1, [make_outfit(garment_ids)], None, "dinner", TIMESTAMP)
     with pytest.raises(ValueError):
-        set_outfit_liked(db_path, outfit_id, bad)
+        set_outfit_liked(db_path, 1, outfit_id, bad)
     assert liked_value(db_path, outfit_id) is None
 
 
@@ -393,8 +393,8 @@ def test_preferences_migration_adds_table_to_an_existing_db(tmp_path):
 
 # --- disowning garments -----------------------------------------------------------------
 def disown(db_path, garment_id, day="2026-11-03"):
-    garment = select_garment(db_path, garment_id)
-    update_garment(db_path, garment.model_copy(update={"disowned_on": date.fromisoformat(day)}))
+    garment = select_garment(db_path, 1, garment_id)
+    update_garment(db_path, 1, garment.model_copy(update={"disowned_on": date.fromisoformat(day)}))
 
 
 def test_disowned_on_migration_leaves_existing_garments_owned(tmp_path):
@@ -419,21 +419,21 @@ def test_disowned_on_migration_leaves_existing_garments_owned(tmp_path):
 def test_disowned_on_round_trips(db_path):
     garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     disown(db_path, garment_id)
-    assert select_garment(db_path, garment_id).disowned_on == date(2026, 11, 3)
+    assert select_garment(db_path, 1, garment_id).disowned_on == date(2026, 11, 3)
 
 
 def test_select_owned_garments_leaves_out_disowned(db_path):
     kept = insert_garment(db_path, 1, TEST_GARMENT)
     gone = insert_garment(db_path, 1, TEST_GARMENT)
     disown(db_path, gone)
-    assert [g.id for g in select_owned_garments(db_path)] == [kept]
+    assert [g.id for g in select_owned_garments(db_path, 1)] == [kept]
 
 
 def test_select_all_garments_keeps_disowned(db_path):
     kept = insert_garment(db_path, 1, TEST_GARMENT)
     gone = insert_garment(db_path, 1, TEST_GARMENT)
     disown(db_path, gone)
-    assert [g.id for g in select_all_garments(db_path)] == [kept, gone]
+    assert [g.id for g in select_all_garments(db_path, 1)] == [kept, gone]
 
 
 # --- wear_count ---------------------------------------------------------------------------
@@ -452,14 +452,14 @@ def add_wears(db_path, outfit_id, count):
 
 
 def test_wear_count_is_zero_without_wears(db_path):
-    assert select_outfit(db_path, outfit_with_garments(db_path, 2))["wear_count"] == 0
+    assert select_outfit(db_path, 1, outfit_with_garments(db_path, 2))["wear_count"] == 0
 
 
 def test_wear_count_is_not_multiplied_by_garments(db_path):
     outfit_id = outfit_with_garments(db_path, 4)
     add_wears(db_path, outfit_id, 2)
-    assert select_outfit(db_path, outfit_id)["wear_count"] == 2
-    assert select_all_outfits(db_path)[0]["wear_count"] == 2
+    assert select_outfit(db_path, 1, outfit_id)["wear_count"] == 2
+    assert select_all_outfits(db_path, 1)[0]["wear_count"] == 2
 
 
 # --- users ---------------------------------------------------------------------------
@@ -542,7 +542,7 @@ def test_new_rows_record_their_owner(db_path):
     garment_id = insert_garment(db_path, 2, TEST_GARMENT)
     set_id = insert_set(db_path, 2, [garment_id], None)
     [outfit_id] = insert_outfits(db_path, 2, [make_outfit([garment_id])], None, "dinner", TIMESTAMP)
-    assert select_garment(db_path, garment_id).user_id == 2
+    assert select_garment(db_path, 2, garment_id).user_id == 2
     assert rows(db_path, f"SELECT user_id FROM sets WHERE id = {set_id}") == [{"user_id": 2}]
     assert rows(db_path, f"SELECT user_id FROM outfits WHERE id = {outfit_id}") == [{"user_id": 2}]
 
@@ -552,9 +552,19 @@ def test_editing_a_garment_keeps_its_owner(db_path):
         with conn:
             conn.execute("INSERT INTO users (id, username) VALUES (2, 'other')")
     garment_id = insert_garment(db_path, 2, TEST_GARMENT)
-    edited = select_garment(db_path, garment_id).model_copy(update={"notes": "new", "user_id": 1})
-    update_garment(db_path, edited)
-    assert select_garment(db_path, garment_id).user_id == 2
+    edited = select_garment(db_path, 2, garment_id).model_copy(update={"notes": "new", "user_id": 1})
+    update_garment(db_path, 2, edited)
+    assert select_garment(db_path, 2, garment_id).user_id == 2
+
+
+def test_updating_someone_elses_garment_changes_nothing(db_path):
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            conn.execute("INSERT INTO users (id, username) VALUES (2, 'other')")
+    garment_id = insert_garment(db_path, 2, TEST_GARMENT)
+    edited = select_garment(db_path, 2, garment_id).model_copy(update={"notes": "changed by user 1"})
+    update_garment(db_path, 1, edited)
+    assert select_garment(db_path, 2, garment_id).notes != "changed by user 1"
 
 
 def test_a_set_cannot_take_another_users_garment(db_path):

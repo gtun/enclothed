@@ -72,39 +72,45 @@ def insert_garment(db_path:Path, user_id: int, garment:Garment) -> int:
             return row_cursor.lastrowid
 
 
-def update_garment(db_path: Path, garment: Garment) -> None:
+def update_garment(db_path: Path, user_id: int, garment: Garment) -> None:
     garment_dict = _garment_to_db_dict(garment)
     columns = ", ".join(f"{name} = :{name}" for name in garment_dict)
     garment_dict["id"] = garment.id
+    garment_dict["user_id"] = user_id
 
     with closing(_connect(db_path)) as conn:
         with conn:
-            conn.execute(f"UPDATE garments SET {columns} WHERE id = :id", garment_dict)
+            conn.execute(f"UPDATE garments SET {columns} WHERE id = :id AND user_id = :user_id", garment_dict)
 
 
-def select_garment(db_path: Path, garment_id: int) -> Garment | None:
+def select_garment(db_path: Path, user_id: int, garment_id: int) -> Garment | None:
     with closing(_connect(db_path)) as conn:
         with conn:
             conn.row_factory = sqlite3.Row
-            garment_record = conn.execute("SELECT * from garments where id = :id", {"id":garment_id}).fetchone()
+            garment_record = conn.execute(
+                "SELECT * from garments where id = :id AND user_id = :user_id",
+                {"id": garment_id, "user_id": user_id},
+            ).fetchone()
             if garment_record:
                 return _row_to_garment(garment_record)
             logger.debug("Garment ID %s not found", garment_id)
             return None #record with garment_id not found
 
-def select_all_garments(db_path: Path) -> list[Garment]:
+def select_all_garments(db_path: Path, user_id: int) -> list[Garment]:
     with closing(_connect(db_path)) as conn:
         with conn:
             conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT * from garments ORDER BY id").fetchall()
+            rows = conn.execute("SELECT * from garments WHERE user_id = ? ORDER BY id", (user_id,)).fetchall()
             return [_row_to_garment(row) for row in rows]
 
 
-def select_owned_garments(db_path: Path) -> list[Garment]:
+def select_owned_garments(db_path: Path, user_id: int) -> list[Garment]:
     with closing(_connect(db_path)) as conn:
         with conn:
             conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT * from garments WHERE disowned_on IS NULL ORDER BY id").fetchall()
+            rows = conn.execute(
+                "SELECT * from garments WHERE user_id = ? AND disowned_on IS NULL ORDER BY id", (user_id,)
+            ).fetchall()
             return [_row_to_garment(row) for row in rows]
 
 
@@ -172,12 +178,12 @@ def _row_to_outfit(row: sqlite3.Row) -> dict:
     outfit["garments"] = json.loads(outfit["garments"])
     return outfit
 
-def select_outfit(db_path: Path, outfit_id: int) -> dict | None:
+def select_outfit(db_path: Path, user_id: int, outfit_id: int) -> dict | None:
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
-            OUTFIT_SELECT + "WHERE o.id = :id GROUP BY o.id",
-            {"id": outfit_id},
+            OUTFIT_SELECT + "WHERE o.id = :id AND o.user_id = :user_id GROUP BY o.id",
+            {"id": outfit_id, "user_id": user_id},
         ).fetchone()
 
     if row is None:
@@ -185,22 +191,24 @@ def select_outfit(db_path: Path, outfit_id: int) -> dict | None:
         return None
     return _row_to_outfit(row)
 
-def select_all_outfits(db_path: Path) -> list[dict]:
+def select_all_outfits(db_path: Path, user_id: int) -> list[dict]:
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
-        rows = conn.execute(OUTFIT_SELECT + "GROUP BY o.id ORDER BY o.id").fetchall()
+        rows = conn.execute(
+            OUTFIT_SELECT + "WHERE o.user_id = ? GROUP BY o.id ORDER BY o.id", (user_id,)
+        ).fetchall()
     return [_row_to_outfit(row) for row in rows]
 
 
-def set_outfit_liked(db_path: Path, outfit_id: int, liked: bool | None) -> bool:
+def set_outfit_liked(db_path: Path, user_id: int, outfit_id: int, liked: bool | None) -> bool:
     if liked not in (None, 0, 1):
         raise ValueError(f"liked must be None, 0, or 1; got {liked!r}")
 
     with closing(_connect(db_path)) as conn:
         with conn:
             cursor = conn.execute(
-                "UPDATE outfits SET liked = :liked WHERE id = :id",
-                {"id": outfit_id, "liked": liked},
+                "UPDATE outfits SET liked = :liked WHERE id = :id AND user_id = :user_id",
+                {"id": outfit_id, "user_id": user_id, "liked": liked},
             )
     if cursor.rowcount == 0:
         logger.debug("Outfit ID %s not found", outfit_id)
@@ -231,10 +239,10 @@ def insert_set(db_path: Path, user_id: int, garment_ids: list[int], set_name: st
     return set_id
 
 
-def select_all_sets(db_path) -> dict[int, str | None]:
+def select_all_sets(db_path, user_id: int) -> dict[int, str | None]:
     with closing(_connect(db_path)) as conn:
         with conn:
-            return dict(conn.execute("SELECT id, name FROM sets ORDER BY id").fetchall())
+            return dict(conn.execute("SELECT id, name FROM sets WHERE user_id = ? ORDER BY id", (user_id,)).fetchall())
 
 
 # --- preferences -------------

@@ -151,7 +151,7 @@ Everything is plain files in `public/`; edit one and refresh the browser (no bui
 
 Uploaded photos are turned upright, converted to JPEG and resized (longest side 2000 px), so phone photos (including iPhone HEIC) fit the API's limits. Thumbnails are made on first view and cached in `data/thumbs/`.
 
-The name under the title is your OS login name; set `ENCLOTHED_USER_NAME` in `.env` to change it. The interactive API docs are at http://localhost:8000/docs.
+The web app needs to know who you are. For local use, set `ENCLOTHED_DEV_USER=owner` in `.env`; that signs you in as the first user with no login. Never set it on a public server. The name under the title is that user's username. The interactive API docs are at http://localhost:8000/docs.
 
 ## How it works
 

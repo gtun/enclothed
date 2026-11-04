@@ -87,7 +87,7 @@ def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garme
 
         new_garment_id = insert_garment(garment_db_path, user_id, wrapper.garment)
 
-        log_tagging(logging_path, new_garment_id, wrapper, usage, prompt_message)
+        log_tagging(logging_path, user_id, new_garment_id, wrapper, usage, prompt_message)
         file_photos(staged_paths, wrapper.photos, garments_path / str(new_garment_id))
         logger.debug(f'Photos filed to {garments_path / str(new_garment_id)}')
 
@@ -130,9 +130,10 @@ def photo_filenames(staged: list[Path], tagged: list[PhotoTag]) -> list[str]:
 
     return filenames
 
-def log_tagging(log_path: Path, garment_id: int, result: TaggingResult, usage: TokenUsage | None, prompt_message: str | None) -> None:
+def log_tagging(log_path: Path, user_id: int, garment_id: int, result: TaggingResult, usage: TokenUsage | None, prompt_message: str | None) -> None:
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "user_id": user_id,
         "garment_id": garment_id,
         "usage": usage.model_dump() if usage else None,
         "result": result.model_dump(mode="json"),

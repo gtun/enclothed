@@ -17,4 +17,4 @@ docker run -d --name enclothed --restart unless-stopped \
   -p 127.0.0.1:8000:8000 --env-file .env -v "$PWD/data:/app/data" enclothed
 
 sleep 5
-curl -fsS -o /dev/null http://127.0.0.1:8000/api/garments && echo "Deployed." || { echo "App isn't responding. Run: docker logs enclothed"; exit 1; }
+curl -fsS -o /dev/null http://127.0.0.1:8000/ && echo "Deployed." || { echo "App isn't responding. Run: docker logs enclothed"; exit 1; }
