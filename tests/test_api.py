@@ -35,27 +35,32 @@ def client(db_path):
 
 @pytest.fixture
 def outfit_id(db_path):
-    garment_ids = [insert_garment(db_path, TEST_GARMENT) for _ in range(2)]
+    garment_ids = [insert_garment(db_path, 1, TEST_GARMENT) for _ in range(2)]
     outfit = Outfit(
         aesthetic="test look",
         explanation="why it works",
         garments=[{"garment_id": i} for i in garment_ids],
     )
-    [new_id] = insert_outfits(db_path, [outfit], None, "dinner", "2026-11-01T00:00:00+00:00")
+    [new_id] = insert_outfits(db_path, 1, [outfit], None, "dinner", "2026-11-01T00:00:00+00:00")
     return new_id
 
 
 # --- PATCH /api/garments/{id} --------------------------------------------------------
+def test_patch_cannot_change_a_garments_owner(client, db_path):
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
+    assert client.patch(f"/api/garments/{garment_id}", json={"user_id": 2}).status_code == 422
+
+
 @pytest.mark.parametrize("text", ["Now in navy.\nSee https://example.com", ""])
 def test_patch_styling_notes_persists(client, db_path, text):
-    garment_id = insert_garment(db_path, TEST_GARMENT)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     response = client.patch(f"/api/garments/{garment_id}", json={"styling_notes": text})
     assert response.status_code == 200
     assert client.get(f"/api/garments/{garment_id}").json()["styling_notes"] == text
 
 
 def test_patch_styling_notes_cannot_be_null(client, db_path):
-    garment_id = insert_garment(db_path, TEST_GARMENT)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     assert client.patch(f"/api/garments/{garment_id}", json={"styling_notes": None}).status_code == 422
 
 
@@ -97,9 +102,9 @@ def test_list_sets_empty(client):
 
 
 def test_list_sets_returns_id_and_name_in_order(client, db_path):
-    garment_ids = [insert_garment(db_path, TEST_GARMENT) for _ in range(4)]
-    suit_id = insert_set(db_path, garment_ids[:2], "navy suit")
-    unnamed_id = insert_set(db_path, garment_ids[2:], None)
+    garment_ids = [insert_garment(db_path, 1, TEST_GARMENT) for _ in range(4)]
+    suit_id = insert_set(db_path, 1, garment_ids[:2], "navy suit")
+    unnamed_id = insert_set(db_path, 1, garment_ids[2:], None)
 
     response = client.get("/api/sets")
     assert response.status_code == 200
@@ -173,7 +178,7 @@ from enclothed.models import OutfitResult, TaggingResult, PhotoTag
 @pytest.fixture
 def basics(db_path):
     """A wearable wardrobe: top, bottom, shoes, plus an outerwear piece. Returns their ids by category."""
-    make = lambda **kw: insert_garment(db_path, TEST_GARMENT.model_copy(update=kw))
+    make = lambda **kw: insert_garment(db_path, 1, TEST_GARMENT.model_copy(update=kw))
     return {
         "top": make(category="top", subcategory="t-shirt"),
         "bottom": make(category="bottom", subcategory="jeans"),
@@ -317,7 +322,7 @@ def test_upload_needs_a_photo(client, tagger):
 # --- thumbnails ----------------------------------------------------------------------
 
 def test_thumbnail_is_small_and_cached(client, db_path, tmp_path):
-    garment_id = insert_garment(db_path, TEST_GARMENT)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     folder = tmp_path / "garments" / str(garment_id)
     folder.mkdir(parents=True)
     Image.new("RGB", (3000, 4000), "white").save(folder / "front_00.jpg")
@@ -410,7 +415,7 @@ def disown(client, garment_id, day="2026-11-03"):
 
 
 def test_disown_through_patch(client, db_path):
-    garment_id = insert_garment(db_path, TEST_GARMENT)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     response = disown(client, garment_id)
     assert response.status_code == 200
     assert response.json()["disowned_on"] == "2026-11-03"
@@ -418,13 +423,13 @@ def test_disown_through_patch(client, db_path):
 
 
 def test_disown_rejects_a_bad_date(client, db_path):
-    garment_id = insert_garment(db_path, TEST_GARMENT)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     assert disown(client, garment_id, "someday").status_code == 422
     assert client.get(f"/api/garments/{garment_id}").json()["disowned_on"] is None
 
 
 def test_garment_list_keeps_disowned(client, db_path):
-    garment_id = insert_garment(db_path, TEST_GARMENT)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     disown(client, garment_id)
     assert [g["id"] for g in client.get("/api/garments").json()] == [garment_id]
 
@@ -439,7 +444,7 @@ def test_outfit_with_a_disowned_piece_still_loads(client, outfit_id):
 
 
 def test_disowned_anchor_is_rejected(client, db_path, monkeypatch):
-    garment_id = insert_garment(db_path, TEST_GARMENT)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     disown(client, garment_id)
     monkeypatch.setattr(api, "_anthropic_client", lambda: None)
     response = client.post("/api/outfits/suggestions", json={"anchors": [garment_id]})
@@ -448,15 +453,15 @@ def test_disowned_anchor_is_rejected(client, db_path, monkeypatch):
 
 
 def test_saving_an_outfit_with_a_disowned_piece_is_rejected(client, db_path):
-    garment_id = insert_garment(db_path, TEST_GARMENT)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     disown(client, garment_id)
     response = client.post("/api/outfits", json={"aesthetic": "a", "explanation": "b", "garments": [{"garment_id": garment_id}]})
     assert response.status_code == 422
 
 
 def test_disowned_garment_is_not_sent_to_the_llm(client, db_path, monkeypatch):
-    kept = insert_garment(db_path, TEST_GARMENT)
-    gone = insert_garment(db_path, TEST_GARMENT)
+    kept = insert_garment(db_path, 1, TEST_GARMENT)
+    gone = insert_garment(db_path, 1, TEST_GARMENT)
     disown(client, gone)
     sent = {}
 
@@ -473,7 +478,7 @@ def test_disowned_garment_is_not_sent_to_the_llm(client, db_path, monkeypatch):
 
 
 def test_clearing_disowned_on_puts_a_garment_back(client, db_path):
-    garment_id = insert_garment(db_path, TEST_GARMENT)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     disown(client, garment_id)
     response = client.patch(f"/api/garments/{garment_id}", json={"disowned_on": None})
     assert response.status_code == 200

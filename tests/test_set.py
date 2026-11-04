@@ -21,7 +21,7 @@ def db_path(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "INTAKE_DIR", tmp_path / "intake")
     db.init_db(path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     for _ in range(3):
-        db.insert_garment(path, TEST_GARMENT.model_copy())
+        db.insert_garment(path, 1, TEST_GARMENT.model_copy())
     return path
 
 
@@ -73,7 +73,7 @@ def test_unknown_ids_are_reported_and_nothing_is_written(db_path, monkeypatch, c
 # --- 2. garments already in a set ---------------------------------------------
 
 def test_garments_already_in_a_set_are_reported_and_nothing_is_written(db_path, monkeypatch, capsys):
-    existing_set = db.insert_set(db_path, [1, 2], "existing")
+    existing_set = db.insert_set(db_path, 1, [1, 2], "existing")
 
     stderr = run_set_expecting_error(monkeypatch, capsys, "-g", "1", "2", "3")
 

@@ -22,11 +22,11 @@ def received(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
     db.init_db(path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     for _ in range(3):
-        db.insert_garment(path, TEST_GARMENT.model_copy())
+        db.insert_garment(path, 1, TEST_GARMENT.model_copy())
 
     calls = {}
 
-    def fake_get_outfits(db_path, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, **kwargs):
+    def fake_get_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, **kwargs):
         calls["anchors"] = anchors
         calls["caching"] = caching
         return TEST_OUTFITS

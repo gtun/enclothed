@@ -33,7 +33,7 @@ def run_test_mode(tmp_path, anchors, prompt="dinner downtown"):
     db_path = tmp_path / "test.db"
     init_db(db_path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     log_path = tmp_path / "outfit_log.jsonl"
-    result = get_outfits(db_path, WARDROBE, anchors, log_path, None, prompt, True)
+    result = get_outfits(db_path, 1, WARDROBE, anchors, log_path, None, prompt, True)
     lines = log_path.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1
     return result, json.loads(lines[0])
@@ -344,7 +344,7 @@ def run_real_mode(tmp_path, monkeypatch, anchors=None, **kwargs):
     db_path = tmp_path / "test.db"
     init_db(db_path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     log_path = tmp_path / "outfit_log.jsonl"
-    get_outfits(db_path, WARDROBE, anchors, log_path, None, "dinner downtown", False, **kwargs)
+    get_outfits(db_path, 1, WARDROBE, anchors, log_path, None, "dinner downtown", False, **kwargs)
     return sent["blocks"], json.loads(log_path.read_text(encoding="utf-8").splitlines()[0])
 
 
