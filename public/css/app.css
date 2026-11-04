@@ -423,3 +423,10 @@ body.with-builder .wrap{margin-right:max(392px,calc((100% - 1180px)/2))}
 .disowned-tabs a span{color:var(--muted)}
 .disowned-tabs a[aria-current="page"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .disowned-tabs a[aria-current="page"] span{color:inherit;opacity:.75}
+
+/* the admin's switch between wardrobes */
+.actbar:not([hidden]){display:flex}
+.actbar{text-align:center;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 12px;padding:6px 16px;font-size:.8rem;color:var(--muted);background:var(--surface);border-bottom:1px solid var(--line)}
+.actbar select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:3px 6px}
+.actbar button{font:inherit;color:inherit;background:none;border:1px solid currentColor;border-radius:6px;padding:3px 10px;cursor:pointer}
+.actbar.acting{color:var(--mark-ink);background:var(--mark);border-bottom-color:var(--mark)}

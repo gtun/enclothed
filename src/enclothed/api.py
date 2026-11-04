@@ -9,7 +9,7 @@ from typing import Annotated, Any
 
 import anthropic
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,15 +17,15 @@ from pydantic import ValidationError
 from contextlib import asynccontextmanager
 
 from enclothed import db, photos, responses
-from enclothed.auth import current_user
+from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH,
 )
 from enclothed.intake import add_garment
 from enclothed.models import (
-    Garment, GarmentOut, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
-    OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, User,
+    ActAsIn, Garment, GarmentOut, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
+    OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, User, UserOut,
 )
 from enclothed.llm import improve_preferences
 from enclothed.outfit import generate_outfits
@@ -33,6 +33,7 @@ from enclothed.outfit import generate_outfits
 load_dotenv()
 
 CurrentUser = Annotated[User, Depends(current_user)]
+SignedInUser = Annotated[User, Depends(signed_in_user)]
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
@@ -258,9 +259,33 @@ def get_options(user: CurrentUser) -> OptionsOut:
 
 # --- profile -------------------------
 @app.get("/api/profile")
-def get_profile(user: CurrentUser) -> ProfileOut:
-    """Display name for the page header."""
-    return ProfileOut(name=user.username)
+def get_profile(user: CurrentUser, me: SignedInUser) -> ProfileOut:
+    """Whose wardrobe is showing, and what the page should offer the person looking at it."""
+    return ProfileOut(name=user.username, is_admin=me.is_admin, signed_in_as=me.username if me.id != user.id else None)
+
+
+# --- acting as another user ----------
+def _require_admin(me: User) -> None:
+    if not me.is_admin:
+        raise HTTPException(status_code=403, detail="Only an admin can do this")
+
+
+@app.get("/api/users")
+def list_users(me: SignedInUser) -> list[UserOut]:
+    _require_admin(me)
+    return [UserOut(id=user.id, username=user.username) for user in db.select_all_users(DB_PATH)]
+
+
+@app.put("/api/act-as", status_code=204)
+def act_as(body: ActAsIn, me: SignedInUser, response: Response) -> None:
+    """Switch which wardrobe an admin is using. No user id, or your own, goes back to yours."""
+    _require_admin(me)
+    if body.user_id is None or body.user_id == me.id:
+        response.delete_cookie(ACT_AS_COOKIE)
+        return
+    if db.select_user(DB_PATH, body.user_id) is None:
+        raise HTTPException(status_code=404, detail=f"User {body.user_id} not found")
+    response.set_cookie(ACT_AS_COOKIE, str(body.user_id), httponly=True, samesite="lax")
 
 
 # --- photos and thumbnails -----------

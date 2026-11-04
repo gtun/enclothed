@@ -5,7 +5,7 @@ from contextlib import closing
 import pytest
 from pydantic import ValidationError
 
-from enclothed.db import select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked, select_owned_garments, select_all_garments, select_outfit, select_all_outfits
+from enclothed.db import insert_user, select_user, update_user, select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked, select_owned_garments, select_all_garments, select_outfit, select_all_outfits
 from enclothed.models import Garment, Outfit
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -582,3 +582,20 @@ def test_preferences_belong_to_one_user(db_path):
             conn.execute("INSERT INTO users (id, username) VALUES (2, 'other')")
     save_preferences(db_path, 1, "loose fits", "2026-11-01T00:00:00+00:00")
     assert select_preferences(db_path, 2) is None
+
+
+def test_insert_user_stores_email_lowercase(db_path):
+    user_id = insert_user(db_path, "kim", "Kim@Example.COM")
+    assert select_user(db_path, user_id).email == "kim@example.com"
+
+
+def test_insert_user_rejects_the_same_email_in_another_case(db_path):
+    insert_user(db_path, "kim", "kim@example.com")
+    with pytest.raises(sqlite3.IntegrityError):
+        insert_user(db_path, "kim2", "KIM@example.com")
+
+
+def test_update_user_changes_name_and_email(db_path):
+    update_user(db_path, 1, "gtun", "Owner@Example.com")
+    user = select_user(db_path, 1)
+    assert (user.username, user.email, user.is_admin) == ("gtun", "owner@example.com", True)

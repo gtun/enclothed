@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from enclothed import api, photos
-from enclothed.auth import current_user
+from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, save_preferences, select_garment
 from enclothed.intake import TEST_GARMENT
@@ -66,7 +66,7 @@ def bob_data(db_path, tmp_path):
 @pytest.fixture
 def as_user():
     def sign_in(user):
-        api.app.dependency_overrides[current_user] = lambda: user
+        api.app.dependency_overrides[signed_in_user] = lambda: user
         return TestClient(api.app)
     yield sign_in
     api.app.dependency_overrides.clear()
@@ -148,7 +148,7 @@ def test_preferences_are_separate(bob, db_path):
 
 
 def test_profile_is_your_own(bob):
-    assert bob.get("/api/profile").json() == {"name": "bob"}
+    assert bob.get("/api/profile").json()["name"] == "bob"
 
 
 # --- Using someone else's garment in your own records ------------------------------------
@@ -218,3 +218,72 @@ def test_preference_rewrites_log_the_user(bob, monkeypatch, tmp_path):
     bob.post("/api/preferences/improve", json={"text": "tidy this"})
     entry = json.loads((tmp_path / "preferences_log.jsonl").read_text().splitlines()[0])
     assert entry["user_id"] == 2
+
+
+# --- acting as another user ----------------------------------------------------------------
+ADMIN = User(id=1, username="alice", is_admin=True)
+
+
+@pytest.fixture
+def admin(as_user, db_path, monkeypatch):
+    monkeypatch.setattr("enclothed.auth.config.DB_PATH", db_path)
+    return as_user(ADMIN)
+
+
+def test_admin_can_act_as_someone_and_come_back(admin, alice_data, bob_data):
+    assert admin.put("/api/act-as", json={"user_id": 2}).status_code == 204
+    assert ids(admin.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"]]
+    assert admin.get("/api/profile").json() == {"name": "bob", "is_admin": True, "signed_in_as": "alice"}
+
+    admin.put("/api/act-as", json={"user_id": None})
+    assert ids(admin.get("/api/garments").json()) == [alice_data["garment"], alice_data["second"]]
+    assert admin.get("/api/profile").json()["signed_in_as"] is None
+
+
+def test_admin_acting_as_someone_sees_their_photos(admin, bob_data):
+    admin.put("/api/act-as", json={"user_id": 2})
+    assert admin.get(f"/photos/{bob_data['garment']}/front_00.jpg").status_code == 200
+
+
+def test_admin_acting_as_someone_writes_to_their_wardrobe(admin):
+    admin.put("/api/act-as", json={"user_id": 2})
+    admin.put("/api/preferences", json={"text": "set by admin"})
+    admin.put("/api/act-as", json={"user_id": None})
+    assert admin.get("/api/preferences").json()["text"] is None
+
+
+def test_acting_as_an_unknown_user_is_404(admin):
+    assert admin.put("/api/act-as", json={"user_id": 99}).status_code == 404
+
+
+def test_a_stale_cookie_falls_back_to_yourself(admin):
+    admin.cookies.set("enclothed_act_as", "99")
+    assert admin.get("/api/profile").json()["name"] == "alice"
+
+
+def test_a_garbled_cookie_falls_back_to_yourself(admin):
+    admin.cookies.set("enclothed_act_as", "not-a-number")
+    assert admin.get("/api/profile").json()["name"] == "alice"
+
+
+def test_admin_lists_users(admin):
+    assert admin.get("/api/users").json() == [{"id": 1, "username": "alice"}, {"id": 2, "username": "bob"}]
+
+
+def test_acting_keeps_the_admin_list_available(admin):
+    admin.put("/api/act-as", json={"user_id": 2})
+    assert admin.get("/api/users").status_code == 200
+
+
+def test_non_admin_cannot_list_users(bob):
+    assert bob.get("/api/users").status_code == 403
+
+
+def test_non_admin_cannot_act_as_anyone(bob, alice_data):
+    assert bob.put("/api/act-as", json={"user_id": 1}).status_code == 403
+
+
+def test_a_forged_cookie_does_nothing_for_a_non_admin(bob, alice_data, bob_data):
+    bob.cookies.set("enclothed_act_as", "1")
+    assert ids(bob.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"]]
+    assert bob.get(f"/api/garments/{alice_data['garment']}").status_code == 404

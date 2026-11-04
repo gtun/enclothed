@@ -1,9 +1,10 @@
 import logging
 import os
 from functools import lru_cache
+from typing import Annotated
 
 import jwt
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 
 from enclothed import config, db
 from enclothed.models import User
@@ -11,6 +12,7 @@ from enclothed.models import User
 logger = logging.getLogger(__name__)
 
 TOKEN_HEADER = "Cf-Access-Jwt-Assertion"
+ACT_AS_COOKIE = "enclothed_act_as"
 
 
 @lru_cache
@@ -36,8 +38,8 @@ def verify_token(token: str, team: str, aud: str) -> str | None:
     return claims.get("email")
 
 
-def current_user(request: Request) -> User:
-    """Who is calling. Every failure is an error, never a default user."""
+def signed_in_user(request: Request) -> User:
+    """Who is really calling. Every failure is an error, never a default user."""
     dev_username = os.getenv("ENCLOTHED_DEV_USER")
     if dev_username:
         user = db.select_user_by_username(config.DB_PATH, dev_username)
@@ -59,3 +61,14 @@ def current_user(request: Request) -> User:
     if user is None:
         raise HTTPException(status_code=403, detail="This email doesn't have an account")
     return user
+
+
+def current_user(request: Request, me: Annotated[User, Depends(signed_in_user)]) -> User:
+    """Whose wardrobe this request is for: yours, or the one an admin chose to act as.
+
+    The cookie is ignored unless the signed-in user is an admin, so it can't grant anything.
+    """
+    target = request.cookies.get(ACT_AS_COOKIE, "")
+    if not me.is_admin or not target.isdecimal():
+        return me
+    return db.select_user(config.DB_PATH, int(target)) or me
