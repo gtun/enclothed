@@ -58,10 +58,13 @@ CREATE TABLE IF NOT EXISTS wears (
 
 CREATE INDEX IF NOT EXISTS idx_outfit_garments_garment ON outfit_garments(garment_id);
 
-CREATE TABLE IF NOT EXISTS preferences (
-    -- The owner's own description of their tastes and needs, sent with outfit requests.
-    -- One row (id = 1) until accounts exist; then it gains a user_id like the other tables.
-    id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
-    text TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY NOT NULL,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT UNIQUE,
+    is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+    style_notes TEXT,
+    style_updated_at TEXT
 );
+
+INSERT OR IGNORE INTO users (id, username, is_admin) VALUES (1, 'owner', 1);

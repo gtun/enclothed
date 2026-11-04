@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 from enclothed import db, photos, responses
 from enclothed.config import (
     DB_PATH, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
-    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH
+    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, DEFAULT_USER_ID,
 )
 from enclothed.intake import add_garment
 from enclothed.models import (
@@ -174,7 +174,7 @@ def suggest_outfits(body: OutfitSuggestIn) -> list[OutfitOut]:
 
     client = _anthropic_client()
     try:
-        saved = db.select_preferences(DB_PATH)
+        saved = db.select_preferences(DB_PATH, DEFAULT_USER_ID)
         _, new_ids = generate_outfits(DB_PATH, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
                                       details or "everyday wear", False, preferences=saved[0] if saved else None)
     except anthropic.APIError as error:
@@ -218,14 +218,14 @@ def _now() -> str:
 
 @app.get("/api/preferences")
 def get_preferences() -> PreferencesOut:
-    saved = db.select_preferences(DB_PATH)
+    saved = db.select_preferences(DB_PATH, DEFAULT_USER_ID)
     return PreferencesOut(text=saved[0], updated_at=saved[1]) if saved else PreferencesOut()
 
 
 @app.put("/api/preferences")
 def put_preferences(body: PreferencesIn) -> PreferencesOut:
     """Save the user's style preferences (sent with every outfit request). Empty text clears them."""
-    db.save_preferences(DB_PATH, _blank_to_none(body.text), _now())
+    db.save_preferences(DB_PATH, DEFAULT_USER_ID, _blank_to_none(body.text), _now())
     return get_preferences()
 
 

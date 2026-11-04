@@ -339,12 +339,12 @@ def test_set_outfit_liked_rejects_bad_values(db_path, garment_ids, bad):
 # --- preferences ---------------------------------------------------------------------
 
 def test_preferences_round_trip(db_path):
-    assert select_preferences(db_path) is None
-    save_preferences(db_path, "loose fits", "2026-11-01T00:00:00+00:00")
-    save_preferences(db_path, "loose fits; no shorts", "2026-11-02T00:00:00+00:00")
-    assert select_preferences(db_path) == ("loose fits; no shorts", "2026-11-02T00:00:00+00:00")
-    save_preferences(db_path, None, "2026-11-03T00:00:00+00:00")
-    assert select_preferences(db_path) is None
+    assert select_preferences(db_path, 1) is None
+    save_preferences(db_path, 1, "loose fits", "2026-11-01T00:00:00+00:00")
+    save_preferences(db_path, 1, "loose fits; no shorts", "2026-11-02T00:00:00+00:00")
+    assert select_preferences(db_path, 1) == ("loose fits; no shorts", "2026-11-02T00:00:00+00:00")
+    save_preferences(db_path, 1, None, "2026-11-03T00:00:00+00:00")
+    assert select_preferences(db_path, 1) is None
 
 
 def test_preferences_migration_adds_table_to_an_existing_db(tmp_path):
@@ -376,7 +376,7 @@ def disown(db_path, garment_id, day="2026-11-03"):
 def test_disowned_on_migration_leaves_existing_garments_owned(tmp_path):
     path = tmp_path / "old.db"
     old_schema = tmp_path / "old_schema.sql"
-    old_schema.write_text(SCHEMA_PATH.read_text().replace(",\n    disowned_on TEXT", ""))
+    old_schema.write_text(SCHEMA_PATH.read_text().replace(",\n    disowned_on TEXT", "") + PREFERENCES_TABLE)
     upto_003 = tmp_path / "upto_003"; upto_003.mkdir()
     for m in sorted(MIGRATIONS_DIR.glob("*.sql"))[:3]:
         (upto_003 / m.name).write_text(m.read_text())
@@ -436,3 +436,59 @@ def test_wear_count_is_not_multiplied_by_garments(db_path):
     add_wears(db_path, outfit_id, 2)
     assert select_outfit(db_path, outfit_id)["wear_count"] == 2
     assert select_all_outfits(db_path)[0]["wear_count"] == 2
+
+
+# --- users ---------------------------------------------------------------------------
+PREFERENCES_TABLE = """
+CREATE TABLE preferences (
+    id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+    text TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"""
+
+
+def make_v4_db(tmp_path):
+    """A database as it was before users existed, with its preferences table."""
+    path = tmp_path / "old.db"
+    old_schema = tmp_path / "old_schema.sql"
+    old_schema.write_text(SCHEMA_PATH.read_text().split("CREATE TABLE IF NOT EXISTS users")[0] + PREFERENCES_TABLE)
+    upto_004 = tmp_path / "upto_004"; upto_004.mkdir()
+    for m in sorted(MIGRATIONS_DIR.glob("*.sql"))[:4]:
+        (upto_004 / m.name).write_text(m.read_text())
+    init_db(path, old_schema, upto_004)
+    return path
+
+
+def test_users_migration_carries_saved_preferences_over(tmp_path):
+    path = make_v4_db(tmp_path)
+    with closing(sqlite3.connect(path)) as conn:
+        with conn:
+            conn.execute("INSERT INTO preferences VALUES (1, 'loose fits', '2026-11-01T00:00:00+00:00')")
+
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+
+    assert select_preferences(path, 1) == ("loose fits", "2026-11-01T00:00:00+00:00")
+    with closing(sqlite3.connect(path)) as conn:
+        assert conn.execute("SELECT name FROM sqlite_master WHERE name = 'preferences'").fetchone() is None
+        assert conn.execute("SELECT id, username, is_admin FROM users").fetchall() == [(1, "owner", 1)]
+
+
+def test_users_migration_with_no_saved_preferences(tmp_path):
+    path = make_v4_db(tmp_path)
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    assert select_preferences(path, 1) is None
+
+
+def test_fresh_db_and_restart_keep_one_owner(db_path):
+    init_db(db_path, SCHEMA_PATH, MIGRATIONS_DIR)   # init_db runs on every start
+    with closing(sqlite3.connect(db_path)) as conn:
+        assert conn.execute("SELECT id, username, is_admin FROM users").fetchall() == [(1, "owner", 1)]
+
+
+def test_preferences_belong_to_one_user(db_path):
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            conn.execute("INSERT INTO users (id, username) VALUES (2, 'other')")
+    save_preferences(db_path, 1, "loose fits", "2026-11-01T00:00:00+00:00")
+    assert select_preferences(db_path, 2) is None
