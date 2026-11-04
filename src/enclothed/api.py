@@ -15,11 +15,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
+from contextlib import asynccontextmanager
 
 from enclothed import db, photos, responses
 from enclothed.config import (
     DB_PATH, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
-    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS,
+    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH
 )
 from enclothed.intake import add_garment
 from enclothed.models import (
@@ -32,7 +33,14 @@ from enclothed.outfit import generate_outfits
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="enclothed")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Runs once when the server starts: create the DB if it's new, apply any pending migrations."""
+    db.init_db(DB_PATH, SCHEMA_PATH, MIGRATIONS_DIR)
+    yield
+
+
+app = FastAPI(title="enclothed", lifespan=lifespan)
 
 
 class RevalidatedStaticFiles(StaticFiles):

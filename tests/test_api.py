@@ -479,3 +479,12 @@ def test_clearing_disowned_on_puts_a_garment_back(client, db_path):
     assert response.status_code == 200
     assert response.json()["disowned_on"] is None
     assert [g.id for g in select_owned_garments(db_path)] == [garment_id]
+
+
+# --- startup -----------------------------------------------------------------------------
+def test_server_start_creates_the_db(tmp_path, monkeypatch):
+    path = tmp_path / "new.db"
+    monkeypatch.setattr(api, "DB_PATH", path)
+    assert not path.exists()
+    with TestClient(api.app) as client:   # "with" runs the startup code
+        assert client.get("/api/garments").json() == []
