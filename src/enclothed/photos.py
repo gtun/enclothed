@@ -40,15 +40,21 @@ def _upright_rgb(image: Image.Image) -> Image.Image:
     return ImageOps.exif_transpose(image).convert("RGB")
 
 
+def get_photo(garment_id: int, filename: str) -> Path | None:
+    """Path to one garment photo, or None if it doesn't exist or the name isn't a plain filename."""
+    if Path(filename).name != filename or filename.startswith("."):
+        return None
+    source = GARMENTS_DIR / str(garment_id) / filename
+    return source if source.is_file() else None
+
+
 def get_thumbnail(garment_id: int, filename: str) -> Path | None:
     """Path to a small JPEG of one garment photo, made on first request and cached.
 
     Returns None when the photo doesn't exist. Rebuilt when the photo is newer than its thumbnail.
     """
-    if Path(filename).name != filename or filename.startswith("."):
-        return None
-    source = GARMENTS_DIR / str(garment_id) / filename
-    if not source.is_file():
+    source = get_photo(garment_id, filename)
+    if source is None:
         return None
 
     thumb = THUMBS_DIR / str(garment_id) / f"{filename}.jpg"

@@ -54,7 +54,6 @@ class RevalidatedStaticFiles(StaticFiles):
 
 
 GARMENTS_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/photos", StaticFiles(directory=GARMENTS_DIR), name="photos")
 app.mount("/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="static")  # the page's CSS
 
 
@@ -78,12 +77,12 @@ def _blank_to_none(text: str | None) -> str | None:
 # --- garments -----------------------
 @app.get("/api/garments")
 def list_garments(user: CurrentUser) -> list[GarmentOut]:
-    return responses.list_garments(DB_PATH)
+    return responses.list_garments(DB_PATH, user.id)
 
 
 @app.get("/api/garments/{garment_id}")
 def get_garment(garment_id: int, user: CurrentUser) -> GarmentOut:
-    garment = responses.get_garment(DB_PATH, garment_id)
+    garment = responses.get_garment(DB_PATH, user.id, garment_id)
     if garment is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
     return garment
@@ -124,14 +123,14 @@ def add_garment_from_photos(
         except anthropic.APIError as error:
             raise _llm_failed(error)
 
-    return responses.get_garment(DB_PATH, garment_id)
+    return responses.get_garment(DB_PATH, user.id, garment_id)
 
 
 EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id", "user_id"}
 
 @app.patch("/api/garments/{garment_id}")
 def edit_garment(garment_id: int, changes: dict[str, Any], user: CurrentUser) -> GarmentOut:
-    garment = db.select_garment(DB_PATH, garment_id)
+    garment = db.select_garment(DB_PATH, user.id, garment_id)
     if garment is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
 
@@ -144,19 +143,19 @@ def edit_garment(garment_id: int, changes: dict[str, Any], user: CurrentUser) ->
     except ValidationError as error:
         raise RequestValidationError(error.errors(include_url=False, include_input=False))
 
-    db.update_garment(DB_PATH, edited)
+    db.update_garment(DB_PATH, user.id, edited)
     return responses.to_garment_out(edited)
 
 
 # --- outfits -------------------------
 @app.get("/api/outfits")
 def list_outfits(user: CurrentUser) -> list[OutfitOut]:
-    return responses.list_outfits(DB_PATH)
+    return responses.list_outfits(DB_PATH, user.id)
 
 
 @app.get("/api/outfits/{outfit_id}")
 def get_outfit(outfit_id: int, user: CurrentUser) -> OutfitOut:
-    outfit = responses.get_outfit(DB_PATH, outfit_id)
+    outfit = responses.get_outfit(DB_PATH, user.id, outfit_id)
     if outfit is None:
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
     return outfit
@@ -170,7 +169,7 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]
     if not anchors and not details:
         raise HTTPException(status_code=422, detail="Add at least one piece or some details.")
 
-    wardrobe = {g.id: g for g in db.select_owned_garments(DB_PATH)}
+    wardrobe = {g.id: g for g in db.select_owned_garments(DB_PATH, user.id)}
     unknown = [i for i in anchors if i not in wardrobe]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
@@ -182,7 +181,7 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]
                                       details or "everyday wear", False, preferences=saved[0] if saved else None)
     except anthropic.APIError as error:
         raise _llm_failed(error)
-    return responses.get_outfits(DB_PATH, new_ids)
+    return responses.get_outfits(DB_PATH, user.id, new_ids)
 
 
 @app.post("/api/outfits", status_code=201)
@@ -191,7 +190,7 @@ def create_outfit(body: OutfitCreateIn, user: CurrentUser) -> OutfitOut:
     ids = [g.garment_id for g in body.garments]
     if len(set(ids)) < len(ids):
         raise HTTPException(status_code=422, detail="The same garment is in the outfit twice.")
-    known = {g.id for g in db.select_owned_garments(DB_PATH)}
+    known = {g.id for g in db.select_owned_garments(DB_PATH, user.id)}
     unknown = [i for i in ids if i not in known]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
@@ -204,14 +203,14 @@ def create_outfit(body: OutfitCreateIn, user: CurrentUser) -> OutfitOut:
     )
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     [outfit_id] = db.insert_outfits(DB_PATH, user.id, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp)
-    return responses.get_outfit(DB_PATH, outfit_id)
+    return responses.get_outfit(DB_PATH, user.id, outfit_id)
 
 
 @app.patch("/api/outfits/{outfit_id}")
 def edit_outfit_liked(outfit_id: int, body: OutfitLikedIn, user: CurrentUser) -> OutfitOut:
-    if not db.set_outfit_liked(DB_PATH, outfit_id, body.liked):
+    if not db.set_outfit_liked(DB_PATH, user.id, outfit_id, body.liked):
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
-    return responses.get_outfit(DB_PATH, outfit_id)
+    return responses.get_outfit(DB_PATH, user.id, outfit_id)
 
 
 # --- preferences ---------------------
@@ -241,14 +240,14 @@ def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> P
     except anthropic.APIError as error:
         raise _llm_failed(error)
     with PREFERENCES_LOG_PATH.open("a", encoding="utf-8") as log:
-        log.write(json.dumps({"timestamp": _now(), "usage": usage.model_dump(), "input": body.text, "output": text}, ensure_ascii=False) + "\n")
+        log.write(json.dumps({"timestamp": _now(), "user_id": user.id, "usage": usage.model_dump(), "input": body.text, "output": text}, ensure_ascii=False) + "\n")
     return PreferencesIn(text=text)
 
 
 # --- sets ----------------------------
 @app.get("/api/sets")
 def list_sets(user: CurrentUser) -> list[SetOut]:
-    return responses.list_sets(DB_PATH)
+    return responses.list_sets(DB_PATH, user.id)
 
 
 # --- options -------------------------
@@ -260,17 +259,36 @@ def get_options(user: CurrentUser) -> OptionsOut:
 # --- profile -------------------------
 @app.get("/api/profile")
 def get_profile(user: CurrentUser) -> ProfileOut:
-    """Display name for the page header: ENCLOTHED_USER_NAME, else the OS login name."""
+    """Display name for the page header."""
     return ProfileOut(name=user.username)
 
 
-# --- thumbnails ----------------------
-@app.get("/thumbs/{garment_id}/{filename}", include_in_schema=False)
-def get_thumbnail(garment_id: int, filename: str) -> FileResponse:
-    path = photos.get_thumbnail(garment_id, filename)
+# --- photos and thumbnails -----------
+# "private" keeps these out of Cloudflare's cache. A cached copy would be served to the next
+# signed-in person without reaching the ownership check here.
+PHOTO_CACHING = {"Cache-Control": "private, max-age=3600"}
+
+def _photo_response(path: Path | None) -> FileResponse:
     if path is None:
         raise HTTPException(status_code=404, detail="Photo not found")
-    return FileResponse(path, headers={"Cache-Control": "max-age=3600"})
+    return FileResponse(path, headers=PHOTO_CACHING)
+
+
+def _require_garment(user: User, garment_id: int) -> None:
+    if db.select_garment(DB_PATH, user.id, garment_id) is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+
+@app.get("/photos/{garment_id}/{filename}", include_in_schema=False)
+def get_photo(garment_id: int, filename: str, user: CurrentUser) -> FileResponse:
+    _require_garment(user, garment_id)
+    return _photo_response(photos.get_photo(garment_id, filename))
+
+
+@app.get("/thumbs/{garment_id}/{filename}", include_in_schema=False)
+def get_thumbnail(garment_id: int, filename: str, user: CurrentUser) -> FileResponse:
+    _require_garment(user, garment_id)
+    return _photo_response(photos.get_thumbnail(garment_id, filename))
 
 
 # --- front end -----------------------

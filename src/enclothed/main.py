@@ -88,7 +88,7 @@ def main() -> int:
         logger.info('Adding your garment now. Please wait...')
         new_garment_id = add_garment(config.DEFAULT_USER_ID, args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
 
-        new_garment = db.select_garment(config.DB_PATH, new_garment_id)
+        new_garment = db.select_garment(config.DB_PATH, config.DEFAULT_USER_ID, new_garment_id)
         if new_garment is None:
             raise RuntimeError(f"Garment {new_garment_id} not found after insert")
 
@@ -96,12 +96,12 @@ def main() -> int:
 
     # --- list ------------------
     elif args.command == "list":
-        wardrobe = db.select_owned_garments(config.DB_PATH)
+        wardrobe = db.select_owned_garments(config.DB_PATH, config.DEFAULT_USER_ID)
         if not wardrobe:
             print("Sorry, you have no items in your wardrobe to list. Go shopping and add something with: enclothed add <photos>")
             return 0
 
-        wardrobe_sets = db.select_all_sets(config.DB_PATH)
+        wardrobe_sets = db.select_all_sets(config.DB_PATH, config.DEFAULT_USER_ID)
 
         if args.category:
             wardrobe = [garment for garment in wardrobe if garment.category in args.category or garment.subcategory in args.category]
@@ -116,7 +116,7 @@ def main() -> int:
         load_dotenv()
         if not args.anchors and not args.prompt_message:
             outfit_parser.error("At least one of -p/--prompt-message or -w/--with required")
-        wardrobe = {g.id: g for g in db.select_owned_garments(config.DB_PATH)}
+        wardrobe = {g.id: g for g in db.select_owned_garments(config.DB_PATH, config.DEFAULT_USER_ID)}
         if args.anchors:
             missing = [i for i in args.anchors if i not in wardrobe]
             if missing:
@@ -133,7 +133,7 @@ def main() -> int:
         garment_ids = set(args.garment_ids)
         if len(garment_ids) < 2:
             set_parser.error("At least two unique garments required to create a set. Add them with -g/--garment <ID>")
-        wardrobe = {g.id: g for g in db.select_owned_garments(config.DB_PATH)}
+        wardrobe = {g.id: g for g in db.select_owned_garments(config.DB_PATH, config.DEFAULT_USER_ID)}
         valid_garments = garment_ids & wardrobe.keys()
         if len(valid_garments) < len(garment_ids):
             set_parser.error(f"Garment IDs {', '.join(map(str, garment_ids - valid_garments))} not found")
