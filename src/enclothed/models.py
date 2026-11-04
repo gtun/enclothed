@@ -266,6 +266,23 @@ class UserOut(BaseModel):
     id: int
     username: str
 
+class UsageCall(BaseModel):
+    """One LLM call, with no prompts or results: only what's needed to review spending."""
+    timestamp: str
+    user_id: int
+    kind: Literal["tagging", "outfits", "style"]
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cache_write_tokens: int = 0
+    cache_read_tokens: int = 0
+    cost_usd: float | None = None   # None when the model has no price in config
+
+class UsageAllOut(BaseModel):
+    """Everyone's usage, for an admin. users includes people with no calls."""
+    users: list[UserOut]
+    calls: list[UsageCall]
+
 class ActAsIn(BaseModel):
     user_id: int | None = None
 

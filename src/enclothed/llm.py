@@ -8,6 +8,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class UnusableResponse(RuntimeError):
+    """The LLM answered, so the tokens are spent, but with nothing we can use."""
+    def __init__(self, message: str, usage: TokenUsage):
+        super().__init__(message)
+        self.usage = usage
+
 SUBCATEGORY_TEXT = "\n".join(
     f"- {category}: {', '.join(sorted(subs))}" for category, subs in SUBCATEGORIES.items()
 )
@@ -137,7 +143,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
     logger.debug("tokens: in=%s out=%s", usage.input_tokens, usage.output_tokens)
 
     if response.parsed_output is None:
-        raise RuntimeError(f"No garment in response (stop_reason={response.stop_reason})")
+        raise UnusableResponse(f"No garment in response (stop_reason={response.stop_reason})", usage)
     return response.parsed_output, usage
 
 PREFERENCES_SYSTEM_PROMPT = """You turn a person's description of their clothing tastes and needs into a short,
@@ -170,7 +176,7 @@ def improve_preferences(client: Anthropic, text: str) -> tuple[str, TokenUsage]:
         output_tokens=response.usage.output_tokens,
     )
     if response.parsed_output is None:
-        raise RuntimeError(f"No rewrite in response (stop_reason={response.stop_reason})")
+        raise UnusableResponse(f"No rewrite in response (stop_reason={response.stop_reason})", usage)
     return response.parsed_output.text.strip(), usage
 
 def recommend_outfits(client: Anthropic, context: list[dict]) -> tuple[OutfitResult, TokenUsage]:
@@ -195,5 +201,5 @@ def recommend_outfits(client: Anthropic, context: list[dict]) -> tuple[OutfitRes
     if response.stop_reason == "max_tokens":
         logger.warning("Outfit response cut off at max_tokens (%s)", config.OUTFIT_TOKEN_CAP)
     if response.parsed_output is None:
-        raise RuntimeError(f"No outfits in response (stop_reason={response.stop_reason})")
+        raise UnusableResponse(f"No outfits in response (stop_reason={response.stop_reason})", usage)
     return response.parsed_output, usage

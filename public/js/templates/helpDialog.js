@@ -43,6 +43,12 @@ const HELP = {
     "Words like <b>always</b>, <b>never</b> and <b>must</b> make something a rule. Everything else is a default that a specific request can override.",
     "<b>Save as written</b> keeps your words. <b>Improve with AI</b> shows a tidier version to compare, and that button uses AI.",
   ]},
+  usage: {title: "Usage", tips: [
+    "This page estimates what your AI calls cost: adding a garment, getting outfit suggestions, and Improve with AI.",
+    "Choose a date range. The chart shows the estimated cost per day, split by type of call.",
+    "These are estimates from token counts, not a bill.",
+    "Only you and the site's admin can see your usage. The admin sees totals and costs, not your prompts.",
+  ]},
 };
 
 function helpDialog(topic, firstVisit){

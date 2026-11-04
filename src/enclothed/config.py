@@ -32,3 +32,12 @@ UPLOAD_MAX_BYTES = 40 * 1024 * 1024
 MANUAL_OUTFIT_REQUEST = "Put together myself"
 PREFERENCES_MAX_CHARS = 4000
 PREFERENCES_TOKEN_CAP = 1024
+
+# Dollars per million tokens, for the usage page's estimates. cache_write is the 5-minute rate, the
+# only cache this app uses. Haiku's prices are for prompts up to 100,000 tokens. Update these when
+# Anthropic's prices change, and add any new model: a model missing here shows tokens but no cost.
+# https://platform.claude.com/docs/en/about-claude/pricing
+MODEL_PRICES = {
+    "claude-sonnet-5-5": {"input": 2.00, "output": 10.00, "cache_write": 2.50, "cache_read": 0.10},
+    "claude-haiku-5-5": {"input": 0.10, "output": 0.50, "cache_write": 0.125, "cache_read": 0.01},
+}
