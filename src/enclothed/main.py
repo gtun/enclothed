@@ -1,6 +1,7 @@
 from enclothed import config
 from enclothed import db
 import argparse
+import sqlite3
 from dotenv import load_dotenv
 from anthropic import Anthropic
 from enclothed.intake import add_garment, is_url
@@ -58,6 +59,18 @@ def main() -> int:
         action="extend",
         nargs="+",
     )
+
+    adduser_parser = subparsers.add_parser("adduser", parents=[common], help="Add a person who can sign in")
+    adduser_parser.add_argument("username")
+    adduser_parser.add_argument("email", help="The email they sign in to Cloudflare Access with")
+    adduser_parser.add_argument("--admin", action="store_true", help="Let them switch between wardrobes")
+
+    edituser_parser = subparsers.add_parser("edituser", parents=[common], help="Change a user's username or email")
+    edituser_parser.add_argument("id", type=int)
+    edituser_parser.add_argument("-u", "--username")
+    edituser_parser.add_argument("-e", "--email")
+
+    subparsers.add_parser("users", parents=[common], help="List everyone who can sign in")
 
     args = parser.parse_args()
 
@@ -145,6 +158,28 @@ def main() -> int:
             set_parser.error(f"{', '.join(map(str, garments_in_sets))} already belongs to a set")
         logger.info("Creating set %s with garment IDs %s...", repr(args.name) if args.name else "(no name)", ", ".join(map(str, sorted(garment_ids))))
         db.insert_set(config.DB_PATH, config.DEFAULT_USER_ID, valid_garments, args.name)
+
+    # --- users --------------------
+    elif args.command == "adduser":
+        try:
+            new_id = db.insert_user(config.DB_PATH, args.username, args.email, args.admin)
+        except sqlite3.IntegrityError:
+            adduser_parser.error(f"That username or email is already in use: {args.username}, {args.email}")
+        print(f"Added {args.username} as user {new_id}")
+
+    elif args.command == "edituser":
+        user = db.select_user(config.DB_PATH, args.id)
+        if user is None:
+            edituser_parser.error(f"User {args.id} not found")
+        try:
+            db.update_user(config.DB_PATH, args.id, args.username or user.username, args.email or user.email)
+        except sqlite3.IntegrityError:
+            edituser_parser.error("That username or email is already in use")
+        print(f"Updated user {args.id}")
+
+    elif args.command == "users":
+        for user in db.select_all_users(config.DB_PATH):
+            print(f"{user.id}  {user.username}  {user.email or '(no email)'}{'  admin' if user.is_admin else ''}")
 
     return 0
 

@@ -291,3 +291,33 @@ def select_user_by_email(db_path: Path, email: str) -> User | None:
             logger.debug("Email %s not found", email)
             return None
         return _row_to_user(row)
+
+def select_user(db_path: Path, user_id: int) -> User | None:
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM users WHERE id = :id", {"id": user_id}).fetchone()
+    return _row_to_user(row) if row else None
+
+def select_all_users(db_path: Path) -> list[User]:
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM users ORDER BY id").fetchall()
+    return [_row_to_user(row) for row in rows]
+
+def insert_user(db_path: Path, username: str, email: str, is_admin: bool = False) -> int:
+    """Add a user. Emails are stored lowercase, so UNIQUE also catches a repeat in another case."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute(
+                "INSERT INTO users (username, email, is_admin) VALUES (?, ?, ?)",
+                (username, email.lower(), int(is_admin)),
+            )
+    return cursor.lastrowid
+
+def update_user(db_path: Path, user_id: int, username: str, email: str | None) -> None:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            conn.execute(
+                "UPDATE users SET username = ?, email = ? WHERE id = ?",
+                (username, email.lower() if email else None, user_id),
+            )

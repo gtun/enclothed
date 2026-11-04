@@ -55,7 +55,7 @@ def profile(client, token=None):
 def test_valid_token_signs_in(client):
     response = profile(client, make_token())
     assert response.status_code == 200
-    assert response.json() == {"name": "owner"}
+    assert response.json()["name"] == "owner"
 
 
 @pytest.mark.parametrize("email", ["OWNER@Example.com", "owner@example.com"])
@@ -111,7 +111,7 @@ def test_missing_config_is_503_even_with_a_good_token(client, monkeypatch, name)
 
 def test_dev_user_needs_no_token(client, monkeypatch):
     monkeypatch.setenv("ENCLOTHED_DEV_USER", "owner")
-    assert profile(client).json() == {"name": "owner"}
+    assert profile(client).json()["name"] == "owner"
 
 
 def test_unknown_dev_user_is_503_not_a_default(client, monkeypatch):

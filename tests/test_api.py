@@ -9,7 +9,7 @@ from enclothed import outfit as outfit_module
 from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, select_owned_garments
 from enclothed.models import Category, Color, Fit, Outfit, OutfitResult, Sheen, SUBCATEGORIES
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
-from enclothed.auth import current_user
+from enclothed.auth import signed_in_user
 from enclothed.intake import TEST_GARMENT
 from enclothed.models import User
 
@@ -17,7 +17,7 @@ from enclothed.models import User
 @pytest.fixture
 def signed_in():
     """Every request counts as the owner. test_auth.py covers real sign-in."""
-    api.app.dependency_overrides[current_user] = lambda: User(id=1, username="owner", is_admin=True)
+    api.app.dependency_overrides[signed_in_user] = lambda: User(id=1, username="owner", is_admin=True)
     yield
     api.app.dependency_overrides.clear()
 
@@ -151,7 +151,7 @@ def test_options_levels_are_numbered_labels(client):
 # --- GET /api/profile and the page ------------------------------------------------------
 
 def test_profile_returns_the_signed_in_username(client):
-    assert client.get("/api/profile").json() == {"name": "owner"}
+    assert client.get("/api/profile").json() == {"name": "owner", "is_admin": True, "signed_in_as": None}
 
 
 @pytest.mark.parametrize("path", ["/static/css/theme.css", "/static/css/app.css"])

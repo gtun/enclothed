@@ -259,6 +259,15 @@ class ChoiceOption(BaseModel):
 
 class ProfileOut(BaseModel):
     name: str
+    is_admin: bool = False
+    signed_in_as: str | None = None   # the admin's own name, when they're acting as someone else
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+
+class ActAsIn(BaseModel):
+    user_id: int | None = None
 
 class OptionsOut(BaseModel):
     """The fixed choices for editing a garment, so the front end never keeps its own copy."""

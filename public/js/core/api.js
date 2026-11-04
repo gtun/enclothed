@@ -9,7 +9,7 @@ async function api(path, options = {}){
   catch (e) { throw new Error("Couldn't reach the server. Is it still running?"); }
   let data = null;
   try { data = await res.json(); } catch (e) {}
-  if (!res.ok) throw new Error(errorText(data, res.status));
+  if (!res.ok){ const error = new Error(errorText(data, res.status)); error.status = res.status; throw error; }
   return data;
 }
 function errorText(data, status){

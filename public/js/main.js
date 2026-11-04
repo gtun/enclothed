@@ -125,18 +125,21 @@ paintTheme();
 /* ================= start ================= */
 (async function start(){
   try {
-    const [garments, outfitList, sets, options, profile, preferences] = await Promise.all([
-      api("/api/garments"), api("/api/outfits"), api("/api/sets"), api("/api/options"), api("/api/profile"), api("/api/preferences")]);
+    const profile = await api("/api/profile");
+    const [garments, outfitList, sets, options, preferences] = await Promise.all([
+      api("/api/garments"), api("/api/outfits"), api("/api/sets"), api("/api/options"), api("/api/preferences")]);
     Object.assign(prefs, preferences);
     G = garments; O = outfitList.map(adoptOutfit); SETS = sets; OPT = options;
     HEX = Object.fromEntries(options.colors.map(c => [c.name, c.hex]));
     document.getElementById("who").textContent = profile.name;
+    renderActAs(profile);
     reindex();
     builder.pieces = builder.pieces.filter(id => byId[id] && !isDisowned(byId[id]));
     if (builder.session) builder.session.ids = builder.session.ids.filter(id => outById[id]);
     renderBuilder();
     route();
   } catch (e) {
+    if (e.status === 401 || e.status === 403){ app.innerHTML = accessPage(e.status); hideSections(); return; }
     app.innerHTML = `<div class="state"><h1>Couldn't load your wardrobe</h1><p>${esc(e.message)}</p><p>Check that the server is running (<code>uv run fastapi dev src/enclothed/api.py</code>), then refresh.</p></div>`;
   }
 })();
