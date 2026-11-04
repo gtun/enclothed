@@ -218,7 +218,7 @@ def insert_set(db_path: Path, user_id: int, garment_ids: list[int], set_name: st
             )
             set_id = cursor.lastrowid
 
-            curscursor = conn.executemany(
+            cursor = conn.executemany(
                 "UPDATE garments SET set_id = ? WHERE id = ? AND set_id IS NULL AND user_id = ?",
                 [(set_id, garment_id, user_id) for garment_id in garment_ids],
             )
