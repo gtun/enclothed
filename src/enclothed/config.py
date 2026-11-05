@@ -27,6 +27,8 @@ MIN_OUTFIT_SUGGESTIONS = 2
 MAX_OUTFIT_SUGGESTIONS = 4
 
 INSIGHTS_VALUE_SIZE_LIMIT = 10_000_000
+INSIGHTS_SIZE_FUSE_LIMIT = 400_000
+INSIGHTS_TIME_LIMIT = 2
 
 THUMB_SIZE = (600, 800)          # longest edges of a thumbnail, in pixels
 UPLOAD_MAX_SIDE = 2000           # uploaded photos are resized so the longest side is at most this

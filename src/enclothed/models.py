@@ -316,3 +316,9 @@ class User(BaseModel):
     email: str | None = None
     is_admin: bool = False
     language: Language = DEFAULT_LANGUAGE
+
+
+class QueryResult(BaseModel):
+    columns: list[str] = []
+    rows: list[tuple] = []
+    error: str | None = None
