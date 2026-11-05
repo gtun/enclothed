@@ -239,13 +239,12 @@ def test_reset_keeps_ids_and_photo_folders_but_undoes_edits(seeded, db_path, bob
 
 
 def test_seeding_again_replaces_the_old_sample(seeded, db_path):
+    """SQLite can reuse the deleted ids, so check the folders match the rows rather than the ids."""
     demo_id = seeded["demo"].id
-    old_ids = {g.id for g in db.select_all_garments(db_path, demo_id)}
     demo.seed(db_path, 1, per_category=1, max_outfits=0)
-    garments = db.select_all_garments(db_path, demo_id)
-    assert old_ids.isdisjoint(g.id for g in garments)
-    assert not any((photos.GARMENTS_DIR / str(i)).exists() for i in old_ids)
-    assert all((photos.GARMENTS_DIR / str(g.id)).exists() for g in garments)
+    rows = {g.id for user_id in (1, demo_id) for g in db.select_all_garments(db_path, user_id)}
+    assert {int(folder.name) for folder in photos.GARMENTS_DIR.iterdir()} == rows
+    assert db.select_all_outfits(db_path, demo_id) == []
 
 
 def test_the_template_outlives_a_reset(seeded, db_path):
