@@ -81,4 +81,4 @@ def build_snapshot(db_path: Path, user_id: int) -> sqlite3.Connection:
                     src_rows
                 )
 
-                return conn_tmp
+    return conn_tmp
