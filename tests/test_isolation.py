@@ -10,6 +10,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from enclothed import config
 from enclothed import api, photos
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
@@ -44,6 +45,7 @@ def db_path(tmp_path, monkeypatch):
             conn.execute("UPDATE users SET username = 'alice' WHERE id = 1")
             conn.execute("INSERT INTO users (id, username) VALUES (2, 'bob')")
     monkeypatch.setattr(api, "DB_PATH", path)
+    monkeypatch.setattr(config, "DB_PATH", path)
     monkeypatch.setattr(api, "GARMENTS_DIR", tmp_path / "garments")
     monkeypatch.setattr(api, "INTAKE_DIR", tmp_path / "intake")
     monkeypatch.setattr(api, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
@@ -233,7 +235,7 @@ def admin(as_user, db_path, monkeypatch):
 def test_admin_can_act_as_someone_and_come_back(admin, alice_data, bob_data):
     assert admin.put("/api/act-as", json={"user_id": 2}).status_code == 204
     assert ids(admin.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"]]
-    assert admin.get("/api/profile").json() == {"name": "bob", "language": "en-US", "is_admin": True, "signed_in_as": "alice"}
+    assert admin.get("/api/profile").json() == {"name": "bob", "language": "en-US", "is_admin": True, "signed_in_as": "alice", "is_demo": False, "demo_user_id": None}
 
     admin.put("/api/act-as", json={"user_id": None})
     assert ids(admin.get("/api/garments").json()) == [alice_data["garment"], alice_data["second"]]

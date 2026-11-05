@@ -318,6 +318,56 @@ def set_language(db_path: Path, user_id: int, language: Language) -> None:
         with conn:
             conn.execute("UPDATE users SET language = ? WHERE id = ?", (language, user_id))
 
+# --- the demo user -----------
+def select_demo_user(db_path: Path) -> User | None:
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM users WHERE is_demo = 1").fetchone()
+    return _row_to_user(row) if row else None
+
+def insert_demo_user(db_path: Path, username: str) -> int:
+    """The demo has no email, so nobody can sign in as it. People reach it by switching to it."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute("INSERT INTO users (username, is_demo) VALUES (?, 1)", (username,))
+    return cursor.lastrowid
+
+def claim_demo_reset(db_path: Path, user_id: int, cutoff: str, timestamp: str) -> bool:
+    """Mark the demo as reset unless it already has been since cutoff. True if this call claimed it."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute(
+                "UPDATE users SET demo_reset_at = ? "
+                "WHERE id = ? AND is_demo = 1 AND (demo_reset_at IS NULL OR demo_reset_at < ?)",
+                (timestamp, user_id, cutoff),
+            )
+    return cursor.rowcount == 1
+
+def clear_demo_reset(db_path: Path, user_id: int) -> None:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            conn.execute("UPDATE users SET demo_reset_at = NULL WHERE id = ? AND is_demo = 1", (user_id,))
+
+def delete_demo_wardrobe(db_path: Path, user_id: int, keep: set[int]) -> list[int]:
+    """Delete the demo's outfits, sets, and every garment not in keep, and return the deleted
+    garment ids. Refuses any real user."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            row = conn.execute("SELECT is_demo FROM users WHERE id = ?", (user_id,)).fetchone()
+            if row is None or row[0] != 1:
+                raise ValueError(f"User {user_id} isn't the demo user, so their wardrobe can't be deleted")
+            all_ids = [r[0] for r in conn.execute("SELECT id FROM garments WHERE user_id = ?", (user_id,))]
+            garment_ids = [i for i in all_ids if i not in keep]
+            outfits = "(SELECT id FROM outfits WHERE user_id = ?)"
+            conn.execute(f"DELETE FROM wears WHERE outfit_id IN {outfits}", (user_id,))
+            conn.execute(f"DELETE FROM outfit_garments WHERE outfit_id IN {outfits}", (user_id,))
+            conn.execute("DELETE FROM outfits WHERE user_id = ?", (user_id,))
+            conn.execute("UPDATE garments SET set_id = NULL WHERE user_id = ?", (user_id,))
+            conn.executemany("DELETE FROM garments WHERE id = ? AND user_id = ?", [(i, user_id) for i in garment_ids])
+            conn.execute("DELETE FROM sets WHERE user_id = ?", (user_id,))
+    return garment_ids
+
+
 def update_user(db_path: Path, user_id: int, username: str, email: str | None) -> None:
     with closing(_connect(db_path)) as conn:
         with conn:
