@@ -131,3 +131,10 @@ def run_select(conn: sqlite3.Connection, sql: str) -> QueryResult:
         return QueryResult(error=f"An SQLite error occurred: {e}")
     finally:
         conn.set_progress_handler(None, 0)
+
+
+def insights_schema_text() -> str:
+    lines = []
+    for table, columns in INSIGHTS_SCHEMA.items():
+        lines.append(f"{table}: " + ", ".join([f"{column_name} {column_props}" for column_name, column_props in columns.items()]))
+    return "\n".join(lines)
