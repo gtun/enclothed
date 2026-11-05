@@ -1,4 +1,5 @@
 import sqlite3
+from enclothed.config import INSIGHTS_VALUE_SIZE_LIMIT
 from contextlib import closing
 from pathlib import Path
 
@@ -81,4 +82,21 @@ def build_snapshot(db_path: Path, user_id: int) -> sqlite3.Connection:
                     src_rows
                 )
 
+    lock_snapshot(conn_tmp)
     return conn_tmp
+
+def lock_snapshot(conn: sqlite3.Connection) -> None:
+    conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, INSIGHTS_VALUE_SIZE_LIMIT)
+    conn.execute("PRAGMA query_only = ON")
+    conn.set_authorizer(insights_authorizer)
+
+def insights_authorizer(action_code, arg1, arg2, db_name, trigger):
+    # List of allowed read-only actions
+    allowed_actions = {
+        sqlite3.SQLITE_SELECT,   # Basic SELECT statement execution
+        sqlite3.SQLITE_READ,     # Reading a specific table/column
+        sqlite3.SQLITE_FUNCTION,  # Running a built-in SQL function
+        sqlite3.SQLITE_RECURSIVE,
+    }
+
+    return sqlite3.SQLITE_OK if action_code in allowed_actions else sqlite3.SQLITE_DENY

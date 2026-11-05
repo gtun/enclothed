@@ -26,6 +26,8 @@ OUTFIT_TOKEN_CAP = 8192
 MIN_OUTFIT_SUGGESTIONS = 2
 MAX_OUTFIT_SUGGESTIONS = 4
 
+INSIGHTS_VALUE_SIZE_LIMIT = 10_000_000
+
 THUMB_SIZE = (600, 800)          # longest edges of a thumbnail, in pixels
 UPLOAD_MAX_SIDE = 2000           # uploaded photos are resized so the longest side is at most this
 UPLOAD_MAX_PHOTOS = 10

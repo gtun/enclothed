@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from enclothed import config, db
-from enclothed.sandbox import INSIGHTS_SCHEMA, build_snapshot
+from enclothed.sandbox import INSIGHTS_SCHEMA, build_snapshot, insights_authorizer
 
 OWNER = 1    # schema.sql creates this user
 OTHER = 2
@@ -110,3 +110,95 @@ def test_snapshot_leaves_the_real_database_unchanged(db_path):
     with closing(build_snapshot(db_path, OWNER)):
         pass
     assert db_path.read_bytes() == before
+
+
+# --- Guards -----------------------------------------------------------------------------
+
+@pytest.mark.parametrize("sql", [
+    "SELECT * FROM garments",
+    "SELECT category, COUNT(*) FROM garments GROUP BY category",
+    "SELECT g.id, o.aesthetic FROM garments g JOIN outfit_garments og ON og.garment_id = g.id JOIN outfits o ON o.id = og.outfit_id",
+    "SELECT value FROM garments, json_each('[1, 2]')",
+    "SELECT strftime('%Y', date_added) FROM garments",
+    "WITH owned AS (SELECT * FROM garments WHERE disowned_on IS NULL) SELECT COUNT(*) FROM owned",
+    "WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r WHERE n < 5) SELECT COUNT(*) FROM r",
+])
+def test_reads_still_work(snapshot, sql):
+    snapshot.execute(sql).fetchall()
+
+
+@pytest.mark.parametrize("sql", [
+    "INSERT INTO sets (name) VALUES ('x')",
+    "UPDATE garments SET brand = 'x'",
+    "DELETE FROM garments",
+    "DROP TABLE garments",
+    "CREATE TABLE x (a)",
+    "CREATE TEMP TABLE x (a)",
+    "ALTER TABLE garments ADD COLUMN x TEXT",
+    "PRAGMA query_only = OFF",
+    "PRAGMA table_info(garments)",
+    "ATTACH 'other.db' AS other",
+    "VACUUM INTO 'copy.db'",
+    "BEGIN",
+])
+def test_anything_but_a_read_is_refused(snapshot, sql):
+    with pytest.raises(sqlite3.DatabaseError):
+        snapshot.execute(sql)
+
+
+def test_refused_writes_change_nothing(snapshot):
+    before = snapshot.execute("SELECT COUNT(*) FROM garments").fetchone()
+    with pytest.raises(sqlite3.DatabaseError):
+        snapshot.execute("DELETE FROM garments")
+    assert snapshot.execute("SELECT COUNT(*) FROM garments").fetchone() == before
+
+
+def test_query_only_blocks_writes_without_the_authorizer(snapshot):
+    """The second layer: if the authorizer were missing, writes would still fail."""
+    snapshot.set_authorizer(None)
+    with pytest.raises(sqlite3.OperationalError, match="readonly"):
+        snapshot.execute("DELETE FROM garments")
+
+
+def test_authorizer_blocks_writes_without_query_only(snapshot):
+    """The other layer: this fails unless the authorizer itself refuses the write."""
+    snapshot.set_authorizer(None)
+    snapshot.execute("PRAGMA query_only = OFF")
+    snapshot.set_authorizer(insights_authorizer)
+    with pytest.raises(sqlite3.DatabaseError, match="not authorized"):
+        snapshot.execute("DELETE FROM garments")
+
+
+@pytest.mark.parametrize("action", [
+    sqlite3.SQLITE_INSERT,
+    sqlite3.SQLITE_UPDATE,
+    sqlite3.SQLITE_DELETE,
+    sqlite3.SQLITE_DROP_TABLE,
+    sqlite3.SQLITE_CREATE_TABLE,
+    sqlite3.SQLITE_ALTER_TABLE,
+    sqlite3.SQLITE_PRAGMA,
+    sqlite3.SQLITE_ATTACH,
+    sqlite3.SQLITE_TRANSACTION,
+])
+def test_authorizer_denies_each_write_action(action):
+    """Python opens a transaction before a write, so denying that alone would hide a gap here."""
+    assert insights_authorizer(action, None, None, None, None) == sqlite3.SQLITE_DENY
+
+
+def test_a_second_statement_is_refused(snapshot):
+    with pytest.raises(sqlite3.ProgrammingError):
+        snapshot.execute("SELECT 1; DELETE FROM garments")
+
+
+@pytest.mark.parametrize("sql", [
+    "SELECT randomblob(900000000)",
+    "SELECT zeroblob(900000000)",
+    "SELECT hex(randomblob(400000000))",
+])
+def test_huge_values_are_refused(snapshot, sql):
+    with pytest.raises(sqlite3.DataError, match="too big"):
+        snapshot.execute(sql).fetchall()
+
+
+def test_values_up_to_the_limit_work(snapshot):
+    assert snapshot.execute(f"SELECT length(zeroblob({config.INSIGHTS_VALUE_SIZE_LIMIT}))").fetchone() == (config.INSIGHTS_VALUE_SIZE_LIMIT,)
