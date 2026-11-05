@@ -18,12 +18,12 @@ function builderPanel(){
   const retry = !!builder.session;
   const reason = suggestBlockedReason(pieces);
   const cats = RAIL_ORDER.filter(c => OWNED.some(g => g.category === c));
-  const tree = cats.map(c => { const items = OWNED.filter(g => g.category === c); return `<details data-tree="${esc(c)}"><summary><span>${esc(c)}</span><em>${items.length}</em></summary><ul>${items.map(g => {
+  const tree = cats.map(c => { const items = OWNED.filter(g => g.category === c); return `<details data-tree="${esc(c)}"><summary><span>${esc(categoryName(c))}</span><em>${items.length}</em></summary><ul>${items.map(g => {
       const on = builder.pieces.includes(g.id);
       return `<li><span class="chip" style="background:${hex(g.primary_color)}"></span><span>${esc(title(g))}</span><button type="button" class="small-add" data-pick="${g.id}" aria-pressed="${on}" aria-label="${on ? "Remove" : "Add"} ${esc(title(g))}">${on ? "−" : "+"}</button></li>`; }).join("")}</ul></details>`; }).join("");
   const pieceRows = pieces.length ? pieces.map(g => `<div class="bpiece">
       <div class="ph">${ph(g, thumb(g))}<button type="button" class="rm" data-pick="${g.id}" aria-label="Remove ${esc(title(g))} from outfit">×</button></div>
-      <div><span class="eyebrow">${esc(g.category)}</span><br><a class="nm" href="#garment-${g.id}">${esc(title(g))}</a>
+      <div><span class="eyebrow">${esc(categoryName(g.category))}</span><br><a class="nm" href="#garment-${g.id}">${esc(title(g))}</a>
         ${builder.manual ? `<input class="txt" data-advice="${g.id}" value="${esc(builder.form.advice[g.id] || "")}" placeholder="How to wear it (optional)" aria-label="How to wear ${esc(title(g))}">` : ""}</div>
     </div>`).join("") : `<p class="bhint">No pieces yet. Use the + on any garment, the list below, or type a name.</p>`;
 

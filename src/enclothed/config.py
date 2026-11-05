@@ -15,6 +15,7 @@ BACKUPS_DIR = PROJECT_ROOT / "backups"
 SNAPSHOTS_DIR = DATA_DIR / "snapshots"
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
 PUBLIC_DIR = PROJECT_ROOT / "public"
+LOCALES_DIR = PKG_DIR / "locales"
 
 DEFAULT_USER_ID = 1
 CLAUDE_MODEL = "claude-sonnet-5-5"

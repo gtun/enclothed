@@ -4,6 +4,10 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
+Language = Literal["en-US", "zh-TW", "ja-JP"]
+DEFAULT_LANGUAGE: Language = "en-US"
+LANGUAGE_NAMES: dict[Language, str] = {"en-US": "English", "zh-TW": "繁體中文", "ja-JP": "日本語"}
+
 Color = Literal[
     # neutrals
     "black", "charcoal", "gray", "light gray", "white", "cream",
@@ -259,8 +263,12 @@ class ChoiceOption(BaseModel):
 
 class ProfileOut(BaseModel):
     name: str
+    language: Language = DEFAULT_LANGUAGE
     is_admin: bool = False
     signed_in_as: str | None = None   # the admin's own name, when they're acting as someone else
+
+class LanguageIn(BaseModel):
+    language: Language
 
 class UserOut(BaseModel):
     id: int
@@ -295,6 +303,11 @@ class OptionsOut(BaseModel):
     sheens: list[ChoiceOption]
     formality: list[LevelOption]
     warmth: list[LevelOption]
+    languages: list[ChoiceOption]
+    # Display names of the fixed values, in the user's language. Empty for English, where the value is the name.
+    category_labels: dict[str, str] = {}
+    subcategory_labels: dict[str, str] = {}
+    color_labels: dict[str, str] = {}
 
 
 class User(BaseModel):
@@ -302,3 +315,4 @@ class User(BaseModel):
     username: str
     email: str | None = None
     is_admin: bool = False
+    language: Language = DEFAULT_LANGUAGE

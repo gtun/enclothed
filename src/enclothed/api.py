@@ -24,7 +24,7 @@ from enclothed.config import (
 )
 from enclothed.intake import add_garment
 from enclothed.models import (
-    ActAsIn, Garment, GarmentOut, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
+    ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut,
 )
@@ -122,7 +122,7 @@ def add_garment_from_photos(
 
         try:
             garment_id = add_garment(user.id, paths, DB_PATH, GARMENTS_DIR, INTAKE_DIR, TAGGING_LOG_PATH, client, False,
-                                     _blank_to_none(prompt_message), _blank_to_none(notes))
+                                     _blank_to_none(prompt_message), _blank_to_none(notes), user.language)
         except anthropic.APIError as error:
             raise _llm_failed(error)
 
@@ -181,7 +181,8 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]
     try:
         saved = db.select_preferences(DB_PATH, user.id)
         _, new_ids = generate_outfits(DB_PATH, user.id, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
-                                      details or "everyday wear", False, preferences=saved[0] if saved else None)
+                                      details or "everyday wear", False, preferences=saved[0] if saved else None,
+                                      language=user.language)
     except anthropic.APIError as error:
         raise _llm_failed(error)
     return responses.get_outfits(DB_PATH, user.id, new_ids)
@@ -259,14 +260,21 @@ def list_sets(user: CurrentUser) -> list[SetOut]:
 # --- options -------------------------
 @app.get("/api/options")
 def get_options(user: CurrentUser) -> OptionsOut:
-    return responses.get_options()
+    return responses.get_options(user.language)
 
 
 # --- profile -------------------------
 @app.get("/api/profile")
 def get_profile(user: CurrentUser, me: SignedInUser) -> ProfileOut:
     """Whose wardrobe is showing, and what the page should offer the person looking at it."""
-    return ProfileOut(name=user.username, is_admin=me.is_admin, signed_in_as=me.username if me.id != user.id else None)
+    return ProfileOut(name=user.username, language=user.language, is_admin=me.is_admin,
+                      signed_in_as=me.username if me.id != user.id else None)
+
+
+@app.put("/api/language", status_code=204)
+def put_language(body: LanguageIn, user: CurrentUser) -> None:
+    """Set the language of this wardrobe's fixed terms and of what the LLM writes for it from now on."""
+    db.set_language(DB_PATH, user.id, body.language)
 
 
 # --- usage ---------------------------

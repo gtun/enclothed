@@ -217,6 +217,7 @@ def make_old_db(path):
 def schema_before_user_id():
     """schema.sql as it was before migration 006 added user_id."""
     text = SCHEMA_PATH.read_text()
+    text = text.replace(",\n    language TEXT NOT NULL DEFAULT 'en-US'", "")   # added later, by migration 007
     text = text.replace(",\n    user_id INTEGER REFERENCES users(id)", "")
     return text.replace("    user_id INTEGER REFERENCES users(id),\n", "")
 
@@ -599,3 +600,26 @@ def test_update_user_changes_name_and_email(db_path):
     update_user(db_path, 1, "gtun", "Owner@Example.com")
     user = select_user(db_path, 1)
     assert (user.username, user.email, user.is_admin) == ("gtun", "owner@example.com", True)
+
+
+def test_language_migration_defaults_everyone_to_english(tmp_path):
+    path = tmp_path / "test.db"
+    old_schema = tmp_path / "old_schema.sql"
+    old_schema.write_text(SCHEMA_PATH.read_text().replace(",\n    language TEXT NOT NULL DEFAULT 'en-US'", ""))
+    upto_006 = tmp_path / "upto_006"; upto_006.mkdir()
+    for m in sorted(MIGRATIONS_DIR.glob("*.sql"))[:6]:
+        (upto_006 / m.name).write_text(m.read_text())
+    init_db(path, old_schema, upto_006)
+
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    assert select_user(path, 1).language == "en-US"
+
+
+def test_older_db_without_a_users_table_still_reaches_the_latest_version(tmp_path):
+    """schema.sql is for new databases only. Run on this one, it would create users with the
+    language column already there, and migration 007 would fail on adding it."""
+    path = tmp_path / "test.db"
+    make_old_db(path)
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    assert user_version(path) == LATEST
+    assert select_user(path, 1).language == "en-US"

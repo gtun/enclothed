@@ -52,3 +52,29 @@ def test_users_lists_everyone(run, capsys):
     run("users")
     output = capsys.readouterr().out
     assert "owner" in output and "kim@example.com" in output
+
+
+def test_adduser_defaults_to_english(run):
+    run("adduser", "kim", "kim@example.com")
+    assert db.select_user_by_username(config.DB_PATH, "kim").language == "en-US"
+
+
+def test_adduser_can_set_a_language(run):
+    run("adduser", "kim", "kim@example.com", "-l", "zh-TW")
+    assert db.select_user_by_username(config.DB_PATH, "kim").language == "zh-TW"
+
+
+def test_edituser_can_change_only_the_language(run, capsys):
+    run("adduser", "kim", "kim@example.com")
+    user = db.select_user_by_username(config.DB_PATH, "kim")
+    run("edituser", str(user.id), "-l", "ja-JP")
+    edited = db.select_user(config.DB_PATH, user.id)
+    assert (edited.username, edited.email, edited.language) == ("kim", "kim@example.com", "ja-JP")
+    capsys.readouterr()
+    run("users")
+    assert "ja-JP" in capsys.readouterr().out
+
+
+def test_adduser_rejects_an_unknown_language(run):
+    with pytest.raises(SystemExit):
+        run("adduser", "kim", "kim@example.com", "-l", "fr-FR")

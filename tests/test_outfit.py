@@ -333,7 +333,7 @@ def run_real_mode(tmp_path, monkeypatch, anchors=None, **kwargs):
     tests the default."""
     sent = {}
 
-    def fake_recommend_outfits(client, context):
+    def fake_recommend_outfits(client, context, language="en-US"):
         sent["blocks"] = context
         return TEST_OUTFITS, FAKE_USAGE
 

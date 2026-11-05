@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from enclothed.models import Garment, Outfit, User
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, User
 from contextlib import closing
 import json
 import logging
@@ -32,9 +32,8 @@ def init_db(db_path: Path, schema_path: Path, migrations_dir: Path) -> None:
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'garments'"
         ).fetchone() is None
 
-        conn.executescript(sql)
-
         if is_fresh:
+            conn.executescript(sql)
             conn.execute(f"PRAGMA user_version = {latest}")
             return
 
@@ -304,15 +303,20 @@ def select_all_users(db_path: Path) -> list[User]:
         rows = conn.execute("SELECT * FROM users ORDER BY id").fetchall()
     return [_row_to_user(row) for row in rows]
 
-def insert_user(db_path: Path, username: str, email: str, is_admin: bool = False) -> int:
+def insert_user(db_path: Path, username: str, email: str, is_admin: bool = False, language: Language = DEFAULT_LANGUAGE) -> int:
     """Add a user. Emails are stored lowercase, so UNIQUE also catches a repeat in another case."""
     with closing(_connect(db_path)) as conn:
         with conn:
             cursor = conn.execute(
-                "INSERT INTO users (username, email, is_admin) VALUES (?, ?, ?)",
-                (username, email.lower(), int(is_admin)),
+                "INSERT INTO users (username, email, is_admin, language) VALUES (?, ?, ?, ?)",
+                (username, email.lower(), int(is_admin), language),
             )
     return cursor.lastrowid
+
+def set_language(db_path: Path, user_id: int, language: Language) -> None:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            conn.execute("UPDATE users SET language = ? WHERE id = ?", (language, user_id))
 
 def update_user(db_path: Path, user_id: int, username: str, email: str | None) -> None:
     with closing(_connect(db_path)) as conn:

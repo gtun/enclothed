@@ -12,6 +12,18 @@
    family you want, then the matching --display / --body / --mono value. */
 @import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
+/* ---- Language ----------------------------------------------------------- */
+/* Chinese and Japanese share characters but draw some differently, so each names fonts of its
+   own. The Latin fonts stay first, so English words look the same in every language. */
+:root[data-locale="zh-TW"]{
+  --display:"Bricolage Grotesque","PingFang TC","Microsoft JhengHei","Noto Sans CJK TC",system-ui,sans-serif;
+  --body:"IBM Plex Sans","PingFang TC","Microsoft JhengHei","Noto Sans CJK TC",system-ui,sans-serif;
+}
+:root[data-locale="ja-JP"]{
+  --display:"Bricolage Grotesque","Hiragino Sans","Yu Gothic","Noto Sans CJK JP",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Hiragino Sans","Yu Gothic","Noto Sans CJK JP",system-ui,sans-serif;
+}
+
 /* ---- Day ---------------------------------------------------------------- */
 :root{
   /* fonts */

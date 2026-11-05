@@ -20,6 +20,7 @@ button{font:inherit;color:inherit}
 .seg a,.seg button{font:500 .84rem var(--body);border:0;background:none;color:var(--muted);padding:5px 13px;border-radius:999px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 .seg [aria-current="page"],.seg [aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 .seg svg{width:13px;height:13px}
+.langpick{font:500 .84rem var(--body);color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 10px;max-width:11em;cursor:pointer}
 
 header.hero{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:16px;padding-top:28px}
 h1{font-family:var(--display);font-weight:700;font-size:clamp(2rem,5vw,3rem);line-height:1.02;margin:0;letter-spacing:-.02em;text-wrap:balance}

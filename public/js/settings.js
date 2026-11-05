@@ -3,7 +3,7 @@
 
 const SETTINGS = {
   /* Language and region for dates, e.g. "en-US", "en-GB", "ja-JP", "zh-TW".
-     undefined = whatever your browser is set to. */
+     undefined = follow the language chosen in the page's language menu. */
   locale: undefined,
 
   /* Date formats. Each is a set of Intl.DateTimeFormat options:

@@ -1,10 +1,11 @@
 """Builds the *Out models the API sends, from database records and photo folders."""
 from pathlib import Path
-from enclothed import db
+from enclothed import db, i18n
 from typing import get_args
 from enclothed.models import (
     Category, Color, Fit, Sheen, SUBCATEGORIES, COLOR_HEX, FIT_LABELS, SHEEN_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
-    ChoiceOption, ColorOption, Garment, GarmentOut, LevelOption, OptionsOut, OutfitGarmentOut, OutfitOut, SetOut,
+    ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, OptionsOut,
+    OutfitGarmentOut, OutfitOut, SetOut,
 )
 from enclothed.photos import get_garment_photos
 
@@ -54,13 +55,22 @@ def list_sets(db_path: Path, user_id: int) -> list[SetOut]:
 def _sorted_other_last(values: set[str]) -> list[str]:
     return sorted(values, key=lambda value: (value == "other", value))
 
-def get_options() -> OptionsOut:
+def get_options(language: Language = DEFAULT_LANGUAGE) -> OptionsOut:
+    terms = i18n.terms(language)
+
+    def label(group: str, value: str | int, english: str) -> str:
+        return terms.get(group, {}).get(str(value), english)
+
     return OptionsOut(
         categories=list(get_args(Category)),
         subcategories={category: _sorted_other_last(SUBCATEGORIES[category]) for category in get_args(Category)},
         colors=[ColorOption(name=color, hex=COLOR_HEX[color]) for color in get_args(Color)],
-        fits=[ChoiceOption(value=fit, label=FIT_LABELS[fit]) for fit in get_args(Fit)],
-        sheens=[ChoiceOption(value=sheen, label=SHEEN_LABELS[sheen]) for sheen in get_args(Sheen)],
-        formality=[LevelOption(value=value, label=label) for value, label in FORMALITY_LABELS.items()],
-        warmth=[LevelOption(value=value, label=label) for value, label in WARMTH_LABELS.items()],
+        fits=[ChoiceOption(value=fit, label=label("fits", fit, FIT_LABELS[fit])) for fit in get_args(Fit)],
+        sheens=[ChoiceOption(value=sheen, label=label("sheens", sheen, SHEEN_LABELS[sheen])) for sheen in get_args(Sheen)],
+        formality=[LevelOption(value=value, label=label("formality", value, text)) for value, text in FORMALITY_LABELS.items()],
+        warmth=[LevelOption(value=value, label=label("warmth", value, text)) for value, text in WARMTH_LABELS.items()],
+        languages=[ChoiceOption(value=value, label=name) for value, name in LANGUAGE_NAMES.items()],
+        category_labels=terms.get("categories", {}),
+        subcategory_labels=terms.get("subcategories", {}),
+        color_labels=terms.get("colors", {}),
     )

@@ -57,7 +57,7 @@ function renderBuilder(){
   setTimeout(() => { restoringTree = false; }, 60);
   el.querySelector(".bbody").scrollTop = keepScroll;
   const options = OWNED.filter(g => !builder.pieces.includes(g.id)).sort((a, b) => catRank(a) - catRank(b))
-    .map(g => ({value: g.id, label: `${title(g)} · ${g.primary_color} · #${g.id}`, hex: hex(g.primary_color)}));
+    .map(g => ({value: g.id, label: `${title(g)} · ${colorName(g.primary_color)} · #${g.id}`, hex: hex(g.primary_color)}));
   combo(el.querySelector("#b-search"), {options, keepOpen: true, autofocus: false, collapsed: true, placeholder: "Type a garment name to add it…", onPick: id => { togglePiece(id); document.querySelector("#b-search input")?.focus(); }});
 }
 function updateBuilderButtons(){
