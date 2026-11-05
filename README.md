@@ -149,6 +149,7 @@ Everything is plain files in `public/`; edit one and refresh the browser (no bui
 | Words for colors, categories, subcategories, fit, sheen, formality and warmth | `src/enclothed/locales/` |
 | Any text or layout on a page | the matching file in `js/templates/` (e.g. `outfitPage.js` for “Asked for …”, `garmentCard.js` for the wardrobe cards, `garmentPage.js` for the details labels) |
 | Spacing, sizes, layout rules | `css/app.css` |
+| The site icon (`favicon.svg`, plus PNGs made from it) | `icons/` |
 
 ### Languages
 
