@@ -151,7 +151,7 @@ def test_options_levels_are_numbered_labels(client):
 # --- GET /api/profile and the page ------------------------------------------------------
 
 def test_profile_returns_the_signed_in_username(client):
-    assert client.get("/api/profile").json() == {"name": "owner", "language": "en-US", "is_admin": True, "signed_in_as": None}
+    assert client.get("/api/profile").json() == {"name": "owner", "language": "en-US", "is_admin": True, "signed_in_as": None, "is_demo": False, "demo_user_id": None}
 
 
 @pytest.mark.parametrize("path", ["/static/icons/favicon.svg", "/static/icons/favicon-32.png", "/static/icons/apple-touch-icon.png"])

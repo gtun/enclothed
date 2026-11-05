@@ -1,5 +1,6 @@
 from enclothed import config
 from enclothed import db
+from enclothed import demo
 import argparse
 import sqlite3
 from dotenv import load_dotenv
@@ -79,6 +80,10 @@ def main() -> int:
     edituser_parser.add_argument("-l", "--language", choices=get_args(Language))
 
     subparsers.add_parser("users", parents=[common], help="List everyone who can sign in")
+
+    demo_parser = subparsers.add_parser("demo-seed", parents=[common], help="Rebuild the shared demo wardrobe from a sample of yours")
+    demo_parser.add_argument("--per-category", type=int, default=config.DEMO_PER_CATEGORY, help="At least this many garments per category, when you have them")
+    demo_parser.add_argument("--outfits", type=int, default=config.DEMO_MAX_OUTFITS, help="At most this many outfits, liked ones first")
 
     args = parser.parse_args()
 
@@ -190,6 +195,10 @@ def main() -> int:
     elif args.command == "users":
         for user in db.select_all_users(config.DB_PATH):
             print(f"{user.id}  {user.username}  {user.email or '(no email)'}  {user.language}{'  admin' if user.is_admin else ''}")
+
+    elif args.command == "demo-seed":
+        template = demo.seed(config.DB_PATH, config.DEFAULT_USER_ID, args.per_category, args.outfits)
+        print(f"Demo wardrobe ready: {len(template['garments'])} garments, {len(template['outfits'])} outfits, {len(template['sets'])} sets")
 
     return 0
 

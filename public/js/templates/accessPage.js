@@ -9,8 +9,12 @@ function accessPage(status){
     <p><a href="/">Sign in again</a></p></div>`;
 }
 function actAsBar(profile, users){
+  if (profile.is_demo) return `<span>You're in the <b>demo wardrobe</b>. Everyone shares it, and it resets every day, so nothing you add here lasts.</span>
+    <button type="button" data-act-as="">Back to mine</button>`;
   if (profile.signed_in_as) return `<span>You're in <b>${esc(profile.name)}</b>'s wardrobe. Anything you change saves there.</span>
     <button type="button" data-act-as="">Back to mine</button>`;
+  if (!profile.is_admin) return profile.demo_user_id ? `<span>See how enclothed works with a wardrobe that's already filled in.</span>
+    <button type="button" data-demo="${profile.demo_user_id}">Try the demo wardrobe</button>` : "";
   const others = users.filter(u => u.username !== profile.name);
   if (!others.length) return "";
   return `<label for="act-as">Open another wardrobe</label>

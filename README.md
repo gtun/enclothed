@@ -151,6 +151,12 @@ Everything is plain files in `public/`; edit one and refresh the browser (no bui
 | Spacing, sizes, layout rules | `css/app.css` |
 | The site icon (`favicon.svg`, plus PNGs made from it) | `icons/` |
 
+### Demo wardrobe
+
+Anyone with a login can open a shared demo wardrobe from the bar at the top of the page, and add garments or use the AI there. It's a copy of a sample of your wardrobe, without your private notes, style notes, or the words of your past requests. It rebuilds itself on the first visit after 8:00 UTC each day, and everyone sees it in their own language. AI use in the demo stops at `DEMO_DAILY_TOKEN_LIMIT` in `config.py`.
+
+Create it or refresh the sample with `enclothed demo-seed` (`--per-category 5`, `--outfits 8`). The sample stays frozen until you run that again. Don't edit `data/demo-template/` by hand.
+
 ### Languages
 
 The menu at the top of the page sets a person's language: English, Traditional Chinese (Taiwan), or Japanese. It changes the names of the fixed terms, the date format, and what the AI writes from then on. Buttons and headings stay in English, and saved notes and outfits aren't retranslated. New garments get their styling notes, style tags, pattern, materials and country in the chosen language; the database always keeps fixed terms in English. To set someone's language before they sign in, use `adduser -l zh-TW` or `edituser ID -l ja-JP`. An admin viewing as someone sees and changes that person's language.
