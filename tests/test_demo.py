@@ -247,6 +247,28 @@ def test_seeding_again_replaces_the_old_sample(seeded, db_path):
     assert db.select_all_outfits(db_path, demo_id) == []
 
 
+def test_leftover_photos_are_kept_and_stay_out_of_the_demo(db_path):
+    """A folder can outlive its garment's row, and SQLite then hands that id to the next garment."""
+    garment = add_garment(db_path, 1, "shoes", "loafers")
+    leftover = photos.GARMENTS_DIR / str(garment + 1)
+    leftover.mkdir()
+    Image.new("RGB", (5, 5)).save(leftover / "private.jpg")
+
+    demo.seed(db_path, 1, 5, 8)
+
+    [copy] = db.select_all_garments(db_path, db.select_demo_user(db_path).id)
+    assert copy.id == garment + 1
+    assert [p.name for p in (photos.GARMENTS_DIR / str(copy.id)).iterdir()] == ["front_00.jpg"]
+    [kept] = (photos.GARMENTS_DIR.parent / "orphaned-photos").iterdir()
+    assert (kept / "private.jpg").exists()
+
+
+def test_a_half_built_demo_isnt_offered(seeded, db_path, as_user):
+    assert as_user(BOB).get("/api/profile").json()["demo_user_id"] == seeded["demo"].id
+    db.clear_demo_reset(db_path, seeded["demo"].id)
+    assert as_user(BOB).get("/api/profile").json()["demo_user_id"] is None
+
+
 def test_the_template_outlives_a_reset(seeded, db_path):
     for _ in range(2):
         demo.reset_wardrobe(db_path, seeded["demo"].id, config.DEMO_TEMPLATE_DIR, "2026-11-05T12:00:00+00:00")

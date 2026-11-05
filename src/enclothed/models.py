@@ -267,7 +267,7 @@ class ProfileOut(BaseModel):
     is_admin: bool = False
     signed_in_as: str | None = None   # your own name, when you're in someone else's wardrobe
     is_demo: bool = False             # this is the shared demo wardrobe
-    demo_user_id: int | None = None   # how to switch to it; None until the demo has been set up
+    demo_user_id: int | None = None   # how to switch to it; None until the demo has been built
 
 class LanguageIn(BaseModel):
     language: Language

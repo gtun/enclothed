@@ -279,7 +279,8 @@ def get_profile(user: CurrentUser, me: SignedInUser) -> ProfileOut:
     demo_user = db.select_demo_user(DB_PATH)
     return ProfileOut(name=user.username, language=user.language, is_admin=me.is_admin,
                       signed_in_as=me.username if me.id != user.id else None,
-                      is_demo=user.is_demo, demo_user_id=demo_user.id if demo_user else None)
+                      is_demo=user.is_demo,
+                      demo_user_id=demo_user.id if demo_user and demo_user.demo_reset_at else None)
 
 
 @app.put("/api/language", status_code=204)

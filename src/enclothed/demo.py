@@ -106,6 +106,20 @@ def build_template(db_path: Path, owner_id: int, template_dir: Path, per_categor
 
 
 # --- rebuilding the demo ----------------------------------------------------------------
+def _set_aside_leftover_photos(garment_id: int, timestamp: str) -> None:
+    """Move a photo folder out of the way when a new garment gets its id.
+
+    SQLite reuses the highest id once its row is gone, but the row's photos can outlive it.
+    These aren't the demo's, so they must not show up in it or be deleted by a reset.
+    """
+    folder = photos.GARMENTS_DIR / str(garment_id)
+    if folder.exists():
+        destination = photos.GARMENTS_DIR.parent / "orphaned-photos" / f"{garment_id}-{timestamp.replace(':', '')}"
+        destination.parent.mkdir(exist_ok=True)
+        logger.warning("Garment folder %s had no garment; moved it to %s", garment_id, destination)
+        folder.rename(destination)
+
+
 def reset_wardrobe(db_path: Path, demo_id: int, template_dir: Path, timestamp: str) -> None:
     """Put the demo wardrobe back to the template.
 
@@ -128,6 +142,7 @@ def reset_wardrobe(db_path: Path, demo_id: int, template_dir: Path, timestamp: s
             db.update_garment(db_path, demo_id, Garment.model_validate({**entry["garment"], "id": entry["demo_id"]}))
         else:
             entry["demo_id"] = db.insert_garment(db_path, demo_id, Garment.model_validate(entry["garment"]))
+            _set_aside_leftover_photos(entry["demo_id"], timestamp)
             # Hard links: the same photos, without using the disk twice.
             shutil.copytree(template_dir / "garments" / str(entry["source_id"]), photos.GARMENTS_DIR / str(entry["demo_id"]), copy_function=os.link)
         new_ids[entry["source_id"]] = entry["demo_id"]
