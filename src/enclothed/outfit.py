@@ -1,5 +1,5 @@
 from anthropic import Anthropic
-from enclothed.models import Garment, TokenUsage, Outfit, OutfitResult, Category
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitResult, Category
 from enclothed.llm import UnusableResponse, recommend_outfits
 from enclothed.usage import log_failed_call
 from enclothed import config
@@ -72,11 +72,11 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None) -> OutfitResult:
-    result, _ = generate_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences)
+def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE) -> OutfitResult:
+    result, _ = generate_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences, language)
     return result
 
-def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None) -> tuple[OutfitResult, list[int]]:
+def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitResult, list[int]]:
     """Ask the LLM for outfits, save the valid ones, and return the result plus the new outfit ids."""
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
@@ -116,7 +116,7 @@ def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], 
         context.append(request_block)
 
     try:
-        wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context)
+        wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context, language)
     except UnusableResponse as error:
         log_failed_call(logging_path, user_id, error.usage, str(error))
         raise

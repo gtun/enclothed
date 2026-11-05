@@ -1,4 +1,4 @@
-from enclothed.models import Garment, MaterialPart, Fiber, PhotoTag, TaggingResult, TokenUsage
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, MaterialPart, Fiber, PhotoTag, TaggingResult, TokenUsage
 from pathlib import Path
 import mimetypes
 import requests
@@ -61,7 +61,7 @@ TEST_GARMENT = Garment(
 def is_url(text: str) -> bool:
     return urlparse(text).scheme in ("http", "https")
 
-def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None) -> int:
+def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None, language:Language = DEFAULT_LANGUAGE) -> int:
     logger.info("Staging your photos...")
     with tempfile.TemporaryDirectory(dir=intake_dir, ignore_cleanup_errors=True, prefix="staging-") as tmp:
         run_dir = Path(tmp)
@@ -80,7 +80,7 @@ def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garme
             logger.info(f"Sending {len(staged_paths)} photos for analysis...")
             start = time.perf_counter()
             try:
-                wrapper, usage = tag_garment(client, staged_paths, prompt_message)
+                wrapper, usage = tag_garment(client, staged_paths, prompt_message, language)
             except UnusableResponse as error:
                 log_failed_call(logging_path, user_id, error.usage, str(error))
                 raise

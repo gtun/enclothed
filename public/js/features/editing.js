@@ -24,7 +24,7 @@ async function save(g, changes){
   }
   return ok;
 }
-const colorOptions = () => OPT.colors.map(c => ({value: c.name, label: c.name, hex: c.hex}));
+const colorOptions = () => OPT.colors.map(c => ({value: c.name, label: colorName(c.name), hex: c.hex}));
 const NONE = {value: null, label: "— none"};
 
 function openEditor(field){
@@ -35,11 +35,11 @@ function openEditor(field){
   const setOne = v => { if (v === g[field]) return refresh(); save(g, {[field]: v}); };
 
   if (field === "category"){
-    combo(host, {options: OPT.categories.map(c => ({value: c, label: c})), current: g.category, onCancel: cancel,
+    combo(host, {options: OPT.categories.map(c => ({value: c, label: categoryName(c)})), current: g.category, onCancel: cancel,
       onPick: v => {
         if (v === g.category) return refresh();
         const sub = document.querySelector('[data-field="subcategory"]');
-        host.innerHTML = `<div class="ontrack"><span class="cchip">${esc(v)}</span><span class="hintline">pick a subcategory to save</span></div>`;
+        host.innerHTML = `<div class="ontrack"><span class="cchip">${esc(categoryName(v))}</span><span class="hintline">pick a subcategory to save</span></div>`;
         subcategoryEditor(sub, g, v);
       }});
   } else if (field === "subcategory"){
@@ -66,8 +66,9 @@ function openEditor(field){
   }
 }
 function subcategoryEditor(host, g, category){
-  const opts = (OPT.subcategories[category] || []).map(s => ({value: s, label: s}));
-  combo(host, {options: opts, current: category === g.category ? g.subcategory : null, placeholder: `Type to filter ${category} subcategories…`,
+  const opts = (OPT.subcategories[category] || []).map(s => ({value: s, label: subcategoryName(s)}))
+    .sort((a, b) => (a.value === "other") - (b.value === "other") || a.label.localeCompare(b.label, SETTINGS.locale));
+  combo(host, {options: opts, current: category === g.category ? g.subcategory : null, placeholder: `Type to filter ${categoryName(category)} subcategories…`,
     onCancel: () => refresh(),
     onPick: v => {
       if (category === g.category && v === g.subcategory) return refresh();
@@ -79,7 +80,7 @@ function multiEditor(host, g, field, options, free){
   const isColor = field !== "style_tags";
   /* The editor floats over the row, which stays in place (hidden) so nothing below it moves. */
   host.querySelector(".ev").style.visibility = "hidden";
-  host.insertAdjacentHTML("beforeend", `<div class="multi float"><div class="have">${values.map((v, i) => `<span class="pill">${isColor ? `<span class="chip" style="background:${hex(v)}"></span>` : ""}${esc(v)}<button type="button" data-rm="${i}" aria-label="Remove ${esc(v)}">×</button></span>`).join("") || `<span class="empty">None yet</span>`}</div>
+  host.insertAdjacentHTML("beforeend", `<div class="multi float"><div class="have">${values.map((v, i) => `<span class="pill">${isColor ? `<span class="chip" style="background:${hex(v)}"></span>` : ""}${esc(isColor ? colorName(v) : v)}<button type="button" data-rm="${i}" aria-label="Remove ${esc(isColor ? colorName(v) : v)}">×</button></span>`).join("") || `<span class="empty">None yet</span>`}</div>
     <div class="btns"><button type="button" class="btn done-btn">Done</button><span class="hintline">Changes save as you go</span></div>
     <div class="adder"></div></div>`);
   host.querySelector(".have").addEventListener("click", e => {

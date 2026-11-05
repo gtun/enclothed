@@ -145,9 +145,14 @@ Everything is plain files in `public/`; edit one and refresh the browser (no bui
 | To change | Edit |
 |---|---|
 | Colors and fonts (Day and Evening separately) | `css/theme.css` |
-| Date formats, language, and the AI-button color source | `js/settings.js` |
+| Date formats and the AI-button color source | `js/settings.js` |
+| Words for colors, categories, subcategories, fit, sheen, formality and warmth | `src/enclothed/locales/` |
 | Any text or layout on a page | the matching file in `js/templates/` (e.g. `outfitPage.js` for “Asked for …”, `garmentCard.js` for the wardrobe cards, `garmentPage.js` for the details labels) |
 | Spacing, sizes, layout rules | `css/app.css` |
+
+### Languages
+
+The menu at the top of the page sets a person's language: English, Traditional Chinese (Taiwan), or Japanese. It changes the names of the fixed terms, the date format, and what the AI writes from then on. Buttons and headings stay in English, and saved notes and outfits aren't retranslated. New garments get their styling notes, style tags, pattern, materials and country in the chosen language; the database always keeps fixed terms in English. To set someone's language before they sign in, use `adduser -l zh-TW` or `edituser ID -l ja-JP`. An admin viewing as someone sees and changes that person's language.
 
 `js/core/` holds data and helpers, `js/features/` the behavior (editing, the outfit builder, uploads, filters), and `js/main.js` routing and start-up. The scripts share one set of names and load in the order listed in `index.html`.
 

@@ -151,7 +151,7 @@ def test_options_levels_are_numbered_labels(client):
 # --- GET /api/profile and the page ------------------------------------------------------
 
 def test_profile_returns_the_signed_in_username(client):
-    assert client.get("/api/profile").json() == {"name": "owner", "is_admin": True, "signed_in_as": None}
+    assert client.get("/api/profile").json() == {"name": "owner", "language": "en-US", "is_admin": True, "signed_in_as": None}
 
 
 @pytest.mark.parametrize("path", ["/static/css/theme.css", "/static/css/app.css"])
@@ -196,7 +196,7 @@ def llm(monkeypatch):
     class Fake:
         result = None
         calls = []
-    def fake_recommend(client, context):
+    def fake_recommend(client, context, language="en-US"):
         Fake.calls.append(context)
         return Fake.result, None
     monkeypatch.setattr(outfit_module, "recommend_outfits", fake_recommend)
@@ -291,7 +291,7 @@ def tagger(monkeypatch):
     """Replace the tagging LLM call; records the photo paths and context it got."""
     class Fake:
         calls = []
-    def fake_tag(client, photo_paths, prompt_message=None):
+    def fake_tag(client, photo_paths, prompt_message=None, language="en-US"):
         Fake.calls.append({"sizes": [Image.open(p).size for p in photo_paths], "prompt": prompt_message})
         return TaggingResult(garment=TEST_GARMENT, photos=[PhotoTag(index=i, role="front" if i == 0 else "label") for i in range(len(photo_paths))]), None
     monkeypatch.setattr(intake, "tag_garment", fake_tag)
@@ -468,7 +468,7 @@ def test_disowned_garment_is_not_sent_to_the_llm(client, db_path, monkeypatch):
     disown(client, gone)
     sent = {}
 
-    def fake_recommend(_client, context):
+    def fake_recommend(_client, context, language="en-US"):
         sent["wardrobe"] = context[0]["text"]
         return OutfitResult(outfits=[]), None
 

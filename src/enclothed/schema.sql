@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT UNIQUE,
     is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
     style_notes TEXT,
-    style_updated_at TEXT
+    style_updated_at TEXT,
+    language TEXT NOT NULL DEFAULT 'en-US'
 );
 
 INSERT OR IGNORE INTO users (id, username, is_admin) VALUES (1, 'owner', 1);

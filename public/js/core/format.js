@@ -33,7 +33,12 @@ const whenLong = ts => formatWith(asDate(ts), SETTINGS.dates.long);
 const whenDay = day => day ? formatWith(asDate(day), SETTINGS.dates.day) : "—";
 const catRank = g => { const i = RAIL_ORDER.indexOf(g?.category); return i < 0 ? 99 : i; };
 const setName = s => s ? (s.name || `Set #${s.id}`) : "";
-const title = g => [g.brand, g.subcategory].filter(Boolean).join(" ");
+/* Fixed terms are English in the data; these are what a person sees. The names come from /api/options. */
+const categoryName = c => OPT.category_labels[c] ?? c;
+const subcategoryName = s => OPT.subcategory_labels[s] ?? s;
+const colorName = c => OPT.color_labels[c] ?? c;
+const title = g => [g.brand, subcategoryName(g.subcategory)].filter(Boolean).join(" ");
+const warmthShort = label => label.split(/[,，、]/)[0];   // "light, 18–25°C" → "light"
 const levelLabel = (list, v) => (list.find(l => l.value === v) || {}).label || "";
 const choiceLabel = (list, v) => (list.find(l => l.value === v) || {}).label || v;
 const unique = arr => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b));

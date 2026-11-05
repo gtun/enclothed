@@ -179,7 +179,7 @@ def test_the_llm_only_sees_your_own_wardrobe(bob, alice_data, bob_data, monkeypa
 
 def test_suggestion_logs_record_the_user(bob, bob_data, monkeypatch, tmp_path):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
-    monkeypatch.setattr("enclothed.outfit.recommend_outfits", lambda client, context: (_empty_result(), None))
+    monkeypatch.setattr("enclothed.outfit.recommend_outfits", lambda client, context, language: (_empty_result(), None))
     bob.post("/api/outfits/suggestions", json={"anchors": [], "details": "dinner"})
     entry = json.loads((tmp_path / "outfit_log.jsonl").read_text().splitlines()[0])
     assert entry["user_id"] == 2
@@ -233,7 +233,7 @@ def admin(as_user, db_path, monkeypatch):
 def test_admin_can_act_as_someone_and_come_back(admin, alice_data, bob_data):
     assert admin.put("/api/act-as", json={"user_id": 2}).status_code == 204
     assert ids(admin.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"]]
-    assert admin.get("/api/profile").json() == {"name": "bob", "is_admin": True, "signed_in_as": "alice"}
+    assert admin.get("/api/profile").json() == {"name": "bob", "language": "en-US", "is_admin": True, "signed_in_as": "alice"}
 
     admin.put("/api/act-as", json={"user_id": None})
     assert ids(admin.get("/api/garments").json()) == [alice_data["garment"], alice_data["second"]]

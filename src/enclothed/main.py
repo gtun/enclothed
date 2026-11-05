@@ -8,10 +8,16 @@ from enclothed.intake import add_garment, is_url
 from enclothed.outfit import get_outfits
 from pathlib import Path
 import logging
-from enclothed.models import LIST_FILTER_CHOICES
+from typing import get_args
+from enclothed.models import DEFAULT_LANGUAGE, LIST_FILTER_CHOICES, Language
 from enclothed.cli_display import format_list, format_new_garment, format_outfit_result
 
 logger = logging.getLogger(__name__)
+
+def owner_language() -> Language:
+    """The language of the user the CLI works as, so its LLM calls match the web app's."""
+    owner = db.select_user(config.DB_PATH, config.DEFAULT_USER_ID)
+    return owner.language if owner else DEFAULT_LANGUAGE
 
 def main() -> int:
     common = argparse.ArgumentParser(add_help=False)
@@ -64,11 +70,13 @@ def main() -> int:
     adduser_parser.add_argument("username")
     adduser_parser.add_argument("email", help="The email they sign in to Cloudflare Access with")
     adduser_parser.add_argument("--admin", action="store_true", help="Let them switch between wardrobes")
+    adduser_parser.add_argument("-l", "--language", choices=get_args(Language), default=DEFAULT_LANGUAGE)
 
-    edituser_parser = subparsers.add_parser("edituser", parents=[common], help="Change a user's username or email")
+    edituser_parser = subparsers.add_parser("edituser", parents=[common], help="Change a user's username, email or language")
     edituser_parser.add_argument("id", type=int)
     edituser_parser.add_argument("-u", "--username")
     edituser_parser.add_argument("-e", "--email")
+    edituser_parser.add_argument("-l", "--language", choices=get_args(Language))
 
     subparsers.add_parser("users", parents=[common], help="List everyone who can sign in")
 
@@ -99,7 +107,7 @@ def main() -> int:
 
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
-        new_garment_id = add_garment(config.DEFAULT_USER_ID, args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes)
+        new_garment_id = add_garment(config.DEFAULT_USER_ID, args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes, owner_language())
 
         new_garment = db.select_garment(config.DB_PATH, config.DEFAULT_USER_ID, new_garment_id)
         if new_garment is None:
@@ -138,7 +146,7 @@ def main() -> int:
         client = None if args.test else Anthropic()
         saved_preferences = db.select_preferences(config.DB_PATH, config.DEFAULT_USER_ID)
         result = get_outfits(config.DB_PATH, config.DEFAULT_USER_ID, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test, args.cache,
-                             preferences=saved_preferences[0] if saved_preferences else None)
+                             preferences=saved_preferences[0] if saved_preferences else None, language=owner_language())
         print(format_outfit_result(result, wardrobe))
 
     # --- set ----------------------
@@ -162,7 +170,7 @@ def main() -> int:
     # --- users --------------------
     elif args.command == "adduser":
         try:
-            new_id = db.insert_user(config.DB_PATH, args.username, args.email, args.admin)
+            new_id = db.insert_user(config.DB_PATH, args.username, args.email, args.admin, args.language)
         except sqlite3.IntegrityError:
             adduser_parser.error(f"That username or email is already in use: {args.username}, {args.email}")
         print(f"Added {args.username} as user {new_id}")
@@ -175,11 +183,13 @@ def main() -> int:
             db.update_user(config.DB_PATH, args.id, args.username or user.username, args.email or user.email)
         except sqlite3.IntegrityError:
             edituser_parser.error("That username or email is already in use")
+        if args.language:
+            db.set_language(config.DB_PATH, args.id, args.language)
         print(f"Updated user {args.id}")
 
     elif args.command == "users":
         for user in db.select_all_users(config.DB_PATH):
-            print(f"{user.id}  {user.username}  {user.email or '(no email)'}{'  admin' if user.is_admin else ''}")
+            print(f"{user.id}  {user.username}  {user.email or '(no email)'}  {user.language}{'  admin' if user.is_admin else ''}")
 
     return 0
 

@@ -1,6 +1,6 @@
 from anthropic import Anthropic
-from enclothed import config
-from enclothed.models import SUBCATEGORIES, TaggingResult, TokenUsage, OutfitResult, ImprovedPreferences
+from enclothed import config, i18n
+from enclothed.models import DEFAULT_LANGUAGE, SUBCATEGORIES, Language, TaggingResult, TokenUsage, OutfitResult, ImprovedPreferences
 import base64
 import mimetypes
 from pathlib import Path
@@ -111,6 +111,38 @@ then name any missing garments as possible purchases. Never put a garment that i
 in <wardrobe> inside an outfit.
 """
 
+LANGUAGE_DESCRIPTIONS: dict[Language, str] = {
+    "zh-TW": "Traditional Chinese as written in Taiwan, using Taiwanese rather than mainland vocabulary",
+    "ja-JP": "natural Japanese, using the words Japanese clothing shops use",
+}
+
+def _glossary(language: Language) -> str:
+    """The app's words for its fixed terms, so what the LLM writes matches the labels on the page."""
+    terms = i18n.terms(language)
+    pairs = {**terms["colors"], **terms["categories"], **terms["subcategories"]}
+    return "; ".join(f"{english} = {word}" for english, word in pairs.items() if english != "other")
+
+def tag_system_prompt(language: Language) -> str:
+    if language == DEFAULT_LANGUAGE:
+        return TAG_SYSTEM_PROMPT
+    return f"""{TAG_SYSTEM_PROMPT}
+Language:
+- Write styling_notes, style_tags, pattern, country_of_origin, and each part and fiber in materials in {LANGUAGE_DESCRIPTIONS[language]}. This replaces the rule above about translating labels to English.
+- category, subcategory, primary_color, secondary_colors, accent_colors, fit, sheen and photo roles are fixed values the app depends on. Always give their exact English values from the allowed lists, never a translation.
+- Keep brand as the brand writes it, and label_text as the raw label text.
+- In the fields you write, use these words for the app's terms: {_glossary(language)}
+"""
+
+def outfit_system_prompt(language: Language) -> str:
+    if language == DEFAULT_LANGUAGE:
+        return OUTFIT_SYSTEM_PROMPT
+    return f"""{OUTFIT_SYSTEM_PROMPT}
+Language:
+- Write aesthetic, explanation, styling_advice and missing in {LANGUAGE_DESCRIPTIONS[language]}, whatever language the records or the request are in.
+- Don't quote English from the records; say it in that language. Keep brand names as written.
+- Use these words for the app's terms: {_glossary(language)}
+"""
+
 def image_block(path: Path) -> dict:
     media_type, _ = mimetypes.guess_type(path)
     data = base64.standard_b64encode(path.read_bytes()).decode("utf-8")
@@ -119,7 +151,7 @@ def image_block(path: Path) -> dict:
         "source": {"type": "base64", "media_type": media_type, "data": data}
     }
 
-def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str | None = None) -> tuple[TaggingResult, TokenUsage]:
+def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str | None = None, language: Language = DEFAULT_LANGUAGE) -> tuple[TaggingResult, TokenUsage]:
     content = []
     for i, p in enumerate(photo_paths):
         content.append({"type": "text", "text": f"Image {i}:"})
@@ -131,7 +163,7 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=config.TAG_TOKEN_CAP,
-        system=TAG_SYSTEM_PROMPT,
+        system=tag_system_prompt(language),
         messages=[{"role": "user", "content": content}],
         output_format=TaggingResult,
     )
@@ -179,11 +211,11 @@ def improve_preferences(client: Anthropic, text: str) -> tuple[str, TokenUsage]:
         raise UnusableResponse(f"No rewrite in response (stop_reason={response.stop_reason})", usage)
     return response.parsed_output.text.strip(), usage
 
-def recommend_outfits(client: Anthropic, context: list[dict]) -> tuple[OutfitResult, TokenUsage]:
+def recommend_outfits(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitResult, TokenUsage]:
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=config.OUTFIT_TOKEN_CAP,
-        system=OUTFIT_SYSTEM_PROMPT,
+        system=outfit_system_prompt(language),
         messages=[{"role": "user", "content": context}],
         output_format=OutfitResult,
     )
