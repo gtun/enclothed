@@ -20,14 +20,15 @@ from enclothed import db, demo, photos, responses
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
-    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH,
+    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH
 )
 from enclothed.intake import add_garment
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
-    User, UserOut,
+    User, UserOut, InsightsIn, InsightsOut
 )
+from enclothed.insights import answer_question
 from enclothed.llm import UnusableResponse, improve_preferences
 from enclothed.outfit import generate_outfits
 from enclothed.usage import log_failed_call, read_calls
@@ -260,6 +261,25 @@ def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> P
     return PreferencesIn(text=text)
 
 
+# --- insights ------------------------
+@app.post("/api/insights")
+def ask_insights(body: InsightsIn, user: CurrentUser) -> InsightsOut:
+    """Answer a question about this wardrobe. The browser keeps the conversation and sends it as history."""
+    _require_demo_tokens(user)
+    client = _anthropic_client()
+    saved = db.select_preferences(DB_PATH, user.id)
+    history = [message.model_dump() for message in body.history]
+    try:
+        result = answer_question(client, DB_PATH, user.id, body.question, history, user.language,
+                                 saved[0] if saved else None, INSIGHTS_LOG_PATH)
+    except anthropic.APIError as error:
+        raise _llm_failed(error)
+    except UnusableResponse:
+        logger.exception("Insights gave no usable answer")
+        raise HTTPException(status_code=502, detail="I couldn't work that out. Try asking it a different way.")
+    return InsightsOut(answer=result.answer, queries=result.queries)
+
+
 # --- sets ----------------------------
 @app.get("/api/sets")
 def list_sets(user: CurrentUser) -> list[SetOut]:
@@ -298,7 +318,7 @@ FromParam = Annotated[datetime | None, Query(alias="from")]
 
 
 def _usage_logs() -> dict[str, Path]:
-    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH}
+    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH}
 
 
 @app.get("/api/usage")

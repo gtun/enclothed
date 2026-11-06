@@ -7,6 +7,7 @@ const HELP = {
     "Open a garment to see its outfits or correct a detail.",
     "The buttons under the heading filter by category, by sets, or by pieces not in any outfit yet. Grid, Large and List change the view.",
     "Use the <b>+</b> on a garment, or <b>Put together an outfit</b>, to start an outfit around pieces you choose.",
+    "<b>Ask your wardrobe</b>, at the bottom right of every page, answers questions about your clothes using AI.",
   ]},
   garment: {title: "A garment", tips: [
     "<b>Click any value</b> under Details to correct it. Good details mean better outfits.",
