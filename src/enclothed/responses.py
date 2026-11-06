@@ -3,7 +3,7 @@ from pathlib import Path
 from enclothed import db, i18n
 from typing import get_args
 from enclothed.models import (
-    Category, Color, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
+    CATEGORY_ORDER, Category, Color, FIELD_CATEGORIES, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
     FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
     ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, OptionsOut,
     OutfitGarmentOut, OutfitOut, SetOut, blank_fields,
@@ -84,4 +84,5 @@ def get_options(language: Language = DEFAULT_LANGUAGE) -> OptionsOut:
         category_labels=terms.get("categories", {}),
         subcategory_labels=terms.get("subcategories", {}),
         color_labels=terms.get("colors", {}),
+        field_categories={field: sorted(categories, key=CATEGORY_ORDER.get) for field, categories in FIELD_CATEGORIES.items()},
     )

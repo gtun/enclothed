@@ -56,6 +56,11 @@ function notesCheckDock(g){
   </aside>`;
 }
 
+/* Hides what doesn't fit the category, like a sleeve on shoes. A value still shows, so it can be seen and cleared. */
+function fieldApplies(g, key){
+  const categories = OPT.field_categories[key];
+  return !categories || categories.includes(g.category) || g[key] !== null;
+}
 /* The blocks of editable details. The review dialog shows these too. */
 const fieldRow = (g, f) => `<dt>${esc(f.label)}</dt><dd data-field="${f.key}">${evButton(f.key, f.label, `<span>${displayValue(g, f)}</span>`)}</dd>`;
 const tagsBlock = g => `<div data-field="style_tags">${evButton("style_tags", "style tags",
@@ -90,7 +95,7 @@ function garmentPage(g){
       `<figure class="slide"><img src="${esc(encodeURI(p.url))}" alt="${esc(title(g))}, ${esc(photoName(p.url))}" ${i > 1 ? 'loading="lazy"' : ""}></figure>`).join("")}</div>
       <div class="gnav"><button type="button" id="gprev" aria-label="Previous photo">‹</button><span id="gcount"></span><button type="button" id="gnext" aria-label="Next photo">›</button></div>`
     : `<div class="ph">${ph(g, null)}</div>`;
-  const rows = FIELDS.map(f => fieldRow(g, f)).join("");
+  const rows = FIELDS.filter(f => fieldApplies(g, f.key)).map(f => fieldRow(g, f)).join("");
   const tags = tagsBlock(g), notes = notesBlock(g), stylingNotes = stylingNotesBlock(g), label = labelBlock(g);
   return `<button type="button" class="back" data-back="wardrobe" style="margin-top:20px">← Wardrobe</button>
     <div class="detail">

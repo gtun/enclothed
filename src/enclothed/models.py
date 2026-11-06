@@ -451,6 +451,8 @@ class OptionsOut(BaseModel):
     category_labels: dict[str, str] = {}
     subcategory_labels: dict[str, str] = {}
     color_labels: dict[str, str] = {}
+    # Fields that only make sense for some categories. Anything not listed applies to every category.
+    field_categories: dict[str, list[Category]] = {}
 
 
 class User(BaseModel):
