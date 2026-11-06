@@ -26,8 +26,9 @@ from enclothed.intake import add_garment
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
-    User, UserOut,
+    User, UserOut, InsightsIn, InsightsOut
 )
+from enclothed.insights import answer_question
 from enclothed.llm import UnusableResponse, improve_preferences
 from enclothed.outfit import generate_outfits
 from enclothed.usage import log_failed_call, read_calls
@@ -260,6 +261,25 @@ def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> P
     return PreferencesIn(text=text)
 
 
+# --- insights ------------------------
+@app.post("/api/insights")
+def ask_insights(body: InsightsIn, user: CurrentUser) -> InsightsOut:
+    """Answer a question about this wardrobe. The browser keeps the conversation and sends it as history."""
+    _require_demo_tokens(user)
+    client = _anthropic_client()
+    saved = db.select_preferences(DB_PATH, user.id)
+    history = [message.model_dump() for message in body.history]
+    try:
+        result = answer_question(client, DB_PATH, user.id, body.question, history, user.language,
+                                 saved[0] if saved else None, INSIGHTS_LOG_PATH)
+    except anthropic.APIError as error:
+        raise _llm_failed(error)
+    except UnusableResponse:
+        logger.exception("Insights gave no usable answer")
+        raise HTTPException(status_code=502, detail="I couldn't work that out. Try asking it a different way.")
+    return InsightsOut(answer=result.answer, queries=result.queries)
+
+
 # --- sets ----------------------------
 @app.get("/api/sets")
 def list_sets(user: CurrentUser) -> list[SetOut]:
@@ -369,7 +389,7 @@ def get_thumbnail(garment_id: int, filename: str, user: CurrentUser) -> FileResp
     return _photo_response(photos.get_thumbnail(garment_id, filename))
 
 
-
+# --- front end -----------------------
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(PUBLIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})

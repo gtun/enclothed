@@ -332,3 +332,27 @@ class InsightAnswer(BaseModel):
     answer: str
     queries: list[str] = []
     usage: TokenUsage
+
+
+class InsightMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: NonEmptyText = Field(max_length=40_000)
+
+
+class InsightsIn(BaseModel):
+    question: NonEmptyText = Field(max_length=2000)
+    history: list[InsightMessage] = Field(default=[], max_length=20)
+
+    @model_validator(mode="after")
+    def history_takes_turns(self):
+        """The conversation has to alternate, starting with the user and ending with the LLM's answer."""
+        roles = [message.role for message in self.history]
+        expected = ["user", "assistant"] * (len(roles) // 2)
+        if roles != expected:
+            raise ValueError("history must alternate user and assistant messages, ending with assistant")
+        return self
+
+
+class InsightsOut(BaseModel):
+    answer: str
+    queries: list[str] = []
