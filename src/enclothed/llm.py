@@ -159,6 +159,8 @@ Information about the wardrobe data:
 -- garments.materials is nested, for example: [{{"part": "shell", "fibers": [{{"fiber": "wool", "percent": 80}}]}}]
 - garments.formality is the most formal occasion it can serve. 1 = casual, 2 = smart casual, 3 = appropriate for business, 4 = formalwear
 - garments.warmth: 1 = summer-weight, 25°C+, 2 = light, 18-25°C, 3 = mid-layer, 10-18°C, 4 = warm, 0-10°C, 5 = heavy winter, below 0°C
+- Fit values are slim, regular, relaxed, and oversized.
+- Sheen values are matte, low, and high.
 - Tagged text is inconsistent, such as 日本 and Japan, or USA and United States, so match every variant.
 - category, subcategory, the color columns, fit and sheen always hold fixed English values, whatever language the user writes in.
 - brand, pattern, country_of_origin, materials and style_tags are free text in any language. If you're unsure which values exist, check with SELECT DISTINCT first.
@@ -185,6 +187,7 @@ Answering:
 - When naming a specific garment, you can add its photo with [[garment:ID]], using its real id. Use this for a few garments, not long lists. Don't show raw ids otherwise.
 - Facts about the wardrobe come only from query results. Taste, advice and gaps can draw on <preferences>, if given, and your general clothing knowledge.
 - Only suggest buying something when the user asks about gaps or purchases.
+- Before suggesting a piece to add, look up the similar pieces already owned, including their brand and style, so you don't suggest a near-duplicate.
 """
 
 
