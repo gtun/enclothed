@@ -149,6 +149,13 @@ Everything is plain files in `public/`; edit one and refresh the browser (no bui
 | Words for colors, categories, subcategories, fit, sheen, formality and warmth | `src/enclothed/locales/` |
 | Any text or layout on a page | the matching file in `js/templates/` (e.g. `outfitPage.js` for “Asked for …”, `garmentCard.js` for the wardrobe cards, `garmentPage.js` for the details labels) |
 | Spacing, sizes, layout rules | `css/app.css` |
+| The site icon (`favicon.svg`, plus PNGs made from it) | `icons/` |
+
+### Demo wardrobe
+
+Anyone with a login can open a shared demo wardrobe from the bar at the top of the page, and add garments or use the AI there. It's a copy of a sample of your wardrobe, without your private notes, style notes, or the words of your past requests. It rebuilds itself on the first visit after 8:00 UTC each day, and everyone sees it in their own language. AI use in the demo stops at `DEMO_DAILY_TOKEN_LIMIT` in `config.py`.
+
+Create it or refresh the sample with `enclothed demo-seed` (`--per-category 5`, `--outfits 8`). The sample stays frozen until you run that again. Don't edit `data/demo-template/` by hand.
 
 ### Languages
 

@@ -1,4 +1,5 @@
 import logging
+import threading
 from pathlib import Path
 from typing import get_args
 
@@ -10,6 +11,9 @@ from enclothed.models import Photo, PhotoRole
 
 register_heif_opener()  # lets Pillow open iPhone HEIC photos
 logger = logging.getLogger(__name__)
+
+# One thumbnail at a time. A page can ask for dozens at once, and the server has 1 GB of memory.
+_thumbnail_lock = threading.Lock()
 
 ROLES = get_args(PhotoRole)   # ("front", "back", "detail", "label", "other")
 
@@ -48,6 +52,10 @@ def get_photo(garment_id: int, filename: str) -> Path | None:
     return source if source.is_file() else None
 
 
+def _is_current(thumb: Path, source: Path) -> bool:
+    return thumb.is_file() and thumb.stat().st_mtime >= source.stat().st_mtime
+
+
 def get_thumbnail(garment_id: int, filename: str) -> Path | None:
     """Path to a small JPEG of one garment photo, made on first request and cached.
 
@@ -58,21 +66,26 @@ def get_thumbnail(garment_id: int, filename: str) -> Path | None:
         return None
 
     thumb = THUMBS_DIR / str(garment_id) / f"{filename}.jpg"
-    if thumb.is_file() and thumb.stat().st_mtime >= source.stat().st_mtime:
+    if _is_current(thumb, source):
         return thumb
 
-    thumb.parent.mkdir(parents=True, exist_ok=True)
-    partial = thumb.with_name(thumb.name + ".partial")
-    try:
-        with Image.open(source) as image:
-            small = _upright_rgb(image)
-            small.thumbnail(THUMB_SIZE, Image.Resampling.LANCZOS)
-            small.save(partial, "JPEG", quality=82, optimize=True)
-    except (OSError, UnidentifiedImageError, Image.DecompressionBombError):
-        logger.warning("Couldn't make a thumbnail of %s; serving the original", source)
-        partial.unlink(missing_ok=True)
-        return source
-    partial.replace(thumb)  # atomic, so a half-written file is never served
+    with _thumbnail_lock:
+        if _is_current(thumb, source):   # another request for the same photo made it while this one waited
+            return thumb
+        thumb.parent.mkdir(parents=True, exist_ok=True)
+        partial = thumb.with_name(thumb.name + ".partial")
+        try:
+            with Image.open(source) as image:
+                # For a JPEG, decode at about the final size instead of loading every pixel.
+                image.draft("RGB", (max(THUMB_SIZE), max(THUMB_SIZE)))
+                small = _upright_rgb(image)
+                small.thumbnail(THUMB_SIZE, Image.Resampling.LANCZOS)
+                small.save(partial, "JPEG", quality=82, optimize=True)
+        except (OSError, UnidentifiedImageError, Image.DecompressionBombError):
+            logger.warning("Couldn't make a thumbnail of %s; serving the original", source)
+            partial.unlink(missing_ok=True)
+            return source
+        partial.replace(thumb)  # atomic, so a half-written file is never served
     return thumb
 
 

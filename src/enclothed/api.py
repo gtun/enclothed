@@ -16,10 +16,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 
-from enclothed import db, photos, responses
+from enclothed import db, demo, photos, responses
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
-    DB_PATH, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
+    DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH
 )
 from enclothed.intake import add_garment
@@ -67,6 +67,12 @@ def _anthropic_client() -> anthropic.Anthropic:
     return anthropic.Anthropic()
 
 
+def _require_demo_tokens(user: User) -> None:
+    """Stop AI calls from the demo once today's limit is spent. Real wardrobes have no limit here."""
+    if user.is_demo and demo.tokens_used(_usage_logs(), user.id) >= DEMO_DAILY_TOKEN_LIMIT:
+        raise HTTPException(status_code=429, detail="The demo has used up today's AI allowance. It resets overnight.")
+
+
 def _llm_failed(error: anthropic.APIError) -> HTTPException:
     logger.exception("LLM call failed")
     return HTTPException(status_code=502, detail=f"The AI service failed: {error.message}. Nothing was saved; try again.")
@@ -101,6 +107,7 @@ def add_garment_from_photos(
     """Tag a new garment from uploaded photos (front, back, labels...) and save it."""
     if not 1 <= len(photos_in) <= UPLOAD_MAX_PHOTOS:
         raise HTTPException(status_code=422, detail=f"Send between 1 and {UPLOAD_MAX_PHOTOS} photos.")
+    _require_demo_tokens(user)
     client = _anthropic_client()
 
     INTAKE_DIR.mkdir(parents=True, exist_ok=True)
@@ -177,6 +184,7 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
 
+    _require_demo_tokens(user)
     client = _anthropic_client()
     try:
         saved = db.select_preferences(DB_PATH, user.id)
@@ -238,6 +246,7 @@ def put_preferences(body: PreferencesIn, user: CurrentUser) -> PreferencesOut:
 @app.post("/api/preferences/improve")
 def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> PreferencesIn:
     """Ask the LLM to rewrite the text into a clearer brief. Returns the rewrite; saves nothing."""
+    _require_demo_tokens(user)
     client = _anthropic_client()
     try:
         text, usage = improve_preferences(client, body.text)
@@ -267,14 +276,20 @@ def get_options(user: CurrentUser) -> OptionsOut:
 @app.get("/api/profile")
 def get_profile(user: CurrentUser, me: SignedInUser) -> ProfileOut:
     """Whose wardrobe is showing, and what the page should offer the person looking at it."""
+    demo_user = db.select_demo_user(DB_PATH)
     return ProfileOut(name=user.username, language=user.language, is_admin=me.is_admin,
-                      signed_in_as=me.username if me.id != user.id else None)
+                      signed_in_as=me.username if me.id != user.id else None,
+                      is_demo=user.is_demo,
+                      demo_user_id=demo_user.id if demo_user and demo_user.demo_reset_at else None)
 
 
 @app.put("/api/language", status_code=204)
-def put_language(body: LanguageIn, user: CurrentUser) -> None:
-    """Set the language of this wardrobe's fixed terms and of what the LLM writes for it from now on."""
-    db.set_language(DB_PATH, user.id, body.language)
+def put_language(body: LanguageIn, user: CurrentUser, me: SignedInUser) -> None:
+    """Set the language of this wardrobe's fixed terms and of what the LLM writes for it from now on.
+
+    In the shared demo this is your own setting, since the demo uses each visitor's language.
+    """
+    db.set_language(DB_PATH, me.id if user.is_demo else user.id, body.language)
 
 
 # --- usage ---------------------------
@@ -313,12 +328,15 @@ def list_users(me: SignedInUser) -> list[UserOut]:
 
 @app.put("/api/act-as", status_code=204)
 def act_as(body: ActAsIn, me: SignedInUser, response: Response) -> None:
-    """Switch which wardrobe an admin is using. No user id, or your own, goes back to yours."""
-    _require_admin(me)
+    """Switch wardrobes. Anyone can open the shared demo; only an admin can open someone else's.
+    No user id, or your own, goes back to yours."""
     if body.user_id is None or body.user_id == me.id:
         response.delete_cookie(ACT_AS_COOKIE)
         return
-    if db.select_user(DB_PATH, body.user_id) is None:
+    target = db.select_user(DB_PATH, body.user_id)
+    if target is None or not target.is_demo:
+        _require_admin(me)
+    if target is None:
         raise HTTPException(status_code=404, detail=f"User {body.user_id} not found")
     response.set_cookie(ACT_AS_COOKIE, str(body.user_id), httponly=True, samesite="lax")
 

@@ -217,7 +217,7 @@ def make_old_db(path):
 def schema_before_user_id():
     """schema.sql as it was before migration 006 added user_id."""
     text = SCHEMA_PATH.read_text()
-    text = text.replace(",\n    language TEXT NOT NULL DEFAULT 'en-US'", "")   # added later, by migration 007
+    text = text.replace(",\n    language TEXT NOT NULL DEFAULT 'en-US',\n    is_demo INTEGER NOT NULL DEFAULT 0 CHECK (is_demo IN (0, 1)),\n    demo_reset_at TEXT", "")   # added later, by migrations 007 and 008
     text = text.replace(",\n    user_id INTEGER REFERENCES users(id)", "")
     return text.replace("    user_id INTEGER REFERENCES users(id),\n", "")
 
@@ -605,7 +605,7 @@ def test_update_user_changes_name_and_email(db_path):
 def test_language_migration_defaults_everyone_to_english(tmp_path):
     path = tmp_path / "test.db"
     old_schema = tmp_path / "old_schema.sql"
-    old_schema.write_text(SCHEMA_PATH.read_text().replace(",\n    language TEXT NOT NULL DEFAULT 'en-US'", ""))
+    old_schema.write_text(schema_before_user_id())
     upto_006 = tmp_path / "upto_006"; upto_006.mkdir()
     for m in sorted(MIGRATIONS_DIR.glob("*.sql"))[:6]:
         (upto_006 / m.name).write_text(m.read_text())

@@ -6,7 +6,7 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, Request
 
-from enclothed import config, db
+from enclothed import config, db, demo
 from enclothed.models import User
 
 logger = logging.getLogger(__name__)
@@ -64,11 +64,18 @@ def signed_in_user(request: Request) -> User:
 
 
 def current_user(request: Request, me: Annotated[User, Depends(signed_in_user)]) -> User:
-    """Whose wardrobe this request is for: yours, or the one an admin chose to act as.
+    """Whose wardrobe this request is for: yours, the shared demo, or the one an admin chose to act as.
 
-    The cookie is ignored unless the signed-in user is an admin, so it can't grant anything.
+    The cookie can only reach the demo unless the signed-in user is an admin, so it can't grant
+    anything else. The demo has no language of its own: everyone sees it in theirs.
     """
     target = request.cookies.get(ACT_AS_COOKIE, "")
-    if not me.is_admin or not target.isdecimal():
+    if not target.isdecimal():
         return me
-    return db.select_user(config.DB_PATH, int(target)) or me
+    user = db.select_user(config.DB_PATH, int(target))
+    if user is None:
+        return me
+    if user.is_demo:
+        demo.refresh(config.DB_PATH, user)
+        return user.model_copy(update={"language": me.language})
+    return user if me.is_admin else me

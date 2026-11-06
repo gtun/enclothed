@@ -41,6 +41,16 @@ MANUAL_OUTFIT_REQUEST = "Put together myself"
 PREFERENCES_MAX_CHARS = 4000
 PREFERENCES_TOKEN_CAP = 1024
 
+# The shared demo wardrobe (demo.py). 8:00 UTC is 3 or 4 AM in New York. The limit counts input and
+# output tokens since the last reset; at Sonnet prices, 200,000 is roughly $0.50 to $1 a day.
+DEMO_USERNAME = "demo"
+DEMO_TEMPLATE_DIR = DATA_DIR / "demo-template"
+DEMO_OUTFIT_REQUEST = "Sample outfit"
+DEMO_PER_CATEGORY = 5
+DEMO_MAX_OUTFITS = 8
+DEMO_RESET_HOUR_UTC = 8
+DEMO_DAILY_TOKEN_LIMIT = 200_000
+
 # Dollars per million tokens, for the usage page's estimates. cache_write is the 5-minute rate, the
 # only cache this app uses. Haiku's prices are for prompts up to 100,000 tokens. Update these when
 # Anthropic's prices change, and add any new model: a model missing here shows tokens but no cost.

@@ -16,5 +16,13 @@ cp data/enclothed.db ~/db-backups/enclothed-$(date +%F-%H%M).db
 docker run -d --name enclothed --restart unless-stopped \
   -p 127.0.0.1:8000:8000 --env-file .env -v "$PWD/data:/app/data" enclothed
 
-sleep 5
-curl -fsS -o /dev/null http://127.0.0.1:8000/ && echo "Deployed." || { echo "App isn't responding. Run: docker logs enclothed"; exit 1; }
+# The app takes a few seconds to start, and a connection fails until it has.
+for _ in {1..30}; do
+  if curl -fsS -o /dev/null http://127.0.0.1:8000/ 2>/dev/null; then
+    echo "Deployed."
+    exit 0
+  fi
+  sleep 1
+done
+echo "App isn't responding. Run: docker logs enclothed"
+exit 1
