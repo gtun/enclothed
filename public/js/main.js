@@ -149,6 +149,7 @@ paintTheme();
     builder.pieces = builder.pieces.filter(id => byId[id] && !isDisowned(byId[id]));
     if (builder.session) builder.session.ids = builder.session.ids.filter(id => outById[id]);
     renderBuilder();
+    startInsights();
     route();
   } catch (e) {
     if (e.status === 401 || e.status === 403){ app.innerHTML = accessPage(e.status); hideSections(); return; }
