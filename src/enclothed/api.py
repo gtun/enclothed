@@ -20,7 +20,7 @@ from enclothed import db, photos, responses
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
-    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH,
+    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH
 )
 from enclothed.intake import add_garment
 from enclothed.models import (
@@ -351,7 +351,11 @@ def get_thumbnail(garment_id: int, filename: str, user: CurrentUser) -> FileResp
     return _photo_response(photos.get_thumbnail(garment_id, filename))
 
 
-# --- front end -----------------------
+
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(PUBLIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
+
+
+def _usage_logs() -> dict[str, Path]:
+    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH}

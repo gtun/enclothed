@@ -278,7 +278,7 @@ class UsageCall(BaseModel):
     """One LLM call, with no prompts or results: only what's needed to review spending."""
     timestamp: str
     user_id: int
-    kind: Literal["tagging", "outfits", "style"]
+    kind: Literal["tagging", "outfits", "style", "insights"]
     model: str
     input_tokens: int
     output_tokens: int
