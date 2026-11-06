@@ -8,8 +8,10 @@ from fastapi.testclient import TestClient
 from enclothed import api, config, db, i18n, intake, llm, responses
 from enclothed import outfit as outfit_module
 from enclothed.auth import signed_in_user
+from enclothed.fabrics import FABRIC_TYPES
 from enclothed.models import (
-    ALL_SUBCATEGORIES, Category, Color, Fit, FORMALITY_LABELS, LANGUAGE_NAMES, Language, OutfitResult, Sheen, User,
+    ALL_SUBCATEGORIES, Category, Color, FabricWeight, Fit, FORMALITY_LABELS, Hem, LANGUAGE_NAMES, Language, OutfitResult,
+    Shape, Sheen, Sleeve, Statement, User,
     WARMTH_LABELS,
 )
 
@@ -20,6 +22,12 @@ GROUPS = {
     "subcategories": ALL_SUBCATEGORIES,
     "fits": set(get_args(Fit)),
     "sheens": set(get_args(Sheen)),
+    "fabric_types": FABRIC_TYPES,
+    "shapes": set(get_args(Shape)),
+    "hems": set(get_args(Hem)),
+    "fabric_weights": set(get_args(FabricWeight)),
+    "sleeves": set(get_args(Sleeve)),
+    "statements": set(get_args(Statement)),
     "formality": {str(value) for value in FORMALITY_LABELS},
     "warmth": {str(value) for value in WARMTH_LABELS},
 }
@@ -42,7 +50,7 @@ def test_no_translation_is_blank_or_still_english(language):
             assert word != english, f"{group}: {english}"
 
 
-@pytest.mark.parametrize("group", ["colors", "subcategories"])
+@pytest.mark.parametrize("group", ["colors", "subcategories", "fabric_types"])
 @pytest.mark.parametrize("language", TRANSLATED)
 def test_two_terms_never_share_a_word(language, group):
     """Two values with one label couldn't be told apart in an edit menu."""
@@ -166,7 +174,7 @@ def test_tagging_passes_the_language_to_the_llm(tmp_path, monkeypatch):
     staged = tmp_path / "front.jpg"
     staged.write_bytes(b"x")
     seen = {}
-    def fake_tag(client, photo_paths, prompt_message, language):
+    def fake_tag(client, photo_paths, prompt_message, language, preferences=None):
         seen["language"] = language
         raise llm.UnusableResponse("stop here", llm.TokenUsage(model="m", input_tokens=0, output_tokens=0))
     monkeypatch.setattr(intake, "tag_garment", fake_tag)

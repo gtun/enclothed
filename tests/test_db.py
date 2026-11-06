@@ -214,15 +214,49 @@ def make_old_db(path):
             conn.execute("INSERT INTO garments (category, wear_count) VALUES ('top', 3), ('shoes', 0)")
 
 
+NEW_ATTRIBUTES = {"fabric_type", "shape", "hem", "fabric_weight", "sleeve", "statement"}
+
+
 def schema_before_user_id():
     """schema.sql as it was before migration 006 added user_id."""
     text = SCHEMA_PATH.read_text()
     text = text.replace(",\n    language TEXT NOT NULL DEFAULT 'en-US',\n    is_demo INTEGER NOT NULL DEFAULT 0 CHECK (is_demo IN (0, 1)),\n    demo_reset_at TEXT", "")   # added later, by migrations 007 and 008
     text = text.replace(",\n    user_id INTEGER REFERENCES users(id)", "")
-    return text.replace("    user_id INTEGER REFERENCES users(id),\n", "")
+    text = text.replace("    user_id INTEGER REFERENCES users(id),\n", "")
+    return "".join(line for line in text.splitlines(keepends=True) if line.strip().split(" ")[0] not in NEW_ATTRIBUTES)
 
 
 LATEST = max(int(p.name.split("_")[0]) for p in MIGRATIONS_DIR.glob("*.sql"))
+
+
+def test_attributes_migration_keeps_garments_and_leaves_the_new_fields_blank(tmp_path):
+    path = tmp_path / "old.db"
+    old_schema = tmp_path / "old_schema.sql"
+    old_schema.write_text("".join(
+        line for line in SCHEMA_PATH.read_text().splitlines(keepends=True)
+        if line.strip().split(" ")[0] not in NEW_ATTRIBUTES
+    ))
+    upto_008 = tmp_path / "upto_008"; upto_008.mkdir()
+    for migration in sorted(MIGRATIONS_DIR.glob("*.sql"))[:8]:
+        (upto_008 / migration.name).write_text(migration.read_text())
+    init_db(path, old_schema, upto_008)
+    with closing(sqlite3.connect(path)) as conn:
+        assert not NEW_ATTRIBUTES & {col[1] for col in conn.execute("PRAGMA table_info(garments)")}
+        conn.execute("INSERT INTO garments (category, subcategory, primary_color, secondary_colors, accent_colors, materials, style_tags, styling_notes, user_id) "
+                     "VALUES ('top', 't-shirt', 'black', '[]', '[]', '[]', '[]', 'x', 1)")
+        conn.commit()
+
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+
+    [garment] = select_all_garments(path, 1)
+    assert garment.subcategory == "t-shirt"
+    assert all(getattr(garment, field) is None for field in NEW_ATTRIBUTES)
+
+
+def test_new_attributes_survive_a_save_and_load(db_path):
+    garment = TEST_GARMENT.model_copy(update=dict(fabric_type="corduroy", shape="tapered", hem="ankle", fabric_weight="heavy", sleeve=None, statement="feature"))
+    saved = select_garment(db_path, 1, insert_garment(db_path, 1, garment))
+    assert (saved.fabric_type, saved.shape, saved.hem, saved.fabric_weight, saved.statement) == ("corduroy", "tapered", "ankle", "heavy", "feature")
 
 
 def test_fresh_db_is_stamped_with_latest_version(db_path):

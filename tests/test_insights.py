@@ -299,7 +299,7 @@ def test_add_usage_keeps_the_model_and_adds_every_count():
 
 def test_schema_text_lists_every_table_and_leaves_private_columns_out():
     text_ = insights_schema_text()
-    assert [line.split(":")[0] for line in text_.splitlines()] == ["garments", "sets", "outfits", "outfit_garments", "wears"]
+    assert [line.split(":")[0] for line in text_.splitlines()] == ["garments", "sets", "outfits", "outfit_garments", "wears", "colors", "layers"]
     columns = {c.split()[0] for line in text_.splitlines() for c in line.split(": ")[1].split(", ")}
     assert "notes" not in columns
     assert "user_id" not in columns

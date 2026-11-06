@@ -1,6 +1,7 @@
 from anthropic import Anthropic
 from anthropic.types import Message
 from enclothed import config, i18n
+from enclothed.fabrics import FABRIC_GROUPS
 from enclothed.models import DEFAULT_LANGUAGE, SUBCATEGORIES, Language, TaggingResult, TokenUsage, OutfitResult, ImprovedPreferences
 from enclothed.sandbox import insights_schema_text
 import base64
@@ -21,6 +22,9 @@ class UnusableResponse(RuntimeError):
 SUBCATEGORY_TEXT = "\n".join(
     f"- {category}: {', '.join(sorted(subs))}" for category, subs in SUBCATEGORIES.items()
 )
+
+
+FABRIC_TEXT = "\n".join(f"- {group}: {', '.join(fabrics)}" for group, fabrics in FABRIC_GROUPS.items())
 
 
 TAG_SYSTEM_PROMPT = f"""You catalog garments for a personal wardrobe app.
@@ -57,6 +61,31 @@ Rules:
     fine-gauge knits.
   - high: clearly shiny, with strong highlights. Satin, patent leather, metallic or
     coated finishes, glossy technical nylon.
+- fabric_type, shape, hem, fabric_weight, sleeve and statement are your best judgment from the
+  photos and materials, not facts read from a label. Fill each one that applies, even when
+  you're unsure of it. Leave one out only if it doesn't apply to this kind of garment.
+  - fabric_type: the main body fabric, from the list below. Fibers belong in materials, so this
+    is how the cloth is made ("denim", "jersey"), not what it's made of. Use "other" when
+    nothing listed fits. Applies to everything, including shoes and bags.
+  - shape: the garment's line, separate from fit (how much room it has). Clothing only.
+    - straight: even width from top to bottom.
+    - tapered: narrows toward the hem.
+    - wide: full throughout.
+    - flared: widens toward the hem from a closer top.
+    - boxy: wide and fairly short, with little shaping.
+    - a-line: gets gradually wider toward the hem.
+    - balloon: full through the middle, then gathered at the end.
+  - hem: where the bottom edge lands on the wearer: waist, hip, thigh, knee, calf, ankle or
+    floor. Clothing only. Judge it on an average adult from the garment's proportions. If the
+    owner's preferences state their height, gender or proportions, judge it on them instead.
+  - fabric_weight: how heavy the cloth looks and hangs: light, mid or heavy for this kind of
+    garment. It isn't warmth: a thin down liner is warm but light, and heavy denim is heavy but
+    not warm. Clothing only.
+  - sleeve: sleeveless, short, three-quarter or long. Tops, one-pieces and outerwear only.
+  - statement: how much attention the piece draws in an outfit. Applies to everything.
+    - basic: quiet, and goes with almost anything.
+    - feature: some interest of its own, such as an unusual color, texture or detail.
+    - statement: the piece people notice first. An outfit is built around it.
 - Leave secondary_colors empty for solid garments; shading, heathering and fabric texture are not colors.
 - Use accent_colors to describe trims, small panels, contrasting stitching, prominent buttons, and other design features. Do not use accent_colors to describe tags or labels
 - White garments under warm light are still white; use cream or beige only when clearly tinted.
@@ -73,6 +102,9 @@ Photo roles:
 
 Allowed subcategories by category:
 {SUBCATEGORY_TEXT}
+
+Allowed fabric_type values:
+{FABRIC_TEXT}
 """
 
 
@@ -88,8 +120,14 @@ You receive:
 - <request>: what the user wants: an occasion, a vibe, or any other request, in their own words.
 
 Reading the records:
-- styling_notes describe each piece's visual character and proportions. Rely on them
-  for silhouette, since you can't see the photos.
+- styling_notes describe each piece's visual character and proportions, since you can't
+  see the photos. Use them alongside the fields below.
+- shape is a piece's line and fit is how much room it has. hem is where it ends on the body.
+  Together they show where the outfit divides and whether one layer shows below another.
+- layer shows where a piece sits: base against the body, mid over that, outer on top.
+- fabric_type and sheen describe the surface. fabric_weight is how heavy the cloth looks and
+  hangs, which isn't warmth.
+- statement is how much attention a piece draws: basic, feature, or statement.
 - formality is a cap: the most formal occasion a piece can serve (1 casual, 2 smart
   casual, 3 business, 4 formalwear). A piece can be dressed down, never up.
 - warmth (1-5) adds up across layers. Judge the whole outfit against any weather mentioned.
@@ -107,10 +145,10 @@ Rules:
 
 Coordinate each outfit:
 - Color: harmonious palette (tonal, neutrals with one accent, or deliberate contrast).
-- Silhouette: balanced proportions and volumes, judged from styling_notes.
+- Silhouette: balanced proportions and volumes, judged from fit, shape, hem and styling_notes.
 - Refinement: pieces at a similar level of polish, unless mixing is the point.
-- Texture: contrast fabric textures and weights so the outfit isn't flat.
-- Focus: at most one focal point; with anchors, usually the anchor.
+- Texture: contrast fabric_type, fabric_weight and sheen so the outfit isn't flat.
+- Focus: at most one focal point, usually a statement piece; with anchors, usually the anchor.
 
 If the wardrobe can't fully meet the request, build the best outfit you can from it,
 then name any missing garments as possible purchases. Never put a garment that isn't
@@ -161,8 +199,16 @@ Information about the wardrobe data:
 - garments.warmth: 1 = summer-weight, 25°C+, 2 = light, 18-25°C, 3 = mid-layer, 10-18°C, 4 = warm, 0-10°C, 5 = heavy winter, below 0°C
 - Fit values are slim, regular, relaxed, and oversized.
 - Sheen values are matte, low, and high.
+- garments.fabric_type is how the cloth is made, such as denim or jersey. Fibers are in materials. If you're unsure which values exist, check with SELECT DISTINCT first.
+- garments.shape values are straight, tapered, wide, flared, boxy, a-line, and balloon. It's the garment's line, and fit is how much room it has.
+- garments.hem is where the garment ends on the body: waist, hip, thigh, knee, calf, ankle, or floor.
+- garments.fabric_weight values are light, mid, and heavy. It's how heavy the cloth looks and hangs, not warmth.
+- garments.sleeve values are sleeveless, short, three-quarter, and long.
+- garments.statement is how much attention a piece draws: basic, feature, or statement.
+- colors describes every color: family (neutral, color, metallic), temperature (warm, cool, neutral), lightness (dark, medium, light), and saturation (muted, medium, vivid). Join it on garments.primary_color = colors.name.
+- layers gives each top and outerwear subcategory's layer: base, mid, or outer. Join it on garments.subcategory = layers.subcategory and garments.category = layers.category.
 - Tagged text is inconsistent, such as 日本 and Japan, or USA and United States, so match every variant.
-- category, subcategory, the color columns, fit and sheen always hold fixed English values, whatever language the user writes in.
+- category, subcategory, the color columns, fit, sheen, fabric_type, shape, hem, fabric_weight, sleeve and statement always hold fixed English values, whatever language the user writes in.
 - brand, pattern, country_of_origin, materials and style_tags are free text in any language. If you're unsure which values exist, check with SELECT DISTINCT first.
 - outfits.liked: NULL is unrated, 0 is disliked, 1 is liked
 - outfits are saved outfit ideas, suggested or put together by the user. An outfit existing doesn't mean it was worn. Only the wears table records wearing.
@@ -203,7 +249,7 @@ def tag_system_prompt(language: Language) -> str:
     return f"""{TAG_SYSTEM_PROMPT}
 Language:
 - Write styling_notes, style_tags, pattern, country_of_origin, and each part and fiber in materials in {LANGUAGE_DESCRIPTIONS[language]}. This replaces the rule above about translating labels to English.
-- category, subcategory, primary_color, secondary_colors, accent_colors, fit, sheen and photo roles are fixed values the app depends on. Always give their exact English values from the allowed lists, never a translation.
+- category, subcategory, primary_color, secondary_colors, accent_colors, fit, sheen, fabric_type, shape, hem, fabric_weight, sleeve, statement and photo roles are fixed values the app depends on. Always give their exact English values from the allowed lists, never a translation.
 - Keep brand as the brand writes it, and label_text as the raw label text.
 - In the fields you write, use these words for the app's terms: {_glossary(language)}
 """
@@ -239,7 +285,7 @@ def image_block(path: Path) -> dict:
         "source": {"type": "base64", "media_type": media_type, "data": data}
     }
 
-def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str | None = None, language: Language = DEFAULT_LANGUAGE) -> tuple[TaggingResult, TokenUsage]:
+def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str | None = None, language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> tuple[TaggingResult, TokenUsage]:
     content = []
     for i, p in enumerate(photo_paths):
         content.append({"type": "text", "text": f"Image {i}:"})
@@ -247,6 +293,8 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
     content.append({"type": "text", "text": "Tag this garment and assign a role to each image."})
     if prompt_message:
         content.append({"type": "text", "text": f"Additional context from the owner: {prompt_message}"})
+    if preferences:
+        content.append({"type": "text", "text": f"The owner's preferences, to use only when judging hem:\n<preferences>\n{preferences}\n</preferences>"})
 
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,

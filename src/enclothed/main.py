@@ -112,7 +112,9 @@ def main() -> int:
 
         client = None if args.test else Anthropic()
         logger.info('Adding your garment now. Please wait...')
-        new_garment_id = add_garment(config.DEFAULT_USER_ID, args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes, owner_language())
+        saved_preferences = db.select_preferences(config.DB_PATH, config.DEFAULT_USER_ID)
+        new_garment_id = add_garment(config.DEFAULT_USER_ID, args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes, owner_language(),
+                                     saved_preferences[0] if saved_preferences else None)
 
         new_garment = db.select_garment(config.DB_PATH, config.DEFAULT_USER_ID, new_garment_id)
         if new_garment is None:

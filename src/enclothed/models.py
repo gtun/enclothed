@@ -1,8 +1,10 @@
+import colorsys
 from datetime import date
 from typing import Literal, get_args
 from typing import Annotated
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 from pydantic.json_schema import SkipJsonSchema
+from enclothed.fabrics import FABRIC_TYPES
 
 Language = Literal["en-US", "zh-TW", "ja-JP"]
 DEFAULT_LANGUAGE: Language = "en-US"
@@ -49,6 +51,45 @@ SHEEN_LABELS: dict[Sheen, str] = {
     "matte": "matte (no shine)",
     "low": "low (soft luster)",
     "high": "high (shiny, like satin or patent leather)",
+}
+Shape = Literal["straight", "tapered", "wide", "flared", "boxy", "a-line", "balloon"]
+Hem = Literal["waist", "hip", "thigh", "knee", "calf", "ankle", "floor"]
+FabricWeight = Literal["light", "mid", "heavy"]
+Sleeve = Literal["sleeveless", "short", "three-quarter", "long"]
+Statement = Literal["basic", "feature", "statement"]
+SHAPE_LABELS: dict[Shape, str] = {
+    "straight": "straight",
+    "tapered": "tapered (narrows toward the hem)",
+    "wide": "wide (full throughout)",
+    "flared": "flared (widens toward the hem)",
+    "boxy": "boxy (wide and short)",
+    "a-line": "A-line (wider at the hem)",
+    "balloon": "balloon (full through the middle, gathered at the end)",
+}
+HEM_LABELS: dict[Hem, str] = {
+    "waist": "at the waist",
+    "hip": "at the hip",
+    "thigh": "mid-thigh",
+    "knee": "at the knee",
+    "calf": "mid-calf",
+    "ankle": "at the ankle",
+    "floor": "to the floor",
+}
+FABRIC_WEIGHT_LABELS: dict[FabricWeight, str] = {
+    "light": "light",
+    "mid": "mid",
+    "heavy": "heavy",
+}
+SLEEVE_LABELS: dict[Sleeve, str] = {
+    "sleeveless": "sleeveless",
+    "short": "short",
+    "three-quarter": "three-quarter",
+    "long": "long",
+}
+STATEMENT_LABELS: dict[Statement, str] = {
+    "basic": "basic (quiet, goes with anything)",
+    "feature": "feature (some interest of its own)",
+    "statement": "statement (the piece people notice)",
 }
 Category = Literal["top", "bottom", "one-piece", "outerwear", "shoes", "accessory"]
 CATEGORY_ORDER = {category: position for position, category in enumerate(get_args(Category))}
@@ -110,6 +151,48 @@ SUBCATEGORIES: dict[Category, set[str]] = {
 ALL_SUBCATEGORIES = set().union(*SUBCATEGORIES.values())
 LIST_FILTER_CHOICES = sorted(set(CATEGORY_ORDER) | ALL_SUBCATEGORIES)
 
+# --- Worked out from other fields, so they're never tagged or stored ------------
+Layer = Literal["base", "mid", "outer"]
+MID_LAYERS = {
+    "sweatshirt", "hoodie", "crewneck sweater", "v-neck sweater", "sweater", "cardigan",
+    "sweater vest", "pullover", "vest", "fleece", "liner jacket",
+}
+
+def layer_for(category: Category, subcategory: str) -> Layer | None:
+    """Where a piece sits when worn in layers. None for what isn't worn in layers on the torso."""
+    if category not in ("top", "outerwear"):
+        return None
+    if subcategory in MID_LAYERS:
+        return "mid"
+    return "base" if category == "top" else "outer"
+
+NEUTRAL_COLORS = {
+    "black", "charcoal", "gray", "light gray", "white", "cream",
+    "beige", "khaki", "tan", "camel", "brown", "dark brown", "navy",
+}
+METALLIC_COLORS = {"silver", "gold", "brass", "copper", "gunmetal"}
+
+def color_traits(color: Color) -> dict[str, str]:
+    """How a stylist would describe a color, worked out from its hex value."""
+    red, green, blue = (int(COLOR_HEX[color][i:i + 2], 16) / 255 for i in (1, 3, 5))
+    hue, lightness, _ = colorsys.rgb_to_hls(red, green, blue)
+    chroma = max(red, green, blue) - min(red, green, blue)   # how far from gray, even in very dark colors
+    degrees = hue * 360
+
+    if chroma < 0.05:
+        temperature = "neutral"
+    elif degrees < 90 or degrees >= 330:
+        temperature = "warm"
+    else:
+        temperature = "cool"
+
+    return {
+        "family": "metallic" if color in METALLIC_COLORS else "neutral" if color in NEUTRAL_COLORS else "color",
+        "temperature": temperature,
+        "lightness": "dark" if lightness < 0.33 else "light" if lightness > 0.66 else "medium",
+        "saturation": "muted" if chroma < 0.2 else "vivid" if chroma > 0.45 else "medium",
+    }
+
 class Fiber(BaseModel):
     fiber: str
     percent: int = Field(ge=1, le=100)
@@ -138,6 +221,12 @@ class Garment(BaseModel):
     label_text: str | None = None
     fit: Fit | None = None
     sheen: Sheen | None = None
+    fabric_type: str | None = Field(default=None, description="The main body fabric, from the allowed list")
+    shape: Shape | None = None
+    hem: Hem | None = None
+    fabric_weight: FabricWeight | None = None
+    sleeve: Sleeve | None = None
+    statement: Statement | None = None
     brand: str | None = None
     date_added: SkipJsonSchema[date | None] = None
     set_id: SkipJsonSchema[int | None] = None
@@ -147,6 +236,12 @@ class Garment(BaseModel):
     @property
     def name(self) -> str:
         return " ".join(field for field in [self.brand, self.primary_color, self.subcategory] if field)
+
+    @field_validator("fabric_type")
+    @classmethod
+    def known_fabric(cls, value: str | None) -> str | None:
+        """A fabric off the list becomes "other", so one odd word never loses a paid tagging call."""
+        return value if value is None or value in FABRIC_TYPES else "other"
 
     @model_validator(mode="after")
     def check_subcategory(self):
@@ -303,6 +398,12 @@ class OptionsOut(BaseModel):
     colors: list[ColorOption]
     fits: list[ChoiceOption]
     sheens: list[ChoiceOption]
+    fabric_types: list[ChoiceOption]
+    shapes: list[ChoiceOption]
+    hems: list[ChoiceOption]
+    fabric_weights: list[ChoiceOption]
+    sleeves: list[ChoiceOption]
+    statements: list[ChoiceOption]
     formality: list[LevelOption]
     warmth: list[LevelOption]
     languages: list[ChoiceOption]
