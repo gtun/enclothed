@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pytest
 
+from enclothed import llm
+from enclothed.fabrics import FABRIC_TYPES
 from enclothed.intake import photo_filenames, add_garment
 from enclothed.models import PhotoTag
 
@@ -96,3 +98,57 @@ def test_invalid_photo_filepath(tmp_path):
         )
 
     assert list(intake.iterdir()) == []
+
+
+# --- what the tagger is told ---------------------------------------------------------------
+
+class FakeParse:
+    """Stands in for client.messages.parse and keeps what it was sent."""
+    def __init__(self):
+        self.sent = None
+
+    def __call__(self, **kwargs):
+        self.sent = kwargs
+        usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1})()
+        return type("Response", (), {"usage": usage, "parsed_output": "parsed", "stop_reason": "end_turn"})()
+
+
+def fake_client():
+    parse = FakeParse()
+    client = type("Client", (), {"messages": type("Messages", (), {"parse": parse})()})()
+    return client, parse
+
+
+def texts(sent):
+    return [block["text"] for block in sent["messages"][0]["content"] if block["type"] == "text"]
+
+
+def test_the_tagging_prompt_lists_every_fabric_and_field():
+    for fabric in FABRIC_TYPES - {"other"}:
+        assert fabric in llm.TAG_SYSTEM_PROMPT
+    for field in ("fabric_type:", "shape:", "hem:", "fabric_weight:", "sleeve:", "statement:"):
+        assert field in llm.TAG_SYSTEM_PROMPT
+
+
+def test_a_translated_tagging_prompt_keeps_the_new_fields_in_english():
+    assert "fabric_type, shape, hem, fabric_weight, sleeve, statement and photo roles" in llm.tag_system_prompt("ja-JP")
+
+
+def test_saved_preferences_reach_the_tagger(tmp_path):
+    photo = tmp_path / "front.jpg"
+    photo.write_bytes(b"jpeg")
+    client, parse = fake_client()
+
+    llm.tag_garment(client, [photo], preferences="I'm 5 foot 4")
+
+    assert any("I'm 5 foot 4" in text and "hem" in text for text in texts(parse.sent))
+
+
+def test_no_preferences_means_no_preferences_block(tmp_path):
+    photo = tmp_path / "front.jpg"
+    photo.write_bytes(b"jpeg")
+    client, parse = fake_client()
+
+    llm.tag_garment(client, [photo])
+
+    assert not any("<preferences>" in text for text in texts(parse.sent))

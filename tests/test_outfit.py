@@ -44,7 +44,26 @@ def test_prompt_wardrobe_keeps_only_whitelisted_fields():
     trimmed = wardrobe_for_prompt(WARDROBE)
     assert set(trimmed) == {1, 2}
     for fields in trimmed.values():
-        assert set(fields) <= OUTFIT_INCLUDE_FIELDS
+        assert set(fields) - {"layer"} <= OUTFIT_INCLUDE_FIELDS
+
+
+def test_prompt_wardrobe_adds_each_pieces_layer():
+    records = wardrobe_for_prompt({
+        1: TEST_GARMENT.model_copy(update=dict(category="top", subcategory="t-shirt")),
+        2: TEST_GARMENT.model_copy(update=dict(category="top", subcategory="cardigan")),
+        3: TEST_GARMENT.model_copy(update=dict(category="outerwear", subcategory="parka")),
+        4: TEST_GARMENT.model_copy(update=dict(category="bottom", subcategory="jeans")),
+    })
+    assert [records[i].get("layer") for i in (1, 2, 3, 4)] == ["base", "mid", "outer", None]
+
+
+def test_prompt_wardrobe_sends_the_new_attributes():
+    garment = TEST_GARMENT.model_copy(update=dict(category="top", subcategory="t-shirt", fabric_type="jersey", shape="boxy", hem="hip",
+                           fabric_weight="mid", sleeve="short", statement="basic"))
+    record = wardrobe_for_prompt({1: garment})[1]
+    assert {key: record[key] for key in ("fabric_type", "shape", "hem", "fabric_weight", "sleeve", "statement")} == {
+        "fabric_type": "jersey", "shape": "boxy", "hem": "hip", "fabric_weight": "mid", "sleeve": "short", "statement": "basic",
+    }
 
 
 def test_prompt_wardrobe_never_sends_private_or_system_fields():

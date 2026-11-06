@@ -110,6 +110,7 @@ def add_garment_from_photos(
         raise HTTPException(status_code=422, detail=f"Send between 1 and {UPLOAD_MAX_PHOTOS} photos.")
     _require_demo_tokens(user)
     client = _anthropic_client()
+    saved_preferences = db.select_preferences(DB_PATH, user.id)
 
     INTAKE_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="upload-", ignore_cleanup_errors=True) as tmp:
@@ -130,7 +131,8 @@ def add_garment_from_photos(
 
         try:
             garment_id = add_garment(user.id, paths, DB_PATH, GARMENTS_DIR, INTAKE_DIR, TAGGING_LOG_PATH, client, False,
-                                     _blank_to_none(prompt_message), _blank_to_none(notes), user.language)
+                                     _blank_to_none(prompt_message), _blank_to_none(notes), user.language,
+                                     saved_preferences[0] if saved_preferences else None)
         except anthropic.APIError as error:
             raise _llm_failed(error)
 

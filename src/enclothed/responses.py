@@ -3,10 +3,12 @@ from pathlib import Path
 from enclothed import db, i18n
 from typing import get_args
 from enclothed.models import (
-    Category, Color, Fit, Sheen, SUBCATEGORIES, COLOR_HEX, FIT_LABELS, SHEEN_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
+    Category, Color, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
+    FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
     ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, OptionsOut,
     OutfitGarmentOut, OutfitOut, SetOut,
 )
+from enclothed.fabrics import FABRIC_TYPES
 from enclothed.photos import get_garment_photos
 
 def to_garment_out(garment: Garment) -> GarmentOut:
@@ -61,12 +63,21 @@ def get_options(language: Language = DEFAULT_LANGUAGE) -> OptionsOut:
     def label(group: str, value: str | int, english: str) -> str:
         return terms.get(group, {}).get(str(value), english)
 
+    fabrics = [ChoiceOption(value=fabric, label=label("fabric_types", fabric, fabric)) for fabric in FABRIC_TYPES]
+    fabrics.sort(key=lambda option: (option.value == "other", option.label))
+
     return OptionsOut(
         categories=list(get_args(Category)),
         subcategories={category: _sorted_other_last(SUBCATEGORIES[category]) for category in get_args(Category)},
         colors=[ColorOption(name=color, hex=COLOR_HEX[color]) for color in get_args(Color)],
         fits=[ChoiceOption(value=fit, label=label("fits", fit, FIT_LABELS[fit])) for fit in get_args(Fit)],
         sheens=[ChoiceOption(value=sheen, label=label("sheens", sheen, SHEEN_LABELS[sheen])) for sheen in get_args(Sheen)],
+        fabric_types=fabrics,
+        shapes=[ChoiceOption(value=shape, label=label("shapes", shape, SHAPE_LABELS[shape])) for shape in get_args(Shape)],
+        hems=[ChoiceOption(value=hem, label=label("hems", hem, HEM_LABELS[hem])) for hem in get_args(Hem)],
+        fabric_weights=[ChoiceOption(value=weight, label=label("fabric_weights", weight, FABRIC_WEIGHT_LABELS[weight])) for weight in get_args(FabricWeight)],
+        sleeves=[ChoiceOption(value=sleeve, label=label("sleeves", sleeve, SLEEVE_LABELS[sleeve])) for sleeve in get_args(Sleeve)],
+        statements=[ChoiceOption(value=statement, label=label("statements", statement, STATEMENT_LABELS[statement])) for statement in get_args(Statement)],
         formality=[LevelOption(value=value, label=label("formality", value, text)) for value, text in FORMALITY_LABELS.items()],
         warmth=[LevelOption(value=value, label=label("warmth", value, text)) for value, text in WARMTH_LABELS.items()],
         languages=[ChoiceOption(value=value, label=name) for value, name in LANGUAGE_NAMES.items()],

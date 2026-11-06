@@ -2,11 +2,13 @@ import sqlite3
 import time
 from contextlib import closing
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from enclothed import config, db, sandbox
-from enclothed.sandbox import INSIGHTS_SCHEMA, build_snapshot, insights_authorizer, run_select
+from enclothed.models import Color
+from enclothed.sandbox import INSIGHTS_SCHEMA, LOOKUP_SCHEMA, build_snapshot, insights_authorizer, run_select
 
 OWNER = 1    # schema.sql creates this user
 OTHER = 2
@@ -63,7 +65,27 @@ def values(conn: sqlite3.Connection, table: str, column: str) -> set:
 
 
 def test_every_table_is_copied(snapshot):
-    assert table_names(snapshot) == set(INSIGHTS_SCHEMA)
+    assert table_names(snapshot) == set(INSIGHTS_SCHEMA) | set(LOOKUP_SCHEMA)
+
+
+def test_the_new_garment_attributes_are_copied(snapshot):
+    result = run_select(snapshot, "SELECT fabric_type, shape, hem, fabric_weight, sleeve, statement FROM garments")
+    assert result.error is None
+
+
+def test_colors_lookup_has_every_color_and_can_be_joined(snapshot):
+    assert values(snapshot, "colors", "name") == set(get_args(Color))
+    assert snapshot.execute("SELECT family, temperature, lightness FROM colors WHERE name = 'navy'").fetchone() == ("neutral", "cool", "dark")
+
+
+def test_layers_lookup_covers_tops_and_outerwear_only(snapshot):
+    assert values(snapshot, "layers", "category") == {"top", "outerwear"}
+    assert snapshot.execute("SELECT layer FROM layers WHERE subcategory = 'cardigan'").fetchone() == ("mid",)
+
+
+@pytest.mark.parametrize("table", LOOKUP_SCHEMA)
+def test_lookup_tables_cant_be_changed(snapshot, table):
+    assert run_select(snapshot, f"DELETE FROM {table}").error
 
 
 @pytest.mark.parametrize("table", ["garments", "sets", "outfits"])

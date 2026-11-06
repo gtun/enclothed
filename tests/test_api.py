@@ -7,7 +7,8 @@ from fastapi.testclient import TestClient
 from enclothed import api, photos
 from enclothed import outfit as outfit_module
 from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, select_owned_garments
-from enclothed.models import Category, Color, Fit, Outfit, OutfitResult, Sheen, SUBCATEGORIES
+from enclothed.fabrics import FABRIC_TYPES
+from enclothed.models import Category, Color, FabricWeight, Fit, Hem, Outfit, OutfitResult, Shape, Sheen, Sleeve, Statement, SUBCATEGORIES
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.auth import signed_in_user
 from enclothed.intake import TEST_GARMENT
@@ -135,9 +136,22 @@ def test_options_match_the_models(client):
     assert [color["name"] for color in body["colors"]] == list(get_args(Color))
     assert [fit["value"] for fit in body["fits"]] == list(get_args(Fit))
     assert [sheen["value"] for sheen in body["sheens"]] == list(get_args(Sheen))
+    assert [shape["value"] for shape in body["shapes"]] == list(get_args(Shape))
+    assert [hem["value"] for hem in body["hems"]] == list(get_args(Hem))
+    assert [weight["value"] for weight in body["fabric_weights"]] == list(get_args(FabricWeight))
+    assert [sleeve["value"] for sleeve in body["sleeves"]] == list(get_args(Sleeve))
+    assert [statement["value"] for statement in body["statements"]] == list(get_args(Statement))
     for category, choices in body["subcategories"].items():
         assert set(choices) == SUBCATEGORIES[category]
         assert choices[-1] == "other"
+
+
+def test_fabric_options_list_every_fabric_with_other_last(client):
+    fabrics = client.get("/api/options").json()["fabric_types"]
+    values = [fabric["value"] for fabric in fabrics]
+    assert set(values) == FABRIC_TYPES
+    assert values[-1] == "other"
+    assert values[:-1] == sorted(values[:-1])
 
 
 def test_options_levels_are_numbered_labels(client):
@@ -297,7 +311,7 @@ def tagger(monkeypatch):
     """Replace the tagging LLM call; records the photo paths and context it got."""
     class Fake:
         calls = []
-    def fake_tag(client, photo_paths, prompt_message=None, language="en-US"):
+    def fake_tag(client, photo_paths, prompt_message=None, language="en-US", preferences=None):
         Fake.calls.append({"sizes": [Image.open(p).size for p in photo_paths], "prompt": prompt_message})
         return TaggingResult(garment=TEST_GARMENT, photos=[PhotoTag(index=i, role="front" if i == 0 else "label") for i in range(len(photo_paths))]), None
     monkeypatch.setattr(intake, "tag_garment", fake_tag)

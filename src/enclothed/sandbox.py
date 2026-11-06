@@ -1,10 +1,11 @@
 import sqlite3
 from enclothed.config import INSIGHTS_VALUE_SIZE_LIMIT, INSIGHTS_SIZE_FUSE_LIMIT, INSIGHTS_TIME_LIMIT
 from contextlib import closing
-from enclothed.models import QueryResult
+from enclothed.models import Color, QueryResult, SUBCATEGORIES, color_traits, layer_for
 import time
 import json
 from pathlib import Path
+from typing import get_args
 
 INSIGHTS_SCHEMA = {
     "garments": {
@@ -23,6 +24,12 @@ INSIGHTS_SCHEMA = {
         "styling_notes" : "TEXT",
         "fit" : "TEXT",
         "sheen" : "TEXT",
+        "fabric_type" : "TEXT",
+        "shape" : "TEXT",
+        "hem" : "TEXT",
+        "fabric_weight" : "TEXT",
+        "sleeve" : "TEXT",
+        "statement" : "TEXT",
         "brand" : "TEXT",
         "date_added" : "TEXT NOT NULL",
         "set_id" : "INTEGER",
@@ -54,6 +61,38 @@ INSIGHTS_SCHEMA = {
     },
 }
 
+# Worked out in code rather than copied from anyone's data, so every snapshot gets the same rows.
+LOOKUP_SCHEMA = {
+    "colors": {
+        "name" : "TEXT PRIMARY KEY",
+        "family" : "TEXT",
+        "temperature" : "TEXT",
+        "lightness" : "TEXT",
+        "saturation" : "TEXT",
+    },
+    "layers": {
+        "subcategory" : "TEXT",
+        "category" : "TEXT",
+        "layer" : "TEXT",
+    },
+}
+
+
+def lookup_rows() -> dict[str, list[tuple]]:
+    colors = []
+    for color in get_args(Color):
+        traits = color_traits(color)
+        colors.append((color, traits["family"], traits["temperature"], traits["lightness"], traits["saturation"]))
+
+    layers = [
+        (subcategory, category, layer_for(category, subcategory))
+        for category, subcategories in SUBCATEGORIES.items()
+        for subcategory in sorted(subcategories)
+        if layer_for(category, subcategory)
+    ]
+    return {"colors": colors, "layers": layers}
+
+
 WHERE_FILTERS = {
     "garments" : " WHERE user_id = :user_id",
     "sets" : " WHERE user_id = :user_id",
@@ -84,6 +123,13 @@ def build_snapshot(db_path: Path, user_id: int) -> sqlite3.Connection:
                     f"INSERT INTO {table} VALUES ({ins_placeholder})",
                     src_rows
                 )
+
+            for table, rows in lookup_rows().items():
+                columns = LOOKUP_SCHEMA[table]
+                definitions = ",".join(f"{column_name} {column_props}" for column_name, column_props in columns.items())
+                conn_tmp.execute(f"CREATE TABLE {table} ({definitions});")
+                ins_placeholder = ",".join("?" * len(columns))
+                conn_tmp.executemany(f"INSERT INTO {table} VALUES ({ins_placeholder})", rows)
 
     lock_snapshot(conn_tmp)
     return conn_tmp
@@ -135,6 +181,6 @@ def run_select(conn: sqlite3.Connection, sql: str) -> QueryResult:
 
 def insights_schema_text() -> str:
     lines = []
-    for table, columns in INSIGHTS_SCHEMA.items():
+    for table, columns in {**INSIGHTS_SCHEMA, **LOOKUP_SCHEMA}.items():
         lines.append(f"{table}: " + ", ".join([f"{column_name} {column_props}" for column_name, column_props in columns.items()]))
     return "\n".join(lines)

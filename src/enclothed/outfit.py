@@ -1,5 +1,5 @@
 from anthropic import Anthropic
-from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitResult, Category
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitResult, Category, layer_for
 from enclothed.llm import UnusableResponse, recommend_outfits
 from enclothed.usage import log_failed_call
 from enclothed import config
@@ -20,6 +20,7 @@ OUTFIT_INCLUDE_FIELDS = {
     "style_tags",
     "styling_notes",
     "fit","sheen","formality",
+    "fabric_type","shape","hem","fabric_weight","sleeve","statement",
     "set_id",
 }
 
@@ -138,7 +139,14 @@ def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], 
     return wrapper, new_ids
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
-    return {key: value.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS, exclude_none=True) for key, value in wardrobe.items()}
+    records = {}
+    for key, garment in wardrobe.items():
+        record = garment.model_dump(mode="json", include=OUTFIT_INCLUDE_FIELDS, exclude_none=True)
+        layer = layer_for(garment.category, garment.subcategory)
+        if layer:
+            record["layer"] = layer
+        records[key] = record
+    return records
 
 def log_outfit(log_path: Path, user_id: int, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str], timestamp: str) -> None:
     entry = {
