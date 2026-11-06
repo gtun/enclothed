@@ -9,7 +9,7 @@ function garmentRow(g){
   const n = (outfitsOf[g.id] || []).length;
   const picked = builder.pieces.includes(g.id);
   return `<article class="grow${picked ? " picked" : ""}">
-    <a class="ph" href="#garment-${g.id}" aria-label="${esc(title(g))}">${ph(g, thumb(g))}<span class="badge id">#${g.id}</span></a>
+    <a class="ph" href="#garment-${g.id}" aria-label="${esc(title(g))}">${ph(g, thumb(g))}${SHOW_IDS ? `<span class="badge id">#${g.id}</span>` : ""}</a>
     ${pickButton(g)}
     <div class="gbody">
       <span class="eyebrow">${esc(categoryName(g.category))} · ${esc(subcategoryName(g.subcategory))}${s ? ` · ${esc(setName(s))}` : ""}</span>

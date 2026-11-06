@@ -24,7 +24,7 @@ function outfitPage(o){
     </div>
     <section class="pieces" aria-label="Pieces">${o.pieces.map(p => { const g = byId[p.id]; if (!g || !showDisowned(g, "outfitPage")) return ""; return `
       <a class="piece" href="#garment-${g.id}">
-        <div class="ph${fadeClass(g)}">${ph(g, thumb(g))}${goneMark(g)}<span class="badge id">#${g.id}</span>${g.set_id ? `<span class="badge set" title="Part of a set">${SET_ICON}<b>${esc(setName(setById[g.set_id]))}</b></span>` : ""}</div>
+        <div class="ph${fadeClass(g)}">${ph(g, thumb(g))}${goneMark(g)}${SHOW_IDS ? `<span class="badge id">#${g.id}</span>` : ""}${g.set_id ? `<span class="badge set" title="Part of a set">${SET_ICON}<b>${esc(setName(setById[g.set_id]))}</b></span>` : ""}</div>
         <span class="eyebrow">${esc(categoryName(g.category))}${p.anchor ? `<span class="anchor" title="You asked for the outfit to be built around this piece">anchor</span>` : ""}</span>
         <span class="nm">${esc(title(g))}</span>
         ${p.advice ? `<p>${esc(p.advice)}</p>` : `<p class="empty">No specific advice for this piece.</p>`}

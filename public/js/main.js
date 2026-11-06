@@ -134,6 +134,7 @@ paintTheme();
 (async function start(){
   try {
     const profile = await api("/api/profile");
+    SHOW_IDS = profile.is_admin;
     const [garments, outfitList, sets, options, preferences] = await Promise.all([
       api("/api/garments"), api("/api/outfits"), api("/api/sets"), api("/api/options"), api("/api/preferences")]);
     Object.assign(prefs, preferences);
