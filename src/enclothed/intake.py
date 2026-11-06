@@ -80,18 +80,7 @@ def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garme
                 shutil.copy2(image_path, dest)
                 staged_paths.append(dest)
 
-        if is_test:
-            wrapper, usage = TaggingResult(garment=TEST_GARMENT, photos=[]), None
-        else:
-            logger.info(f"Sending {len(staged_paths)} photos for analysis...")
-            start = time.perf_counter()
-            try:
-                wrapper, usage = tag_garment(client, staged_paths, prompt_message, language, preferences)
-            except UnusableResponse as error:
-                log_failed_call(logging_path, user_id, error.usage, str(error))
-                raise
-            elapsed = time.perf_counter() - start
-            logger.info(f"Tagged in {elapsed:.1f}s: {wrapper.garment.name}")
+        wrapper, usage = tag_photos(user_id, staged_paths, logging_path, client, is_test, prompt_message, language, preferences)
 
         if notes:
             wrapper.garment.notes = notes
@@ -103,6 +92,21 @@ def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garme
         logger.debug(f'Photos filed to {garments_path / str(new_garment_id)}')
 
         return new_garment_id
+
+def tag_photos(user_id: int, paths: list[Path], logging_path: Path, client: Anthropic | None, is_test: bool, prompt_message: str | None, language: Language, preferences: str | None) -> tuple[TaggingResult, TokenUsage | None]:
+    if is_test:
+        return TaggingResult(garment=TEST_GARMENT, photos=[]), None
+
+    logger.info(f"Sending {len(paths)} photos for analysis...")
+    start = time.perf_counter()
+    try:
+        wrapper, usage = tag_garment(client, paths, prompt_message, language, preferences)
+    except UnusableResponse as error:
+        log_failed_call(logging_path, user_id, error.usage, str(error))
+        raise
+    elapsed = time.perf_counter() - start
+    logger.info(f"Tagged in {elapsed:.1f}s: {wrapper.garment.name}")
+    return wrapper, usage
 
 def download_photo(url: str, dest_dir: Path, index: int) -> Path:
     response = requests.get(url, timeout=30)
@@ -141,11 +145,12 @@ def photo_filenames(staged: list[Path], tagged: list[PhotoTag]) -> list[str]:
 
     return filenames
 
-def log_tagging(log_path: Path, user_id: int, garment_id: int, result: TaggingResult, usage: TokenUsage | None, prompt_message: str | None) -> None:
+def log_tagging(log_path: Path, user_id: int, garment_id: int | None, result: TaggingResult, usage: TokenUsage | None, prompt_message: str | None, draft_id: str | None = None) -> None:
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "user_id": user_id,
         "garment_id": garment_id,
+        "draft_id": draft_id,
         "usage": usage.model_dump() if usage else None,
         "result": result.model_dump(mode="json"),
         "prompt_message": prompt_message,

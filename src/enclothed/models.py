@@ -1,6 +1,6 @@
 import colorsys
 from datetime import date
-from typing import Literal, get_args
+from typing import Any, Literal, get_args
 from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 from pydantic.json_schema import SkipJsonSchema
@@ -231,6 +231,7 @@ class Garment(BaseModel):
     date_added: SkipJsonSchema[date | None] = None
     set_id: SkipJsonSchema[int | None] = None
     disowned_on: SkipJsonSchema[date | None] = None
+    mended_on: SkipJsonSchema[date | None] = None
     user_id: SkipJsonSchema[int | None] = None
 
     @property
@@ -248,6 +249,29 @@ class Garment(BaseModel):
         if self.subcategory not in SUBCATEGORIES[self.category]:
             raise ValueError(f"{self.subcategory!r} is not a valid {self.category} subcategory")
         return self
+
+# --- Mend: which empty fields the LLM can try to fill ------------------------------
+MENDABLE_FIELDS = (
+    "brand", "formality", "warmth", "fit", "shape", "hem", "sleeve", "fabric_type", "fabric_weight", "sheen",
+    "statement", "pattern", "materials", "country_of_origin", "style_tags", "styling_notes", "label_text",
+)
+CLOTHING = {"top", "bottom", "one-piece", "outerwear"}
+# Fields that only make sense for some categories. The rest apply to everything.
+FIELD_CATEGORIES: dict[str, set[str]] = {
+    "fit": CLOTHING,
+    "shape": CLOTHING,
+    "hem": CLOTHING,
+    "fabric_weight": CLOTHING,
+    "sleeve": {"top", "one-piece", "outerwear"},
+}
+
+def blank_fields(garment: Garment) -> list[str]:
+    """Empty fields that apply to this garment. Secondary and accent colors aren't here: empty means none."""
+    return [
+        field for field in MENDABLE_FIELDS
+        if not getattr(garment, field) and (field not in FIELD_CATEGORIES or garment.category in FIELD_CATEGORIES[field])
+    ]
+
 
 PhotoRole = Literal["front", "back", "detail", "label", "other"]
 
@@ -288,6 +312,22 @@ class Photo(BaseModel):
 
 class GarmentOut(Garment):
     photos: list[Photo] = []
+    blank_fields: list[str] = []
+
+class Draft(BaseModel):
+    """A tagged garment waiting for its owner to review it. Nothing is in the wardrobe yet."""
+    id: str
+    garment: Garment
+    photos: list[PhotoTag]
+
+class DraftOut(BaseModel):
+    id: str
+    garment: Garment
+
+class MendOut(BaseModel):
+    """What the LLM proposes for a garment's blank fields. Nothing has been saved."""
+    filled: dict[str, Any]
+    unanswered: list[str]
 
 class OutfitGarmentOut(BaseModel):
     garment: GarmentOut

@@ -12,7 +12,7 @@ from enclothed.models import Category, Color, FabricWeight, Fit, Hem, Outfit, Ou
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.auth import signed_in_user
 from enclothed.intake import TEST_GARMENT
-from enclothed.models import User
+from enclothed.models import TokenUsage, User
 
 
 @pytest.fixture
@@ -319,27 +319,112 @@ def tagger(monkeypatch):
     return Fake
 
 
-def test_upload_tags_and_files_resized_photos(client, tagger):
+def upload(client, **data):
     files = [("photos", ("IMG_1.jpg", jpeg_bytes(), "image/jpeg")), ("photos", ("IMG_2.jpg", jpeg_bytes((800, 600)), "image/jpeg"))]
-    response = client.post("/api/garments", files=files, data={"prompt_message": "true color is navy", "notes": "  gift  "})
+    response = client.post("/api/garments/drafts", files=files, data=data)
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_tagging_returns_a_draft_and_adds_nothing_yet(client, tagger):
+    draft = upload(client, prompt_message="true color is navy", notes="  gift  ")
+    assert draft["garment"]["notes"] == "gift"
+    assert tagger.calls == [{"sizes": [(2000, 1000), (800, 600)], "prompt": "true color is navy"}]
+    assert client.get("/api/garments").json() == []
+
+
+def test_accepting_a_draft_saves_the_reviewed_values_and_files_the_photos(client, tagger):
+    draft = upload(client)
+    reviewed = {**draft["garment"], "fit": "oversized", "hem": "thigh"}
+
+    response = client.post(f"/api/garments/drafts/{draft['id']}", json=reviewed)
+
     assert response.status_code == 201
     body = response.json()
-    assert body["notes"] == "gift"
+    assert (body["fit"], body["hem"]) == ("oversized", "thigh")
     assert [p["role"] for p in body["photos"]] == ["front", "label"]
-    assert tagger.calls == [{"sizes": [(2000, 1000), (800, 600)], "prompt": "true color is navy"}]
     # the /photos mount is bound to the real folder at startup, so check the filed photo via its thumbnail
     assert client.get(body["photos"][0]["thumb_url"]).status_code == 200
+    assert [g["id"] for g in client.get("/api/garments").json()] == [body["id"]]
+
+
+def test_a_draft_can_only_be_accepted_once(client, tagger):
+    draft = upload(client)
+    assert client.post(f"/api/garments/drafts/{draft['id']}", json=draft["garment"]).status_code == 201
+    assert client.post(f"/api/garments/drafts/{draft['id']}", json=draft["garment"]).status_code == 404
+    assert len(client.get("/api/garments").json()) == 1
+
+
+def test_accepting_rejects_an_invalid_value_and_keeps_the_draft(client, tagger):
+    draft = upload(client)
+    bad = client.post(f"/api/garments/drafts/{draft['id']}", json={**draft["garment"], "fit": "enormous"})
+    assert bad.status_code == 422
+    assert client.post(f"/api/garments/drafts/{draft['id']}", json=draft["garment"]).status_code == 201
+
+
+def test_accepting_ignores_ids_and_dates_sent_by_the_page(client, tagger):
+    draft = upload(client)
+    sneaky = {**draft["garment"], "id": 99, "user_id": 7, "set_id": 5, "disowned_on": "2026-01-01", "mended_on": "2026-01-01"}
+    body = client.post(f"/api/garments/drafts/{draft['id']}", json=sneaky).json()
+    assert body["id"] != 99
+    assert body["set_id"] is None and body["disowned_on"] is None and body["mended_on"] is None
+
+
+def test_discarding_a_draft_deletes_it(client, tagger, tmp_path):
+    draft = upload(client)
+    assert client.delete(f"/api/garments/drafts/{draft['id']}").status_code == 204
+    assert not list((tmp_path / "intake" / "drafts" / "1").iterdir())
+    assert client.post(f"/api/garments/drafts/{draft['id']}", json=draft["garment"]).status_code == 404
+    assert client.get("/api/garments").json() == []
+
+
+def test_discarding_twice_is_harmless(client, tagger):
+    draft = upload(client)
+    assert client.delete(f"/api/garments/drafts/{draft['id']}").status_code == 204
+    assert client.delete(f"/api/garments/drafts/{draft['id']}").status_code == 204
+
+
+def test_a_discarded_drafts_tokens_still_count(client, tagger, tmp_path, monkeypatch):
+    def fake_tag(client, photo_paths, prompt_message=None, language="en-US", preferences=None):
+        usage = TokenUsage(model="m", input_tokens=10, output_tokens=5)
+        return TaggingResult(garment=TEST_GARMENT, photos=[PhotoTag(index=i, role="front") for i in range(len(photo_paths))]), usage
+    monkeypatch.setattr(intake, "tag_garment", fake_tag)
+
+    draft = upload(client)
+    client.delete(f"/api/garments/drafts/{draft['id']}")
+
+    [line] = (tmp_path / "tagging_log.jsonl").read_text().splitlines()
+    assert json.loads(line)["usage"]["input_tokens"] == 10
+
+
+def test_an_accepted_draft_counts_its_tokens_once(client, tagger, tmp_path, monkeypatch):
+    def fake_tag(client, photo_paths, prompt_message=None, language="en-US", preferences=None):
+        usage = TokenUsage(model="m", input_tokens=10, output_tokens=5)
+        return TaggingResult(garment=TEST_GARMENT, photos=[PhotoTag(index=i, role="front") for i in range(len(photo_paths))]), usage
+    monkeypatch.setattr(intake, "tag_garment", fake_tag)
+
+    draft = upload(client)
+    client.post(f"/api/garments/drafts/{draft['id']}", json=draft["garment"])
+
+    lines = [json.loads(line) for line in (tmp_path / "tagging_log.jsonl").read_text().splitlines()]
+    assert [bool(line["usage"]) for line in lines] == [True, False]
+    assert lines[1]["draft_id"] == draft["id"]
+
+
+@pytest.mark.parametrize("draft_id", ["../../etc", "nothex", "0" * 31])
+def test_malformed_draft_ids_find_nothing(client, tagger, draft_id):
+    assert client.post(f"/api/garments/drafts/{draft_id}", json=TEST_GARMENT.model_dump(mode="json")).status_code in (404, 405)
 
 
 def test_upload_rejects_non_images(client, tagger):
-    response = client.post("/api/garments", files=[("photos", ("notes.txt", b"not a photo", "text/plain"))])
+    response = client.post("/api/garments/drafts", files=[("photos", ("notes.txt", b"not a photo", "text/plain"))])
     assert response.status_code == 422
     assert "notes.txt" in response.json()["detail"]
     assert tagger.calls == []
 
 
 def test_upload_needs_a_photo(client, tagger):
-    assert client.post("/api/garments", data={"notes": "x"}).status_code == 422
+    assert client.post("/api/garments/drafts", data={"notes": "x"}).status_code == 422
 
 
 # --- thumbnails ----------------------------------------------------------------------

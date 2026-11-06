@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS garments (
     brand TEXT,
     date_added TEXT NOT NULL DEFAULT (date('now', 'localtime')),
     set_id INTEGER REFERENCES sets(id),
+    mended_on TEXT,
     disowned_on TEXT,
     user_id INTEGER REFERENCES users(id)
 );

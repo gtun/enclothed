@@ -94,6 +94,7 @@ uv run enclothed set -n "navy suit" -g 12 13
 | `list` | Lists all garments, grouped by category |
 | `outfit` | Gets 2-4 outfit recommendations from the LLM based on a request or anchor pieces |
 | `set` | Groups two or more garments into a set, like a two-piece suit |
+| `mend [ids…]` | Fills in blank fields with AI from each garment's saved photos and saves them, with no review. It never overwrites a value |
 
 Options for `add`:
 
@@ -115,6 +116,14 @@ Options for `set`:
 - `-g`, `--garment-ids ID [ID ...]`: the garments in the set (at least two, required)
 - `-n`, `--name TEXT`: an optional name for the set
 
+Options for `mend`:
+
+- `-l`, `--limit N`: stop after this many garments, to test a small batch first
+- `-r`, `--retry`: include garments mend has already tried, which it otherwise skips so a rerun doesn't pay for them twice
+- `-u`, `--user-id ID`: mend someone else's wardrobe (default: the owner's)
+
+To mend every garment on the server, run `scripts/mend-all.sh` there. It backs up the database, tries 5 garments, and asks before doing the rest.
+
 Every command accepts `-v`, `--verbose` for debug output.
 
 ## Web app
@@ -127,8 +136,8 @@ uv run fastapi dev src/enclothed/api.py
 
 Then open http://localhost:8000.
 
-- **Wardrobe:** every garment by category, with filters for sets and garments not in any outfit, in Grid, Large or List view (List shows colors, materials and styling notes). **+ Add garment** takes photos (camera or library, on iPhone and Android), with a box for details the photos don't show and one for private notes; it tags the garment and opens it.
-- **Garment page:** photos, its set, every outfit it's in, and the garments it's most often paired with. Click any detail or the styling notes to correct it. Fixed lists (category, colors, formality, warmth, fit, shape, hem, sleeve, fabric, fabric weight, sheen, statement) use a dropdown you can type into to filter, and only accept listed values. If you change a color the styling notes mention, it highlights the mention and offers to update it. Web addresses in notes are clickable.
+- **Wardrobe:** every garment by category, with filters for sets and garments not in any outfit, in Grid, Large or List view (List shows colors, materials and styling notes). **+ Add garment** takes photos (camera or library, on iPhone and Android), with a box for details the photos don't show and one for private notes; it tags the garment and opens a review of every field, where you can change anything or press **Accept all**. Cancelling discards the garment and its photos.
+- **Garment page:** photos, its set, every outfit it's in, and the garments it's most often paired with. Click any detail or the styling notes to correct it. **Mend blank details** asks the AI to fill in empty fields from the saved photos, and you review its answers before they're saved. Fixed lists (category, colors, formality, warmth, fit, shape, hem, sleeve, fabric, fabric weight, sheen, statement) use a dropdown you can type into to filter, and only accept listed values. If you change a color the styling notes mention, it highlights the mention and offers to update it. Web addresses in notes are clickable.
 - **Outfits:** every outfit, grouped by request, with filters for request text, date range, formality (of the least formal piece) and warmth (of the warmest top layer), and like/dislike buttons on each card. **+ New outfit** opens the outfit builder: pick pieces with the + on any garment, the category list, or by typing a name; add the occasion; then **Generate outfit suggestions** (your pieces are anchors) or **Save as my own outfit**. Suggestions open on a results page; change the pieces or details to try again, and the new ones are added to the same page.
 - **Style:** describe your tastes and needs once (loose fits, never shorts, glasses with every outfit); **Improve with AI** rewrites it into a clear brief you can edit before saving. The saved text is sent with every outfit request, from the web and the CLI.
 - **Ask your wardrobe:** a pop-up on every page that answers questions about your clothes. The LLM writes read-only SQL against a throwaway, in-memory copy of one person's data (no private notes), then answers in whatever form fits: a number, a blurb, a list or a table. Answers can show garment photos, and **How I worked this out** lists the searches behind each one. The conversation stays in the browser, so a refresh clears it. Questions, answers and SQL are logged in `data/insights_log.jsonl`, and the pop-up says so.

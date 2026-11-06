@@ -214,7 +214,7 @@ def make_old_db(path):
             conn.execute("INSERT INTO garments (category, wear_count) VALUES ('top', 3), ('shoes', 0)")
 
 
-NEW_ATTRIBUTES = {"fabric_type", "shape", "hem", "fabric_weight", "sleeve", "statement"}
+NEW_ATTRIBUTES = {"fabric_type", "shape", "hem", "fabric_weight", "sleeve", "statement", "mended_on"}
 
 
 def schema_before_user_id():

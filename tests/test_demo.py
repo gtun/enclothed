@@ -323,7 +323,8 @@ def test_tokens_used_counts_only_the_demo_since_the_last_reset(tmp_path):
 @pytest.mark.parametrize("request_args", [
     {"url": "/api/outfits/suggestions", "json": {"details": "dinner"}},
     {"url": "/api/preferences/improve", "json": {"text": "I like black"}},
-    {"url": "/api/garments", "files": [("photos", ("a.jpg", b"x", "image/jpeg"))]},
+    {"url": "/api/garments/drafts", "files": [("photos", ("a.jpg", b"x", "image/jpeg"))]},
+    {"url": "/api/garments/1/mend"},
 ])
 def test_every_ai_route_stops_at_the_limit(bob_in_demo, overspent, request_args):
     response = bob_in_demo.post(**request_args)

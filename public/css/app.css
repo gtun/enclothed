@@ -523,3 +523,10 @@ body.with-builder .insights-open,body.with-builder .insights-panel{right:392px}
   .insights-panel,body.with-builder .insights-panel{left:0;right:0;bottom:0;width:auto;height:min(82dvh,640px);border-radius:14px 14px 0 0;border-bottom:0}
   .ifoot .txt{font-size:16px}  /* iPhones zoom into smaller text boxes */
 }
+
+/* review dialog */
+.dialog.review-dialog{width:min(640px,100%)}
+.review-photos{display:flex;gap:8px;overflow-x:auto;flex:none;padding-bottom:4px}
+.review-photos img{height:132px;width:auto;border-radius:8px;flex:none;background:var(--line)}
+.review-dialog .dbtns{display:flex;gap:8px}
+.review-dialog .dbtns .btn.primary{flex:1}

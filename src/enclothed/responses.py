@@ -6,13 +6,13 @@ from enclothed.models import (
     Category, Color, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
     FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
     ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, OptionsOut,
-    OutfitGarmentOut, OutfitOut, SetOut,
+    OutfitGarmentOut, OutfitOut, SetOut, blank_fields,
 )
 from enclothed.fabrics import FABRIC_TYPES
 from enclothed.photos import get_garment_photos
 
 def to_garment_out(garment: Garment) -> GarmentOut:
-    return GarmentOut(**garment.model_dump(), photos=get_garment_photos(garment.id))
+    return GarmentOut(**garment.model_dump(), photos=get_garment_photos(garment.id), blank_fields=blank_fields(garment))
 
 def get_garment(db_path: Path, user_id: int, garment_id: int) -> GarmentOut | None:
     garment = db.select_garment(db_path, user_id, garment_id)

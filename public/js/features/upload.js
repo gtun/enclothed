@@ -13,8 +13,8 @@ function openUpload(){
   renderUpload();
   ov.querySelector("[data-u-close]").focus();
 }
-function closeUpload(){
-  upload.files.forEach(f => URL.revokeObjectURL(f.url));
+function closeUpload(keepPhotos = false){
+  if (!keepPhotos) upload.files.forEach(f => URL.revokeObjectURL(f.url));
   const ov = document.getElementById("upload"); ov.hidden = true; ov.innerHTML = ""; document.body.style.overflow = "";
 }
 function renderUpload(){
@@ -45,14 +45,13 @@ async function uploadClick(e){
     if (upload.notes.trim()) form.append("notes", upload.notes);
     try {
       let res;
-      try { res = await fetch("/api/garments", {method: "POST", body: form}); }
+      try { res = await fetch("/api/garments/drafts", {method: "POST", body: form}); }
       catch (err) { throw new Error("Couldn't reach the server. Is it still running?"); }
       let data = null; try { data = await res.json(); } catch (err) {}
       if (!res.ok) throw new Error(errorText(data, res.status));
-      G.push(data); reindex();
-      closeUpload();
-      toast("Added. Check the tags and fix anything that's off.");
-      location.hash = "#garment-" + data.id;
+      const photos = upload.files.map(f => f.url);
+      closeUpload(true);
+      openReview({mode: "new", g: data.garment, draftId: data.id, photos});
     } catch (err) {
       upload.busy = false; renderUpload();
       const box = document.getElementById("u-err"); if (box) box.textContent = err.message;

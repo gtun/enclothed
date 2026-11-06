@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import date
 from pathlib import Path
 from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, User
 from contextlib import closing
@@ -80,6 +81,12 @@ def update_garment(db_path: Path, user_id: int, garment: Garment) -> None:
     with closing(_connect(db_path)) as conn:
         with conn:
             conn.execute(f"UPDATE garments SET {columns} WHERE id = :id AND user_id = :user_id", garment_dict)
+
+
+def set_mended_on(db_path: Path, user_id: int, garment_id: int, day: date) -> None:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            conn.execute("UPDATE garments SET mended_on = ? WHERE id = ? AND user_id = ?", (day.isoformat(), garment_id, user_id))
 
 
 def select_garment(db_path: Path, user_id: int, garment_id: int) -> Garment | None:

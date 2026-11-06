@@ -16,7 +16,7 @@ from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, save_preferences, select_garment
 from enclothed.intake import TEST_GARMENT
-from enclothed.models import Outfit, OutfitGarment, User
+from enclothed.models import Draft, Outfit, OutfitGarment, User
 
 TIMESTAMP = "2026-11-04T00:00:00+00:00"
 ALICE = User(id=1, username="alice")
@@ -110,7 +110,31 @@ def test_every_route_with_an_id_is_covered():
         if isinstance(route, APIRoute) and "{" in route.path:
             for method in route.methods - {"HEAD", "OPTIONS"}:
                 found.add((method, re.sub(r"\{\w+\}", "{}", route.path)))
-    assert found == covered
+    assert found - COVERED_ELSEWHERE == covered
+
+
+COVERED_ELSEWHERE = {   # these don't answer 200, so they have their own tests below
+    ("POST", "/api/garments/{}/mend"),
+    ("POST", "/api/garments/drafts/{}"),
+    ("DELETE", "/api/garments/drafts/{}"),
+}
+
+
+def test_someone_elses_garment_cant_be_mended(bob, alice_data, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    assert bob.post(f"/api/garments/{alice_data['garment']}/mend").status_code == 404
+
+
+def test_someone_elses_draft_cant_be_accepted_or_discarded(bob, db_path, tmp_path):
+    folder = tmp_path / "intake" / "drafts" / "1" / ("a" * 32)
+    folder.mkdir(parents=True)
+    draft = Draft(id="a" * 32, garment=TEST_GARMENT, photos=[])
+    (folder / "draft.json").write_text(draft.model_dump_json())
+
+    assert bob.post(f"/api/garments/drafts/{draft.id}", json=TEST_GARMENT.model_dump(mode="json")).status_code == 404
+    bob.delete(f"/api/garments/drafts/{draft.id}")
+
+    assert (folder / "draft.json").exists()
 
 
 def test_a_failed_edit_leaves_the_garment_alone(bob, alice_data, db_path):
