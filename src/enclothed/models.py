@@ -322,3 +322,9 @@ class QueryResult(BaseModel):
     columns: list[str] = []
     rows: list[tuple] = []
     error: str | None = None
+
+
+class InsightAnswer(BaseModel):
+    answer: str
+    queries: list[str] = []
+    usage: TokenUsage
