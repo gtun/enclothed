@@ -6,7 +6,7 @@ function reviewDialog(){
   const {g, mode, fields, photos, busy, confirming, error} = review;
   const isNew = mode === "new";
   const shows = key => isNew || fields.includes(key);
-  const rows = FIELDS.filter(f => shows(f.key)).map(f => fieldRow(g, f)).join("");
+  const rows = FIELDS.filter(f => shows(f.key) && fieldApplies(g, f.key)).map(f => fieldRow(g, f)).join("");
   const blocks = [shows("styling_notes") && stylingNotesBlock(g), shows("style_tags") && tagsBlock(g),
     shows("label_text") && labelBlock(g), isNew && notesBlock(g)].filter(Boolean).join("");
   const foot = confirming

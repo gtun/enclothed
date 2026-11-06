@@ -154,6 +154,13 @@ def test_fabric_options_list_every_fabric_with_other_last(client):
     assert values[:-1] == sorted(values[:-1])
 
 
+def test_options_say_which_fields_apply_to_which_categories(client):
+    fields = client.get("/api/options").json()["field_categories"]
+    assert fields["sleeve"] == ["top", "one-piece", "outerwear"]
+    assert fields["hem"] == ["top", "bottom", "one-piece", "outerwear"]
+    assert "fabric_type" not in fields
+
+
 def test_options_levels_are_numbered_labels(client):
     body = client.get("/api/options").json()
     assert body["formality"][0] == {"value": 1, "label": "casual"}
