@@ -16,17 +16,16 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 
-from enclothed import db, demo, photos, responses
+from enclothed import db, demo, drafts, mend, photos, responses
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH
 )
-from enclothed.intake import add_garment
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
-    User, UserOut, InsightsIn, InsightsOut
+    User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, blank_fields,
 )
 from enclothed.insights import answer_question
 from enclothed.llm import UnusableResponse, improve_preferences
@@ -98,21 +97,29 @@ def get_garment(garment_id: int, user: CurrentUser) -> GarmentOut:
     return garment
 
 
-@app.post("/api/garments", status_code=201)
-def add_garment_from_photos(
+def _drafts_dir() -> Path:
+    return INTAKE_DIR / "drafts"
+
+
+def _saved_preferences(user: User) -> str | None:
+    saved = db.select_preferences(DB_PATH, user.id)
+    return saved[0] if saved else None
+
+
+@app.post("/api/garments/drafts", status_code=201)
+def tag_new_garment(
     user: CurrentUser,
     photos_in: list[UploadFile] = File(alias="photos"),
     prompt_message: str | None = Form(None),
     notes: str | None = Form(None),
-) -> GarmentOut:
-    """Tag a new garment from uploaded photos (front, back, labels...) and save it."""
+) -> DraftOut:
+    """Tag uploaded photos (front, back, labels...) and hold the result for review. Nothing joins the wardrobe yet."""
     if not 1 <= len(photos_in) <= UPLOAD_MAX_PHOTOS:
         raise HTTPException(status_code=422, detail=f"Send between 1 and {UPLOAD_MAX_PHOTOS} photos.")
     _require_demo_tokens(user)
     client = _anthropic_client()
-    saved_preferences = db.select_preferences(DB_PATH, user.id)
 
-    INTAKE_DIR.mkdir(parents=True, exist_ok=True)
+    _drafts_dir().mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="upload-", ignore_cleanup_errors=True) as tmp:
         tmp_dir = Path(tmp)
         paths = []
@@ -127,19 +134,59 @@ def add_garment_from_photos(
                 photos.normalize_photo(raw, photo)
             except ValueError:
                 raise HTTPException(status_code=422, detail=f"“{upload.filename}” isn't a photo that can be read.")
-            paths.append(str(photo))
+            paths.append(photo)
 
         try:
-            garment_id = add_garment(user.id, paths, DB_PATH, GARMENTS_DIR, INTAKE_DIR, TAGGING_LOG_PATH, client, False,
-                                     _blank_to_none(prompt_message), _blank_to_none(notes), user.language,
-                                     saved_preferences[0] if saved_preferences else None)
+            draft = drafts.create_draft(_drafts_dir(), user.id, paths, TAGGING_LOG_PATH, client, _blank_to_none(prompt_message),
+                                        _blank_to_none(notes), user.language, _saved_preferences(user))
         except anthropic.APIError as error:
             raise _llm_failed(error)
+        except UnusableResponse:
+            logger.exception("Tagging gave no usable answer")
+            raise HTTPException(status_code=502, detail="The AI couldn't tag these photos. Nothing was saved; try again.")
 
+    return DraftOut(id=draft.id, garment=draft.garment)
+
+
+@app.post("/api/garments/drafts/{draft_id}", status_code=201)
+def accept_draft(draft_id: str, garment: Garment, user: CurrentUser) -> GarmentOut:
+    """Add a reviewed garment to the wardrobe, with any changes the owner made."""
+    garment_id = drafts.confirm_draft(_drafts_dir(), DB_PATH, GARMENTS_DIR, TAGGING_LOG_PATH, user.id, draft_id, garment)
+    if garment_id is None:
+        raise HTTPException(status_code=404, detail="That garment is no longer waiting for review. Add it again.")
     return responses.get_garment(DB_PATH, user.id, garment_id)
 
 
-EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id", "user_id"}
+@app.delete("/api/garments/drafts/{draft_id}", status_code=204)
+def discard_draft(draft_id: str, user: CurrentUser) -> None:
+    """Delete the draft and its photos. A draft that's already gone is fine: the owner wanted it gone."""
+    drafts.discard_draft(_drafts_dir(), user.id, draft_id)
+
+
+@app.post("/api/garments/{garment_id}/mend")
+def mend_garment(garment_id: int, user: CurrentUser) -> MendOut:
+    """Ask the LLM for this garment's blank fields, for the owner to review. Saves none of its answers."""
+    _require_demo_tokens(user)
+    garment = db.select_garment(DB_PATH, user.id, garment_id)
+    if garment is None:
+        raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
+    if not blank_fields(garment):
+        raise HTTPException(status_code=422, detail="This garment has no blank fields.")
+    client = _anthropic_client()
+
+    try:
+        result = mend.mend_garment(DB_PATH, TAGGING_LOG_PATH, user.id, garment, client, user.language, _saved_preferences(user))
+    except mend.NoPhotos as error:
+        raise HTTPException(status_code=422, detail=str(error))
+    except anthropic.APIError as error:
+        raise _llm_failed(error)
+    except UnusableResponse:
+        logger.exception("Mend gave no usable answer")
+        raise HTTPException(status_code=502, detail="The AI couldn't fill these in. Nothing was saved; try again.")
+    return MendOut(filled=result.filled, unanswered=result.unanswered)
+
+
+EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id", "mended_on", "user_id"}
 
 @app.patch("/api/garments/{garment_id}")
 def edit_garment(garment_id: int, changes: dict[str, Any], user: CurrentUser) -> GarmentOut:

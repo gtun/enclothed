@@ -11,6 +11,7 @@ const HELP = {
   ]},
   garment: {title: "A garment", tips: [
     "<b>Click any value</b> under Details to correct it. Good details mean better outfits.",
+    "<b>Mend blank details</b> asks the AI to fill in empty details only, and you review them before they're saved.",
     "Styling notes are what the AI reads when it suggests outfits. Your own notes stay private and are never sent to it.",
     "<b>+ Add to outfit</b> puts this piece in the outfit builder.",
     "<b>I no longer own this</b> takes it out of your wardrobe but keeps it in your outfit history. You can add it back later.",

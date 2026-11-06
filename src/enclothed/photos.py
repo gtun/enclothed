@@ -18,14 +18,16 @@ _thumbnail_lock = threading.Lock()
 ROLES = get_args(PhotoRole)   # ("front", "back", "detail", "label", "other")
 
 
-def get_garment_photos(garment_id: int) -> list[Photo]:
+def _photo_files(garment_id: int) -> list[Path]:
     photos_dir = GARMENTS_DIR / str(garment_id)
     if not photos_dir.is_dir():
         return []
-    photos = [p for p in photos_dir.iterdir() if p.is_file() and not p.name.startswith(".")]
+    return [p for p in photos_dir.iterdir() if p.is_file() and not p.name.startswith(".")]
 
+
+def get_garment_photos(garment_id: int) -> list[Photo]:
     photo_list = []
-    for p in photos:
+    for p in _photo_files(garment_id):
         prefix = p.name.split("_")[0]
         role = prefix if prefix in ROLES else "other"
         photo_list.append(Photo(
@@ -37,6 +39,10 @@ def get_garment_photos(garment_id: int) -> list[Photo]:
     photo_list.sort(key=lambda photo: (ROLES.index(photo.role), photo.url))
 
     return photo_list
+
+
+def get_photo_paths(garment_id: int) -> list[Path]:
+    return sorted(_photo_files(garment_id))
 
 
 def _upright_rgb(image: Image.Image) -> Image.Image:

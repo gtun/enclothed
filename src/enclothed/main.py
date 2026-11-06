@@ -1,6 +1,7 @@
 from enclothed import config
 from enclothed import db
 from enclothed import demo
+from enclothed import mend
 import argparse
 import sqlite3
 from dotenv import load_dotenv
@@ -78,6 +79,12 @@ def main() -> int:
     edituser_parser.add_argument("-u", "--username")
     edituser_parser.add_argument("-e", "--email")
     edituser_parser.add_argument("-l", "--language", choices=get_args(Language))
+
+    mend_parser = subparsers.add_parser("mend", parents=[common], help="Fill in blank fields with AI, without review. Never overwrites a value")
+    mend_parser.add_argument("ids", type=int, nargs="*", help="Only these garments. Default: every garment with blank fields")
+    mend_parser.add_argument("-l", "--limit", type=int, help="Stop after this many garments, to test a small batch first")
+    mend_parser.add_argument("-r", "--retry", action="store_true", help="Include garments mend has already tried")
+    mend_parser.add_argument("-u", "--user-id", type=int, default=config.DEFAULT_USER_ID, help="Whose wardrobe to mend")
 
     subparsers.add_parser("users", parents=[common], help="List everyone who can sign in")
 
@@ -193,6 +200,16 @@ def main() -> int:
         if args.language:
             db.set_language(config.DB_PATH, args.id, args.language)
         print(f"Updated user {args.id}")
+
+    elif args.command == "mend":
+        load_dotenv()
+        user = db.select_user(config.DB_PATH, args.user_id)
+        if user is None:
+            mend_parser.error(f"No user {args.user_id}")
+        saved_preferences = db.select_preferences(config.DB_PATH, user.id)
+        failures = mend.mend_all(config.DB_PATH, config.TAGGING_LOG_PATH, user.id, Anthropic(), args.ids, args.limit, args.retry, user.language,
+                                 saved_preferences[0] if saved_preferences else None)
+        return 1 if failures else 0
 
     elif args.command == "users":
         for user in db.select_all_users(config.DB_PATH):

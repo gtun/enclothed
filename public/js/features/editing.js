@@ -2,6 +2,10 @@
 "use strict";
 
 let saving = false;
+/* The garment being edited, and the page or dialog showing it. The review dialog uses these same editors. */
+const editRoot = () => review.open ? document.getElementById("review") : document;
+const editedGarment = () => review.open ? review.g : currentGarment();
+const redraw = () => review.open ? renderReview() : refresh();
 /* Swap in a garment the server just returned, everywhere it's held. */
 function adoptGarment(updated){
   G[G.findIndex(x => x.id === updated.id)] = updated;
@@ -9,6 +13,7 @@ function adoptGarment(updated){
   reindex();
 }
 async function save(g, changes){
+  if (review.open){ Object.assign(review.g, changes); renderReview(); return true; }   // nothing is saved until Accept
   if (saving) return false;
   saving = true;
   let ok = false;
@@ -20,7 +25,7 @@ async function save(g, changes){
     toast(e.message, true);
   } finally {
     saving = false;
-    refresh();
+    redraw();
   }
   return ok;
 }
@@ -28,17 +33,17 @@ const colorOptions = () => OPT.colors.map(c => ({value: c.name, label: colorName
 const NONE = {value: null, label: "— none"};
 
 function openEditor(field){
-  const g = currentGarment(); if (!g) return;
-  const host = document.querySelector(`[data-field="${field}"]`); if (!host) return;
+  const g = editedGarment(); if (!g) return;
+  const host = editRoot().querySelector(`[data-field="${field}"]`); if (!host) return;
   const f = FIELDS.find(x => x.key === field);
-  const cancel = () => refresh();
-  const setOne = v => { if (v === g[field]) return refresh(); save(g, {[field]: v}); };
+  const cancel = () => redraw();
+  const setOne = v => { if (v === g[field]) return redraw(); save(g, {[field]: v}); };
 
   if (field === "category"){
     combo(host, {options: OPT.categories.map(c => ({value: c, label: categoryName(c)})), current: g.category, onCancel: cancel,
       onPick: v => {
-        if (v === g.category) return refresh();
-        const sub = document.querySelector('[data-field="subcategory"]');
+        if (v === g.category) return redraw();
+        const sub = editRoot().querySelector('[data-field="subcategory"]');
         host.innerHTML = `<div class="ontrack"><span class="cchip">${esc(categoryName(v))}</span><span class="hintline">pick a subcategory to save</span></div>`;
         subcategoryEditor(sub, g, v);
       }});
@@ -46,9 +51,9 @@ function openEditor(field){
     subcategoryEditor(host, g, g.category);
   } else if (f && f.kind === "color"){
     combo(host, {options: colorOptions(), current: g[field], onCancel: cancel, onPick: v => {
-      if (v === g[field]) return refresh();
+      if (v === g[field]) return redraw();
       const was = g[field];
-      save(g, {[field]: v}).then(ok => { if (ok){ flagColorChange(g.id, was, v); refresh(); focusNotesCheck(); } });
+      save(g, {[field]: v}).then(ok => { if (ok && !review.open){ flagColorChange(g.id, was, v); redraw(); focusNotesCheck(); } });
     }});
   } else if (f && f.kind === "colors"){
     multiEditor(host, g, field, colorOptions(), false);
@@ -69,9 +74,9 @@ function subcategoryEditor(host, g, category){
   const opts = (OPT.subcategories[category] || []).map(s => ({value: s, label: subcategoryName(s)}))
     .sort((a, b) => (a.value === "other") - (b.value === "other") || a.label.localeCompare(b.label, SETTINGS.locale));
   combo(host, {options: opts, current: category === g.category ? g.subcategory : null, placeholder: `Type to filter ${categoryName(category)} subcategories…`,
-    onCancel: () => refresh(),
+    onCancel: () => redraw(),
     onPick: v => {
-      if (category === g.category && v === g.subcategory) return refresh();
+      if (category === g.category && v === g.subcategory) return redraw();
       save(g, category === g.category ? {subcategory: v} : {category, subcategory: v});
     }});
 }
@@ -81,25 +86,25 @@ function multiEditor(host, g, field, options, free){
   /* The editor floats over the row, which stays in place (hidden) so nothing below it moves. */
   host.querySelector(".ev").style.visibility = "hidden";
   host.insertAdjacentHTML("beforeend", `<div class="multi float"><div class="have">${values.map((v, i) => `<span class="pill">${isColor ? `<span class="chip" style="background:${hex(v)}"></span>` : ""}${esc(isColor ? colorName(v) : v)}<button type="button" data-rm="${i}" aria-label="Remove ${esc(isColor ? colorName(v) : v)}">×</button></span>`).join("") || `<span class="empty">None yet</span>`}</div>
-    <div class="btns"><button type="button" class="btn done-btn">Done</button><span class="hintline">Changes save as you go</span></div>
+    <div class="btns"><button type="button" class="btn done-btn">Done</button><span class="hintline">${review.open ? "" : "Changes save as you go"}</span></div>
     <div class="adder"></div></div>`);
   host.querySelector(".have").addEventListener("click", e => {
     const b = e.target.closest("[data-rm]"); if (!b) return;
     const removed = values[+b.dataset.rm], next = values.filter((_, i) => i !== +b.dataset.rm);
     save(g, {[field]: next}).then(ok => {
-      if (ok && isColor && !garmentColors(byId[g.id]).includes(removed)){ flagColorChange(g.id, removed, null); refresh(); }
+      if (ok && isColor && !review.open && !garmentColors(byId[g.id]).includes(removed)){ flagColorChange(g.id, removed, null); redraw(); }
       openEditor(field);
     });
   });
-  host.querySelector(".done-btn").addEventListener("click", () => refresh());
-  combo(host.querySelector(".adder"), {options: options.filter(o => !values.includes(o.value)), free, keepOpen: true, scope: host, onCancel: () => refresh(),
+  host.querySelector(".done-btn").addEventListener("click", () => redraw());
+  combo(host.querySelector(".adder"), {options: options.filter(o => !values.includes(o.value)), free, keepOpen: true, scope: host, onCancel: () => redraw(),
     placeholder: isColor ? "Add a color…" : "Add a tag…",
     onPick: v => { if (v === null || values.includes(v)) return;
       save(g, {[field]: [...values, v]}).then(ok => {
-        if (ok && isColor){ pairReplacement(g.id, v); refresh(); }
+        if (ok && isColor && !review.open){ pairReplacement(g.id, v); redraw(); }
         openEditor(field);
       }); }});
-  host.addEventListener("keydown", e => { if (e.key === "Escape") refresh(); });
+  host.addEventListener("keydown", e => { if (e.key === "Escape") redraw(); });
 }
 function textEditor(host, g, field){
   const rows = {notes: 3, styling_notes: 7, label_text: 5}[field];
@@ -107,11 +112,11 @@ function textEditor(host, g, field){
     <div class="btns" style="margin-top:8px"><button type="button" class="btn primary" data-act="save">Save</button><button type="button" class="btn quiet" data-act="cancel">Cancel</button><span class="hintline">Ctrl+Enter to save · Esc to cancel</span></div>`;
   const ta = host.querySelector("textarea");
   const blank = field === "styling_notes" ? "" : null;   // styling notes are text in the DB, never null
-  const commit = () => { const v = ta.value.trim() || blank; if (v === (g[field] || blank)) return refresh(); save(g, {[field]: v}); };
+  const commit = () => { const v = ta.value.trim() || blank; if (v === (g[field] || blank)) return redraw(); save(g, {[field]: v}); };
   host.querySelector('[data-act="save"]').onclick = commit;
-  host.querySelector('[data-act="cancel"]').onclick = () => refresh();
+  host.querySelector('[data-act="cancel"]').onclick = () => redraw();
   ta.addEventListener("keydown", e => {
-    if (e.key === "Escape"){ e.preventDefault(); refresh(); }
+    if (e.key === "Escape"){ e.preventDefault(); redraw(); }
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)){ e.preventDefault(); commit(); }
   });
   ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
@@ -153,7 +158,7 @@ function materialsEditor(host, g){
     else if (t.dataset.rmfiber){ const [p, f] = t.dataset.rmfiber.split(":").map(Number); parts[p].fibers.splice(f, 1); draw(); }
     else if (t.dataset.rmpart !== undefined){ parts.splice(+t.dataset.rmpart, 1); draw(); }
     else if (t.dataset.addpart !== undefined){ parts.push({part: "", fibers: [{fiber: "", percent: ""}]}); draw(); focusLast(parts.length - 1); }
-    else if (t.dataset.act === "cancel") refresh();
+    else if (t.dataset.act === "cancel") redraw();
     else if (t.dataset.act === "save"){
       const err = host.querySelector("#materr");
       const clean = parts.map(m => ({part: (m.part || "").trim() || null, fibers: m.fibers.filter(f => String(f.fiber).trim() || f.percent !== "")
@@ -163,7 +168,7 @@ function materialsEditor(host, g){
       save(g, {materials: clean});
     }
   });
-  host.addEventListener("keydown", e => { if (e.key === "Escape") refresh(); });
+  host.addEventListener("keydown", e => { if (e.key === "Escape") redraw(); });
   function focusLast(pi){ const els = host.querySelectorAll(`[data-p="${pi}"][data-k="fiber"]`); (els[els.length - 1] || host.querySelector(`[data-p="${pi}"]`))?.focus(); }
   host.querySelector("input")?.focus();
 }

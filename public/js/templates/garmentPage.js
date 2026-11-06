@@ -56,6 +56,15 @@ function notesCheckDock(g){
   </aside>`;
 }
 
+/* The blocks of editable details. The review dialog shows these too. */
+const fieldRow = (g, f) => `<dt>${esc(f.label)}</dt><dd data-field="${f.key}">${evButton(f.key, f.label, `<span>${displayValue(g, f)}</span>`)}</dd>`;
+const tagsBlock = g => `<div data-field="style_tags">${evButton("style_tags", "style tags",
+  g.style_tags.length ? `<span class="tags">${g.style_tags.map(t => `<span class="tg">${esc(t)}</span>`).join("")}</span>` : `<span class="addnote">+ Add style tags</span>`)}</div>`;
+const notesBlock = g => `<div data-field="notes">${g.notes ? evText("notes", "your notes", `<p class="notes mine">${linkify(g.notes)}</p>`) : evButton("notes", "your notes", `<span class="addnote">+ Add your own notes</span>`, "block")}</div>`;
+const stylingNotesBlock = g => `<div data-field="styling_notes">${g.styling_notes ? evText("styling_notes", "styling notes", `<p class="notes">${linkify(g.styling_notes)}</p>`) : evButton("styling_notes", "styling notes", `<span class="addnote">+ Add styling notes</span>`, "block")}</div>`;
+const labelBlock = g => `<div data-field="label_text">${evButton("label_text", "label text", g.label_text ? `<div class="label">${esc(g.label_text)}</div>` : `<span class="addnote">+ Add label text</span>`, "block")}</div>`;
+const mendButton = g => g.blank_fields.length ? `<button type="button" class="btn llm-action" data-mend title="Fills blank details only. Uses AI (spends tokens)" ${mendingId === g.id ? "disabled" : ""}>${mendingId === g.id ? "Mending…" : "Mend blank details"}</button>` : "";
+
 function garmentPage(g){
   const s = setById[g.set_id];
   let setPanel = "";
@@ -81,19 +90,15 @@ function garmentPage(g){
       `<figure class="slide"><img src="${esc(encodeURI(p.url))}" alt="${esc(title(g))}, ${esc(photoName(p.url))}" ${i > 1 ? 'loading="lazy"' : ""}></figure>`).join("")}</div>
       <div class="gnav"><button type="button" id="gprev" aria-label="Previous photo">‹</button><span id="gcount"></span><button type="button" id="gnext" aria-label="Next photo">›</button></div>`
     : `<div class="ph">${ph(g, null)}</div>`;
-  const rows = FIELDS.map(f => `<dt>${esc(f.label)}</dt><dd data-field="${f.key}">${evButton(f.key, f.label, `<span>${displayValue(g, f)}</span>`)}</dd>`).join("");
-  const tags = `<div data-field="style_tags">${evButton("style_tags", "style tags",
-      g.style_tags.length ? `<span class="tags">${g.style_tags.map(t => `<span class="tg">${esc(t)}</span>`).join("")}</span>` : `<span class="addnote">+ Add style tags</span>`)}</div>`;
-  const notes = `<div data-field="notes">${g.notes ? evText("notes", "your notes", `<p class="notes mine">${linkify(g.notes)}</p>`) : evButton("notes", "your notes", `<span class="addnote">+ Add your own notes</span>`, "block")}</div>`;
-  const stylingNotes = `<div data-field="styling_notes">${g.styling_notes ? evText("styling_notes", "styling notes", `<p class="notes">${linkify(g.styling_notes)}</p>`) : evButton("styling_notes", "styling notes", `<span class="addnote">+ Add styling notes</span>`, "block")}</div>`;
-  const label = `<div data-field="label_text">${evButton("label_text", "label text", g.label_text ? `<div class="label">${esc(g.label_text)}</div>` : `<span class="addnote">+ Add label text</span>`, "block")}</div>`;
+  const rows = FIELDS.map(f => fieldRow(g, f)).join("");
+  const tags = tagsBlock(g), notes = notesBlock(g), stylingNotes = stylingNotesBlock(g), label = labelBlock(g);
   return `<button type="button" class="back" data-back="wardrobe" style="margin-top:20px">← Wardrobe</button>
     <div class="detail">
     <div class="gallery">${gallery}</div>
     <div class="info">
       <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(categoryName(g.category))} · #${g.id}</span><h2>${esc(subcategoryName(g.subcategory))}</h2>
         ${isDisowned(g) ? `<p class="gonenote">No longer owned · since ${esc(whenDay(g.disowned_on))}</p><div class="hero-actions"><button type="button" class="btn primary" data-reown>Add this to my wardrobe again</button></div>`
-          : `<div class="hero-actions"><button type="button" class="btn${builder.pieces.includes(g.id) ? " primary" : ""}" data-pick="${g.id}" aria-pressed="${builder.pieces.includes(g.id)}">${builder.pieces.includes(g.id) ? "− Remove from outfit" : "+ Add to outfit"}</button><button type="button" class="btn quiet" data-disown>I no longer own this</button></div>`}</div>
+          : `<div class="hero-actions"><button type="button" class="btn${builder.pieces.includes(g.id) ? " primary" : ""}" data-pick="${g.id}" aria-pressed="${builder.pieces.includes(g.id)}">${builder.pieces.includes(g.id) ? "− Remove from outfit" : "+ Add to outfit"}</button>${mendButton(g)}<button type="button" class="btn quiet" data-disown>I no longer own this</button></div>`}</div>
       ${setPanel}
       ${stylingNotes}
       ${notes}

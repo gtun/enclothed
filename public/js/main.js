@@ -88,6 +88,7 @@ app.addEventListener("click", e => {
     if (onText && (e.target.closest("a") || String(getSelection()))) return;
     openEditor(ed.dataset.edit); return;
   }
+  if (e.target.closest("[data-mend]")){ const g = currentGarment(); if (g) startMend(g); return; }
   if (e.target.closest("[data-disown]")){ const g = currentGarment(); if (g) openDisown(g); return; }
   if (e.target.closest("[data-reown]")){ const g = currentGarment(); if (g) reown(g); return; }
   if (handleNotesCheckClick(e)) return;
