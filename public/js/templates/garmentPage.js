@@ -78,7 +78,7 @@ function garmentPage(g){
     const ids = G.filter(x => x.set_id === s.id).map(x => x.id);
     const together = (isDisowned(g) ? O : SHOWN).filter(o => ids.every(id => o.pieces.some(p => p.id === id))).length;
     setPanel = `<div class="panel"><h4><span style="display:inline-flex;gap:7px;align-items:center">${SET_ICON} Part of a set: ${esc(setName(s))}</span><small>worn together in ${plural(together,"outfit")}</small></h4>
-      <div class="inset">${others.map(x => `<a class="mini" href="#garment-${x.id}"><div class="ph${fadeClass(x)}">${ph(x, thumb(x))}${goneMark(x)}</div><span>${esc(subcategoryName(x.subcategory))}</span><em>#${x.id}</em></a>`).join("")}</div></div>`;
+      <div class="inset">${others.map(x => `<a class="mini" href="#garment-${x.id}"><div class="ph${fadeClass(x)}">${ph(x, thumb(x))}${goneMark(x)}</div><span>${esc(subcategoryName(x.subcategory))}</span>${SHOW_IDS ? `<em>#${x.id}</em>` : ""}</a>`).join("")}</div></div>`;
   }
   const allUses = ((isDisowned(g) ? allOutfitsOf : outfitsOf)[g.id] || []).slice().sort((a, b) => b.o.timestamp.localeCompare(a.o.timestamp));
   const uses = allUses.filter(u => visible(u.o));
@@ -101,7 +101,7 @@ function garmentPage(g){
     <div class="detail">
     <div class="gallery">${gallery}</div>
     <div class="info">
-      <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(categoryName(g.category))} · #${g.id}</span><h2>${esc(subcategoryName(g.subcategory))}</h2>
+      <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(categoryName(g.category))}${SHOW_IDS ? ` · #${g.id}` : ""}</span><h2>${esc(subcategoryName(g.subcategory))}</h2>
         ${isDisowned(g) ? `<p class="gonenote">No longer owned · since ${esc(whenDay(g.disowned_on))}</p><div class="hero-actions"><button type="button" class="btn primary" data-reown>Add this to my wardrobe again</button></div>`
           : `<div class="hero-actions"><button type="button" class="btn${builder.pieces.includes(g.id) ? " primary" : ""}" data-pick="${g.id}" aria-pressed="${builder.pieces.includes(g.id)}">${builder.pieces.includes(g.id) ? "− Remove from outfit" : "+ Add to outfit"}</button>${mendButton(g)}<button type="button" class="btn quiet" data-disown>I no longer own this</button></div>`}</div>
       ${setPanel}

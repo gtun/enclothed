@@ -9,7 +9,7 @@ function gCard(g){
   const n = ((gone ? allOutfitsOf : outfitsOf)[g.id] || []).length;
   const picked = builder.pieces.includes(g.id);
   return `<div class="cardwrap${picked ? " picked" : ""}"><a class="card" href="#garment-${g.id}" aria-label="${esc(title(g))}, ${esc(colorName(g.primary_color))}">
-    <div class="ph">${ph(g, thumb(g))}<span class="badge id">#${g.id}</span>
+    <div class="ph">${ph(g, thumb(g))}${SHOW_IDS ? `<span class="badge id">#${g.id}</span>` : ""}
       ${s ? `<span class="badge set" title="Part of a set: ${esc(setName(s))}">${SET_ICON}<b>${esc(setName(s))}</b></span>` : ""}</div>
     <div class="meta">
       <span class="brand">${esc(g.brand || "unknown brand")}</span>
