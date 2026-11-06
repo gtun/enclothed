@@ -4,9 +4,12 @@ from contextlib import closing
 from pathlib import Path
 from types import SimpleNamespace
 
+import anthropic
+import httpx2
 import pytest
 
 from enclothed import config, db, insights, llm
+from enclothed.usage import read_calls
 from enclothed.insights import add_usage, answer_question, tool_text
 from enclothed.llm import UnusableResponse, insights_system_prompt, insights_turn
 from enclothed.models import QueryResult, TokenUsage
@@ -199,6 +202,74 @@ def test_the_copy_is_closed_however_it_ends(db_path, monkeypatch, responses):
         pass
     with pytest.raises(sqlite3.ProgrammingError):
         opened[0].execute("SELECT 1")
+
+
+# --- Logging ----------------------------------------------------------------------------
+
+def log_lines(path: Path) -> list[dict]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def test_a_question_is_logged_with_its_content(db_path, tmp_path):
+    log = tmp_path / "insights.jsonl"
+    history = [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]
+    client = FakeClient(tool_turn(tool("a", "SELECT 1")), turn(text("日本")))
+    answer_question(client, db_path, OTHER, "And now?", history, log_path=log)
+    [entry] = log_lines(log)
+    assert entry["user_id"] == OTHER
+    assert entry["messages"] == 3
+    assert entry["question"] == "And now?"
+    assert entry["answer"] == "日本"
+    assert entry["sql"] == ["SELECT 1"]
+    assert entry["error"] is None
+    assert entry["usage"]["input_tokens"] == 20
+    assert "日本" in log.read_text(encoding="utf-8")
+
+
+def test_each_question_gets_one_line(db_path, tmp_path):
+    log = tmp_path / "insights.jsonl"
+    for _ in range(2):
+        answer_question(FakeClient(turn(text("Done"))), db_path, OWNER, "Q", [], log_path=log)
+    assert len(log_lines(log)) == 2
+
+
+def test_no_log_path_writes_nothing(db_path, tmp_path):
+    ask(FakeClient(turn(text("Done"))), db_path)
+    assert list(tmp_path.glob("*.jsonl")) == []
+
+
+def test_an_unusable_answer_is_logged_with_its_tokens(db_path, tmp_path):
+    log = tmp_path / "insights.jsonl"
+    with pytest.raises(UnusableResponse):
+        answer_question(FakeClient(turn()), db_path, OWNER, "Q", [], log_path=log)
+    [entry] = log_lines(log)
+    assert entry["error"] == "UnusableResponse"
+    assert entry["usage"]["input_tokens"] == 10
+
+
+def test_an_api_error_partway_is_logged_with_the_tokens_so_far(db_path, tmp_path):
+    class FailsSecondCall(FakeClient):
+        def create(self, **kwargs):
+            if self.calls:
+                raise anthropic.APIConnectionError(request=httpx2.Request("POST", "http://test"))
+            return super().create(**kwargs)
+
+    log = tmp_path / "insights.jsonl"
+    client = FailsSecondCall(tool_turn(tool("a", "SELECT 1")))
+    with pytest.raises(anthropic.APIError):
+        answer_question(client, db_path, OWNER, "Q", [], log_path=log)
+    [entry] = log_lines(log)
+    assert entry["error"] == "APIConnectionError"
+    assert entry["answer"] is None
+    assert entry["sql"] == ["SELECT 1"]
+    assert entry["usage"]["input_tokens"] == 10
+
+
+def test_logged_questions_reach_the_usage_page(db_path, tmp_path):
+    log = tmp_path / "insights.jsonl"
+    answer_question(FakeClient(turn(text("Done"))), db_path, OWNER, "Q", [], log_path=log)
+    [call] = read_calls({"insights": log})
+    assert (call.kind, call.user_id, call.input_tokens) == ("insights", OWNER, 10)
 
 
 # --- Helpers ----------------------------------------------------------------------------

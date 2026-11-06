@@ -283,7 +283,7 @@ FromParam = Annotated[datetime | None, Query(alias="from")]
 
 
 def _usage_logs() -> dict[str, Path]:
-    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH}
+    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH}
 
 
 @app.get("/api/usage")
@@ -355,7 +355,3 @@ def get_thumbnail(garment_id: int, filename: str, user: CurrentUser) -> FileResp
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(PUBLIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
-
-
-def _usage_logs() -> dict[str, Path]:
-    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH}
