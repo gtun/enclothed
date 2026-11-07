@@ -8,7 +8,7 @@ It runs as a web app (phone or desktop) with a command-line interface alongside 
 
 If you own a lot of clothes, you have a huge number of possible outfits, and most of them will never occur to you. A chat assistant can help, but only for a moment: it can't keep track of hundreds of photos, and it forgets your wardrobe as soon as the conversation ends.
 
-enclothed looks at each photo once, writes down what it sees (category, colors, fabric, fit, formality, warmth and more), and stores that in a database. Every request after that works from the text records, so outfit ideas are fast, cheap, and always based on what you actually own.
+enclothed looks at each photo once, writes down what it sees (category, colors, fabric, fit, formality, warmth and more), and stores that in a database. Outfit requests and questions after that work from the text records alone, so they're fast, cheap, and always based on what you actually own.
 
 ## What it does
 
@@ -26,13 +26,15 @@ enclothed looks at each photo once, writes down what it sees (category, colors, 
 ```
 photos ──► vision model (once) ──► structured record ──► SQLite
                                                            │
-            outfit requests, questions, mend  ◄────────────┘
-            (text only, never the photos again)
+            outfit requests, questions  ◄──────────────────┘
+            (text only, no photos)
+
+saved photos ──► mend (on request) ──► blank fields filled in
 ```
 
 A few design decisions shape the whole app:
 
-- **Look at each image once.** Intake sends a garment's photos to Claude a single time and gets back a validated [Pydantic](https://docs.pydantic.dev/) model. After that, everything runs on text, which keeps requests small and cheap.
+- **Look at each image once.** Intake sends a garment's photos to Claude a single time and gets back a validated [Pydantic](https://docs.pydantic.dev/) model. Outfit suggestions and questions run on text only, which keeps them small and cheap. The one exception is mend, which you run on purpose: it sends a garment's saved photos again to fill in fields that are still blank.
 - **Review before saving.** A wrong tag spoils every outfit that uses it, so new garments and mended fields go through a field-by-field review.
 - **Rules in code, taste in the LLM.** Fixed vocabularies (categories, colors, fabrics, fit, formality, warmth…) are enforced in code, and the LLM's outfit suggestions are validated against the real wardrobe before they're shown or saved. The LLM handles judgment: what looks good together and why.
 - **Questions run in a sandbox.** "Ask your wardrobe" lets the LLM write SQL, but only read-only queries against a throwaway, in-memory copy of one person's data, with private notes removed and time and size limits on every query.
