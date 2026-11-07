@@ -103,36 +103,41 @@ WHERE_FILTERS = {
 
 def build_snapshot(db_path: Path, user_id: int) -> sqlite3.Connection:
     with closing(sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)) as conn_src:
-        with sqlite3.connect(":memory:") as conn_tmp:
+        conn_tmp = sqlite3.connect(":memory:")
+        try:
+            with conn_tmp:
+                for table, columns in INSIGHTS_SCHEMA.items():
+                    tmp_columns = ",".join(columns)
+                    src_rows = conn_src.execute(f"select {tmp_columns} FROM {table}{WHERE_FILTERS[table]}",
+                        { "user_id" : user_id },
+                    ).fetchall()
 
+                    tmp_schema = [f"CREATE TABLE {table} ("]
+                    tmp_schema.append(','.join([f"{column_name} {column_props}" for column_name, column_props in columns.items()]))
+                    tmp_schema.append(");")
+                    tmp_schema = "\n".join(tmp_schema)
+                    conn_tmp.execute(tmp_schema)
 
-            for table, columns in INSIGHTS_SCHEMA.items():
-                tmp_columns = ",".join(columns)
-                src_rows = conn_src.execute(f"select {tmp_columns} FROM {table}{WHERE_FILTERS[table]}",
-                    { "user_id" : user_id },
-                ).fetchall()
+                    ins_placeholder = ",".join("?" * len(columns))
+                    conn_tmp.executemany(
+                        f"INSERT INTO {table} VALUES ({ins_placeholder})",
+                        src_rows
+                    )
 
-                tmp_schema = [f"CREATE TABLE {table} ("]
-                tmp_schema.append(','.join([f"{column_name} {column_props}" for column_name, column_props in columns.items()]))
-                tmp_schema.append(");")
-                tmp_schema = "\n".join(tmp_schema)
-                conn_tmp.execute(tmp_schema)
+                for table, rows in lookup_rows().items():
+                    columns = LOOKUP_SCHEMA[table]
+                    definitions = ",".join(f"{column_name} {column_props}" for column_name, column_props in columns.items())
+                    conn_tmp.execute(f"CREATE TABLE {table} ({definitions});")
+                    ins_placeholder = ",".join("?" * len(columns))
+                    conn_tmp.executemany(f"INSERT INTO {table} VALUES ({ins_placeholder})", rows)
 
-                ins_placeholder = ",".join("?" * len(columns))
-                conn_tmp.executemany(
-                    f"INSERT INTO {table} VALUES ({ins_placeholder})",
-                    src_rows
-                )
+            lock_snapshot(conn_tmp)
 
-            for table, rows in lookup_rows().items():
-                columns = LOOKUP_SCHEMA[table]
-                definitions = ",".join(f"{column_name} {column_props}" for column_name, column_props in columns.items())
-                conn_tmp.execute(f"CREATE TABLE {table} ({definitions});")
-                ins_placeholder = ",".join("?" * len(columns))
-                conn_tmp.executemany(f"INSERT INTO {table} VALUES ({ins_placeholder})", rows)
+        except BaseException:
+            conn_tmp.close()
+            raise
 
-    lock_snapshot(conn_tmp)
-    return conn_tmp
+        return conn_tmp
 
 
 def lock_snapshot(conn: sqlite3.Connection) -> None:
