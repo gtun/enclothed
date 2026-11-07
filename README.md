@@ -122,7 +122,7 @@ uv run enclothed outfit -p "17 degrees celsius, burger and beer lunch with a fri
 uv run enclothed outfit -w 1 18            # outfits that include garments 1 and 18
 uv run enclothed set -n "navy suit" -g 12 13
 uv run enclothed mend -l 5                 # try a small batch first
-uv run enclothed adduser kwan kwan@example.com -l zh-TW
+uv run enclothed adduser alex alex@example.com -l zh-TW
 ```
 
 Options:
@@ -152,9 +152,7 @@ Anyone signed in can open a shared demo wardrobe and add garments or use the AI 
 
 The language menu changes the names of fixed terms (colors, categories, fabrics, fit…), the date format, and the language the AI writes in from then on. Buttons and headings stay in English, and saved notes and outfits aren't retranslated. The database always stores fixed terms in English; translations live in `src/enclothed/locales/`.
 
-## Deploying
-
-The production site runs in Docker on a 1 GB DigitalOcean Droplet behind Cloudflare. The container listens only on `127.0.0.1:8000`; Cloudflare handles TLS and sign-in in front of it.
+## Running with Docker
 
 ```bash
 docker build -t enclothed .
@@ -162,7 +160,7 @@ docker run -d --name enclothed --restart unless-stopped \
   -p 127.0.0.1:8000:8000 --env-file .env -v "$PWD/data:/app/data" enclothed
 ```
 
-All state lives in the mounted `data/` folder. To ship the latest `main` on the server, run `./deploy.sh`: it pulls, builds the new image while the old one keeps serving, tags the old image as `enclothed:previous` for rollback, copies the database to `~/db-backups/`, starts the new container, and waits until it responds.
+All state lives in the mounted `data/` folder, so back that up. The container listens only on `127.0.0.1:8000`; put a reverse proxy or tunnel in front of it for HTTPS and sign-in.
 
 Maintenance commands:
 
@@ -227,7 +225,7 @@ GitHub Actions runs the suite on every pull request and push to `main`, and it m
 
 ## Tech
 
-Python 3.13, uv, FastAPI, Pydantic, SQLite, Anthropic API (Claude), Pillow, PyJWT, vanilla JavaScript, pytest, Docker, GitHub Actions, Cloudflare Access, DigitalOcean
+Python 3.13, uv, FastAPI, Pydantic, SQLite, Anthropic API (Claude), Pillow, PyJWT, vanilla JavaScript, pytest, Docker, GitHub Actions, Cloudflare Access
 
 ## About
 
