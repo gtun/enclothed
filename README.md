@@ -1,18 +1,46 @@
 # enclothed
 
-Take inventory of your wardrobe, using an LLM to visually identify its characteristics.
+A wardrobe you can talk to. Photograph your clothes once, and enclothed uses an LLM to turn each garment into a structured, searchable record. From there it suggests outfits for whatever you're dressing for, answers questions about your closet, and keeps track of what you've put together.
+
+It runs as a web app (phone or desktop) with a command-line interface alongside it. It's live at [enclothe.me](https://enclothe.me), where sign-in is by invitation, and you can run your own copy with your own Anthropic API key.
 
 ## Why
 
-You might have a lot of clothes, and because of that, a huge number of possible outfits.
-All those ideas won't come to you. AI can help out with that, but it can't efficiently handle all of those pictures.
-This app tags your clothes with text descriptors, making it more efficient for AI to come up with an outfit based on what's in your wardrobe and whatever occasion you're dressing up for.
+If you own a lot of clothes, you have a huge number of possible outfits, and most of them will never occur to you. A chat assistant can help, but only for a moment: it can't keep track of hundreds of photos, and it forgets your wardrobe as soon as the conversation ends.
 
-## Setup
+enclothed looks at each photo once, writes down what it sees (category, colors, fabric, fit, formality, warmth and more), and stores that in a database. Every request after that works from the text records, so outfit ideas are fast, cheap, and always based on what you actually own.
 
-**You need:** [uv](https://docs.astral.sh/uv/) and an Anthropic API key
-(create one at https://console.anthropic.com; API usage is billed separately
-from a Claude chat subscription). Commands below are for macOS, Linux, or WSL.
+## What it does
+
+- **Add garments from photos.** Snap the front, back, and labels with your phone. The AI tags the garment, reads the care and brand labels (translating Japanese, Chinese and other languages), and files each photo by role. You review every field before it's saved, with a one-tap **Accept all**.
+- **Get outfit suggestions.** Describe the occasion and the weather ("17°C, burger and beer lunch with a former coworker") and get 2–4 outfits built from your wardrobe. Pick anchor pieces you want to wear, or put an outfit together yourself. Every suggestion is saved, and you can like or dislike it.
+- **Ask your wardrobe.** A chat pop-up on every page answers questions like "what's my color spread?" or "which jackets have I never worn in an outfit?" It answers with a number, a list, a table, or garment photos, whichever fits, and can show how it worked the answer out.
+- **Fix and fill in details.** Click any field to correct it. **Mend** asks the AI to fill in only the blank fields from the saved photos, and never overwrites anything you've set.
+- **Describe your style once.** Write your tastes and needs (loose fits, never shorts, glasses with everything); the AI can tidy it into a clear brief, and it's sent with every outfit request.
+- **Group sets and retire garments.** Link a suit jacket and trousers as a set. Garments you no longer own are marked disowned rather than deleted, so your outfit history stays intact.
+- **See what it costs.** A usage page shows estimated AI spend over time, by type of call and model. Everyone sees their own; admins see everyone's.
+- **Multiple people, multiple languages.** Each person has their own wardrobe and chooses English, Traditional Chinese (Taiwan), or Japanese. Admins can switch into anyone's wardrobe to help or debug. A shared demo wardrobe resets daily so new people can try things without their own clothes in it.
+
+## How it works
+
+```
+photos ──► vision model (once) ──► structured record ──► SQLite
+                                                           │
+            outfit requests, questions, mend  ◄────────────┘
+            (text only, never the photos again)
+```
+
+A few design decisions shape the whole app:
+
+- **Look at each image once.** Intake sends a garment's photos to Claude a single time and gets back a validated [Pydantic](https://docs.pydantic.dev/) model. After that, everything runs on text, which keeps requests small and cheap.
+- **Review before saving.** A wrong tag spoils every outfit that uses it, so new garments and mended fields go through a field-by-field review.
+- **Rules in code, taste in the LLM.** Fixed vocabularies (categories, colors, fabrics, fit, formality, warmth…) are enforced in code, and the LLM's outfit suggestions are validated against the real wardrobe before they're shown or saved. The LLM handles judgment: what looks good together and why.
+- **Questions run in a sandbox.** "Ask your wardrobe" lets the LLM write SQL, but only read-only queries against a throwaway, in-memory copy of one person's data, with private notes removed and time and size limits on every query.
+- **Every AI call is metered.** All LLM calls go through one module, which logs token usage (including prompt-cache reads and writes) and estimated cost. The wardrobe is prompt-cached for 5 minutes, so back-to-back outfit requests use far fewer input tokens.
+
+## Run it locally
+
+**You need:** [uv](https://docs.astral.sh/uv/) and an Anthropic API key (create one at https://console.anthropic.com; API usage is billed separately from a Claude chat subscription). Commands are for macOS, Linux, or WSL.
 
 1. Install uv (skip if you have it):
 
@@ -28,162 +56,155 @@ from a Claude chat subscription). Commands below are for macOS, Linux, or WSL.
    uv sync
    ```
 
-3. Add your key: `cp .env.example .env`, then edit `.env`.
+3. Configure: `cp .env.example .env`, then edit `.env`:
 
-## Try it
+   ```bash
+   ANTHROPIC_API_KEY=your-key-here
+   ENCLOTHED_DEV_USER=owner    # local only: signs you in as the first user, no login
+   ```
 
-No API key yet? Test mode runs everything except the AI call:
+   Never set `ENCLOTHED_DEV_USER` on a public server.
+
+4. Start the web app:
+
+   ```bash
+   uv run fastapi dev src/enclothed/api.py
+   ```
+
+   Open http://localhost:8000. The interactive API docs are at http://localhost:8000/docs.
+
+The database is created on first run at `data/enclothed.db`, with migrations applied automatically. Photos go in `data/garments/<id>/` and thumbnails in `data/thumbs/`. Uploaded photos are turned upright, converted to JPEG, and resized to at most 2000 px, so phone photos (including iPhone HEIC) fit the API's limits.
+
+### Try it without an API key
+
+Test mode runs everything except the AI call, using the sample jacket photos in `tests/fixtures/`:
 
 ```bash
 uv run enclothed add -t tests/fixtures/*.jpg
-```
-
-With a key, tag the sample jacket for real:
-
-```bash
-uv run enclothed add tests/fixtures/*.jpg -p "nonnative x Undercover blouson"
-```
-
-Each run prints the new garment ID. Then see what's in your wardrobe:
-
-```bash
 uv run enclothed list
-```
-
-Results are saved in `data/enclothed.db`, photos in `data/garments/<id>/`, and
-every tagging call (with token usage) in `data/tagging_log.jsonl`.
-
-Ask for an outfit recommendation. Test it with:
-
-```bash
 uv run enclothed outfit -t -p "autumn walk in the city"
 ```
 
-Or, once your wardrobe is filled out, with a real request to the LLM:
+## Using the web app
 
-```bash
-uv run enclothed outfit -p "17 degrees celsius. Out for a burger and beer lunch with friend and former coworker"
-```
+- **Wardrobe:** every garment by category, in Grid, Large, or List view, with filters for sets and for garments not in any outfit. **+ Add garment** opens the camera or photo library, with a box for details the photos can't show (the true color, the name) and one for private notes that are never sent to the AI. Cancelling the review discards the garment and its photos.
+- **Garment page:** photos, its set, every outfit it's in, and what it's most often paired with. Click any detail or the styling notes to edit. Fixed lists use a type-to-filter dropdown that only accepts listed values. If you change a color the styling notes mention, the page highlights the mention and offers to update it.
+- **Outfits:** every outfit, grouped by request, filterable by request text, date, formality (of the least formal piece) and warmth (of the warmest top layer). **+ New outfit** opens the builder: add pieces, describe the occasion, then **Generate outfit suggestions** or **Save as my own outfit**. Disliked outfits are hidden unless you turn on "Show disliked".
+- **Style:** your saved style brief, sent with every outfit request from the web and the CLI.
+- **Ask your wardrobe:** the pop-up in the corner of every page. The conversation lives in the browser, so a refresh clears it.
+- **Usage:** estimated AI cost over time. Prices live in `MODEL_PRICES` in `src/enclothed/config.py`.
+- **Help:** each page explains itself the first time you visit, and **?** brings that back.
 
-You can also build an outfit anchored around specific garments in your wardrobe based on their IDs:
+Garment and set ID numbers appear only for admins; everyone else knows a garment by its brand, color, and photo.
 
-```bash
-uv run enclothed outfit -w 1 18
-```
+## Command line
 
-The wardrobe is cached for 5 minutes, so if you try several requests in a row, follow-up calls skip re-sending it and use far fewer input tokens:
-
-```bash
-uv run enclothed outfit -p "dinner downtown"
-uv run enclothed outfit -p "brunch with friends"
-```
-
-The first call in a while costs a little more (about 25% extra on the wardrobe); the savings start with the second. To turn caching off for a call, add `--no-cache`. Token usage, including cache reads and writes, is logged in `data/outfit_log.jsonl`.
-
-Group multiple garments together into a set, like a two piece suit, optionally with a name:
-
-```bash
-uv run enclothed set -n "navy suit" -g 12 13
-```
-
-## Commands
+The CLI works on the same database as the web app.
 
 | Command | What it does |
 |---|---|
-| `add <photos…>` | Tags a garment from one or more local photo paths or URLs (quote URLs) and saves it |
-| `list` | Lists all garments, grouped by category |
-| `outfit` | Gets 2-4 outfit recommendations from the LLM based on a request or anchor pieces |
+| `add <photos…>` | Tags a garment from local photo paths or URLs (quote URLs) and saves it |
+| `list` | Lists garments, grouped by category |
+| `outfit` | Gets 2–4 outfit suggestions from a request, anchor pieces, or both |
 | `set` | Groups two or more garments into a set, like a two-piece suit |
-| `mend [ids…]` | Fills in blank fields with AI from each garment's saved photos and saves them, with no review. It never overwrites a value |
+| `mend [ids…]` | Fills blank fields from saved photos, without review; never overwrites a value |
+| `users` | Lists everyone who can sign in |
+| `adduser <username> <email>` | Adds a person who can sign in |
+| `edituser <id>` | Changes a user's username, email, or language |
+| `demo-seed` | Rebuilds the shared demo wardrobe from a sample of yours |
 
-Options for `add`:
-
-- `-t`, `--test`: skip the AI call and save a sample garment (no API key needed)
-- `-p`, `--prompt-message TEXT`: details you know about the garment (name, true color, fit); these take priority over what the AI sees in the photos
-- `-n`, `--notes TEXT`: your own notes, saved as-is and never sent to the AI
-
-Options for `list`:
-
-- `-c`, `--category NAME`: show only this category (e.g. `outerwear`) or subcategory (e.g. `jeans`); repeat to combine, e.g. `-c jeans -c chinos`
-
-Options for `outfit`:
-
-- `-p`, `--prompt-message`: have a special occasion? Weather getting kind of chilly? Specify it here so the LLM can tailor the outfit to your needs.
-- `-w`, `--with`: add an anchor piece, or multiple, by its ID, and the suggested outfits will include them
-
-Options for `set`:
-
-- `-g`, `--garment-ids ID [ID ...]`: the garments in the set (at least two, required)
-- `-n`, `--name TEXT`: an optional name for the set
-
-Options for `mend`:
-
-- `-l`, `--limit N`: stop after this many garments, to test a small batch first
-- `-r`, `--retry`: include garments mend has already tried, which it otherwise skips so a rerun doesn't pay for them twice
-- `-u`, `--user-id ID`: mend someone else's wardrobe (default: the owner's)
-
-To mend every garment on the server, run `scripts/mend-all.sh` there. It backs up the database, tries 5 garments, and asks before doing the rest.
-
-Every command accepts `-v`, `--verbose` for debug output.
-
-## Web app
-
-Browse and edit your wardrobe in the browser:
+Examples:
 
 ```bash
-uv run fastapi dev src/enclothed/api.py
+uv run enclothed add photos/*.jpg -p "nonnative x Undercover blouson" -n "bought in Osaka"
+uv run enclothed list -c jeans -c chinos
+uv run enclothed outfit -p "17 degrees celsius, burger and beer lunch with a friend"
+uv run enclothed outfit -w 1 18            # outfits that include garments 1 and 18
+uv run enclothed set -n "navy suit" -g 12 13
+uv run enclothed mend -l 5                 # try a small batch first
+uv run enclothed adduser alex alex@example.com -l zh-TW
 ```
 
-Then open http://localhost:8000.
+Options:
 
-- **Wardrobe:** every garment by category, with filters for sets and garments not in any outfit, in Grid, Large or List view (List shows colors, materials and styling notes). **+ Add garment** takes photos (camera or library, on iPhone and Android), with a box for details the photos don't show and one for private notes; it tags the garment and opens a review of every field, where you can change anything or press **Accept all**. Cancelling discards the garment and its photos.
-- **IDs:** garment and set numbers show only for admins, including while viewing someone else's wardrobe. Everyone else knows a garment by its brand, color and photo.
-- **Garment page:** photos, its set, every outfit it's in, and the garments it's most often paired with. Click any detail or the styling notes to correct it. **Mend blank details** asks the AI to fill in empty fields from the saved photos, and you review its answers before they're saved. Fixed lists (category, colors, formality, warmth, fit, shape, hem, sleeve, fabric, fabric weight, sheen, statement) use a dropdown you can type into to filter, and only accept listed values. If you change a color the styling notes mention, it highlights the mention and offers to update it. Web addresses in notes are clickable.
-- **Outfits:** every outfit, grouped by request, with filters for request text, date range, formality (of the least formal piece) and warmth (of the warmest top layer), and like/dislike buttons on each card. **+ New outfit** opens the outfit builder: pick pieces with the + on any garment, the category list, or by typing a name; add the occasion; then **Generate outfit suggestions** (your pieces are anchors) or **Save as my own outfit**. Suggestions open on a results page; change the pieces or details to try again, and the new ones are added to the same page.
-- **Style:** describe your tastes and needs once (loose fits, never shorts, glasses with every outfit); **Improve with AI** rewrites it into a clear brief you can edit before saving. The saved text is sent with every outfit request, from the web and the CLI.
-- **Ask your wardrobe:** a pop-up on every page that answers questions about your clothes. The LLM writes read-only SQL against a throwaway, in-memory copy of one person's data (no private notes), then answers in whatever form fits: a number, a blurb, a list or a table. Answers can show garment photos, and **How I worked this out** lists the searches behind each one. The conversation stays in the browser, so a refresh clears it. Questions, answers and SQL are logged in `data/insights_log.jsonl`, and the pop-up says so.
-- **Usage:** estimated AI cost over time, by type of call and model, with the most expensive calls. Everyone sees their own; an admin also sees everyone's, without their prompts. Prices are in `MODEL_PRICES` in `config.py`.
-- **Help:** each page type explains itself the first time you see it, and the **?** at the top brings that help back. What you've seen is remembered per browser.
-- Like or dislike an outfit on its page; disliked outfits are hidden unless you turn on "Show disliked".
+- `add`: `-t` test mode (no AI call); `-p` details you know, which take priority over what the AI sees; `-n` private notes, never sent to the AI
+- `list`: `-c NAME` a category (`outerwear`) or subcategory (`jeans`); repeat to combine
+- `outfit`: `-p` the occasion, weather, or anything else; `-w ID…` anchor pieces; `-t` test mode; `--no-cache` skip prompt caching (the first cached call costs about 25% more on the wardrobe, and the savings start with the second)
+- `set`: `-g ID…` the garments (at least two, required); `-n` an optional name
+- `mend`: `-l N` stop after N garments; `-r` include garments mend already tried; `-u ID` mend someone else's wardrobe
+- `adduser`: `--admin` lets them switch between wardrobes; `-l` their language (`en-US`, `zh-TW`, `ja-JP`)
+- `edituser`: `-u` username, `-e` email, `-l` language
+- `demo-seed`: `--per-category N` (default 5), `--outfits N` (default 8)
 
-### Customizing the pages
+Every command accepts `-v` / `--verbose` for debug output.
 
-Buttons that call the AI (and spend tokens) share the class `llm-action` and their own color, `--llm` in `css/theme.css`. By default it's picked from your wardrobe: the most common colorful accent among light garments for Day, and among dark garments for Evening.
+## Accounts and sign-in
 
+Each person has their own wardrobe. The first user, `owner`, is created with the database and is an admin. Admins can switch into anyone's wardrobe from the bar at the top of the page, and a banner shows whose wardrobe you're viewing.
 
-Everything is plain files in `public/`; edit one and refresh the browser (no build step).
-
-| To change | Edit |
-|---|---|
-| Colors and fonts (Day and Evening separately) | `css/theme.css` |
-| Date formats and the AI-button color source | `js/settings.js` |
-| Words for colors, categories, subcategories, fabrics, fit, shape, hem, sleeve, fabric weight, sheen, statement, formality and warmth | `src/enclothed/locales/` |
-| Any text or layout on a page | the matching file in `js/templates/` (e.g. `outfitPage.js` for “Asked for …”, `garmentCard.js` for the wardrobe cards, `garmentPage.js` for the details labels) |
-| Spacing, sizes, layout rules | `css/app.css` |
-| The site icon (`favicon.svg`, plus PNGs made from it) | `icons/` |
+On a server, sign-in is handled by [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/): people log in with a one-time code emailed to them, and enclothed verifies the signed token Cloudflare adds to each request, then looks up the user by email. Set `ACCESS_TEAM_NAME` and `AUD_TAG` in `.env`, and add each person with `adduser`. Any failure to verify is an error, never a fallback to a default user.
 
 ### Demo wardrobe
 
-Anyone with a login can open a shared demo wardrobe from the bar at the top of the page, and add garments or use the AI there. It's a copy of a sample of your wardrobe, without your private notes, style notes, or the words of your past requests. It rebuilds itself on the first visit after 8:00 UTC each day, and everyone sees it in their own language. AI use in the demo stops at `DEMO_DAILY_TOKEN_LIMIT` in `config.py`.
-
-Create it or refresh the sample with `enclothed demo-seed` (`--per-category 5`, `--outfits 8`). The sample stays frozen until you run that again. Don't edit `data/demo-template/` by hand.
+Anyone signed in can open a shared demo wardrobe and add garments or use the AI there. It's a sample of the owner's wardrobe without private notes, style notes, or the wording of past requests. It rebuilds itself on the first visit after 8:00 UTC each day, and AI use in it stops at `DEMO_DAILY_TOKEN_LIMIT` in `config.py`. Create it or refresh the sample with `enclothed demo-seed`; don't edit `data/demo-template/` by hand.
 
 ### Languages
 
-The menu at the top of the page sets a person's language: English, Traditional Chinese (Taiwan), or Japanese. It changes the names of the fixed terms, the date format, and what the AI writes from then on. Buttons and headings stay in English, and saved notes and outfits aren't retranslated. New garments get their styling notes, style tags, pattern, materials and country in the chosen language; the database always keeps fixed terms in English. To set someone's language before they sign in, use `adduser -l zh-TW` or `edituser ID -l ja-JP`. An admin viewing as someone sees and changes that person's language.
+The language menu changes the names of fixed terms (colors, categories, fabrics, fit…), the date format, and the language the AI writes in from then on. Buttons and headings stay in English, and saved notes and outfits aren't retranslated. The database always stores fixed terms in English; translations live in `src/enclothed/locales/`.
 
-`js/core/` holds data and helpers, `js/features/` the behavior (editing, the outfit builder, uploads, filters), and `js/main.js` routing and start-up. The scripts share one set of names and load in the order listed in `index.html`.
+## Running with Docker
 
-Uploaded photos are turned upright, converted to JPEG and resized (longest side 2000 px), so phone photos (including iPhone HEIC) fit the API's limits. Thumbnails are made on first view and cached in `data/thumbs/`.
+```bash
+docker build -t enclothed .
+docker run -d --name enclothed --restart unless-stopped \
+  -p 127.0.0.1:8000:8000 --env-file .env -v "$PWD/data:/app/data" enclothed
+```
 
-The web app needs to know who you are. For local use, set `ENCLOTHED_DEV_USER=owner` in `.env`; that signs you in as the first user with no login. Never set it on a public server. The name under the title is that user's username. The interactive API docs are at http://localhost:8000/docs.
+All state lives in the mounted `data/` folder, so back that up. The container listens only on `127.0.0.1:8000`; put a reverse proxy or tunnel in front of it for HTTPS and sign-in.
 
-## How it works
+Maintenance commands:
 
-1. Give the `add` command URLs or paths of photos of one garment.
-2. Photos are staged, and Claude tags them once into a structured Pydantic model, including a role for each photo (front, back, label, detail).
-3. The record is saved in SQLite, the call is logged with its token usage, and the photos are filed by role.
-4. Everything after intake works from the text records, so the photos never need to be sent again.
+| Command | What it does |
+|---|---|
+| `uv run snapshot` | Writes a consistent copy of the database to `data/snapshots/`, keeping 7 daily and 4 weekly |
+| `scripts/mend-all.sh` | Backs up the database, mends 5 garments, and asks before mending the rest |
+| `uv run backup` / `restore` / `refresh` | Local development: save `data/` as a golden copy, put it back, or wipe it |
+
+## Customizing
+
+The front end is plain HTML, CSS, and JavaScript in `public/`, with no build step: edit a file and refresh.
+
+| To change | Edit |
+|---|---|
+| Colors and fonts (Day and Evening themes) | `public/css/theme.css` |
+| Spacing, sizes, layout | `public/css/app.css` |
+| Date formats and the AI-button color source | `public/js/settings.js` |
+| Text or layout on a page | the matching file in `public/js/templates/` |
+| Words for fixed terms in each language | `src/enclothed/locales/` |
+| Models, token caps, demo limits, prices | `src/enclothed/config.py` |
+| The site icon | `public/icons/` |
+
+Buttons that call the AI (and spend tokens) share the class `llm-action` and their own color, `--llm`. By default that color comes from your wardrobe: the most common colorful accent among light garments for Day, and among dark garments for Evening.
+
+## Project layout
+
+```
+src/enclothed/
+  api.py           FastAPI app: REST endpoints and the static front end
+  main.py          CLI entry point
+  llm.py           every Anthropic API call, with token and cost logging
+  intake.py        photo tagging          mend.py      filling blank fields
+  outfit.py        suggestions and validation
+  insights.py      "Ask your wardrobe"    sandbox.py   read-only query copy
+  auth.py          Cloudflare Access sign-in and acting as another user
+  db.py            SQLite access          schema.sql   base schema
+  models.py        Pydantic models        fabrics.py   the fixed fabric list
+  i18n.py, locales/  translations         demo.py      the demo wardrobe
+  photos.py        orientation, resizing, thumbnails
+migrations/        numbered SQL migrations, applied on start-up
+public/            the web front end (core helpers, features, page templates)
+tests/             pytest suite
+```
 
 ## Tests
 
@@ -191,11 +212,21 @@ The web app needs to know who you are. For local use, set `ENCLOTHED_DEV_USER=ow
 uv run pytest
 ```
 
-## Upcoming features
+GitHub Actions runs the suite on every pull request and push to `main`, and it must pass before merging.
 
-- Log when you wear an outfit.
-- Accounts and sign-in, then hosting.
+## Roadmap
+
+- "Should I buy this?": photograph an item while shopping and see how it fits your wardrobe, what it duplicates, and what outfits it unlocks
+- Mimic: recreate the look of a photo using what you own
+- Charts in "Ask your wardrobe" answers
+- Configurable LLM key and model, with support for other providers
+- Logging when you actually wear an outfit
+- Style modes, such as Western tailored versus silhouette-based styling
 
 ## Tech
 
-Python 3.13, uv, Anthropic API, Pydantic, SQLite, FastAPI, Pillow, vanilla JavaScript, pytest
+Python 3.13, uv, FastAPI, Pydantic, SQLite, Anthropic API (Claude), Pillow, PyJWT, vanilla JavaScript, pytest, Docker, GitHub Actions, Cloudflare Access
+
+## About
+
+enclothed started as my [Boot.dev](https://www.boot.dev) Personal Project 1, a command-line tool for tagging photos and suggesting outfits, and grew from there into a hosted, multi-user web app.
