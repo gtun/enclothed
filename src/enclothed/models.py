@@ -93,6 +93,8 @@ STATEMENT_LABELS: dict[Statement, str] = {
 }
 RiskTier = Literal["safe", "stretch", "bold"]
 RISK_TIER_LABELS: dict[RiskTier, str] = {"safe": "Safe", "stretch": "Stretch", "bold": "Bold"}
+Recommendation = Literal["worth_it", "maybe", "pass"]
+RECOMMENDATION_LABELS: dict[Recommendation, str] = {"worth_it": "Worth it", "maybe": "Maybe", "pass": "Pass"}
 
 Category = Literal["top", "bottom", "one-piece", "outerwear", "shoes", "accessory"]
 CATEGORY_ORDER = {category: position for position, category in enumerate(get_args(Category))}
@@ -236,6 +238,7 @@ class Garment(BaseModel):
     disowned_on: SkipJsonSchema[date | None] = None
     mended_on: SkipJsonSchema[date | None] = None
     user_id: SkipJsonSchema[int | None] = None
+    weighed_on: SkipJsonSchema[date | None] = None    # set while it's a candidate from weigh, not owned
 
     @property
     def name(self) -> str:
@@ -308,6 +311,43 @@ class OutfitResult(BaseModel):
     outfits: list[Outfit]
 
 
+# --- weigh: should I buy this? (#2) ------------------------------------------------
+class WeighCheck(BaseModel):
+    answer: bool
+    reason: str = Field(description="One or two sentences backing the answer with specific garments or facts from the wardrobe.")
+
+class SimilarMatch(BaseModel):
+    garment_id: int = Field(description="An ID from <similar>.")
+    similarity: Literal["same", "close", "different"] = Field(description="same: does the same job, no need for both. close: overlaps a lot. different: same category, different role.")
+    differences: str = Field(description="What sets the candidate apart from this garment, such as color, fabric, fit or length. Short.")
+
+class WeighVerdict(BaseModel):
+    """The verdict as it's stored and shown: everything the weigh call returns except the outfits."""
+    already_own: WeighCheck
+    similar: list[SimilarMatch]
+    makes_outfits: WeighCheck
+    fills_gap: WeighCheck
+    fits_style: WeighCheck
+    recommendation: Recommendation
+    summary: str
+
+class WeighResult(BaseModel):
+    """What the weigh call returns. The model writes fields in this order, so the order is the
+    order it reasons in: duplicates first, then outfits, then the checks the outfits inform,
+    and the recommendation last, once everything it rests on has been written."""
+    already_own: WeighCheck = Field(description="Does the owner already have this garment, or one close enough that they don't need it?")
+    similar: list[SimilarMatch] = Field(description="Every garment in <similar>, most similar first.")
+    outfits: list[Outfit]
+    makes_outfits: WeighCheck = Field(description="Can it make good outfits with what the owner already has? Judge by the outfits above.")
+    fills_gap: WeighCheck = Field(description="Does it fill a gap: a role nothing in the wardrobe covers well?")
+    fits_style: WeighCheck = Field(description="Does its style fit the wardrobe's overall design language?")
+    recommendation: Recommendation = Field(description="worth_it, maybe or pass. A near-duplicate is usually pass.")
+    summary: str = Field(description="Two or three sentences the owner can read in the store: the verdict and the main reason.")
+
+    def verdict(self) -> WeighVerdict:
+        return WeighVerdict.model_validate(self.model_dump(exclude={"outfits"}))
+
+
 # --- Front-end-only models ------------
 class Photo(BaseModel):
     role: PhotoRole
@@ -327,6 +367,21 @@ class Draft(BaseModel):
 class DraftOut(BaseModel):
     id: str
     garment: Garment
+
+class WeighIn(BaseModel):
+    """Weigh a tagged draft: the garment as reviewed, which may differ from what the AI tagged."""
+    draft_id: str
+    garment: Garment
+
+class WeighOut(BaseModel):
+    garment_id: int
+    weighed_at: str
+    verdict: WeighVerdict
+
+class WeighCreatedOut(BaseModel):
+    weigh: WeighOut
+    candidate: "GarmentOut"
+    outfits: list["OutfitOut"]
 
 class MendOut(BaseModel):
     """What the LLM proposes for a garment's blank fields. Nothing has been saved."""
@@ -434,7 +489,7 @@ class UsageCall(BaseModel):
     """One LLM call, with no prompts or results: only what's needed to review spending."""
     timestamp: str
     user_id: int
-    kind: Literal["tagging", "outfits", "style", "insights"]
+    kind: Literal["tagging", "outfits", "style", "insights", "weigh"]
     model: str
     input_tokens: int
     output_tokens: int
@@ -466,6 +521,7 @@ class OptionsOut(BaseModel):
     formality: list[LevelOption]
     warmth: list[LevelOption]
     risk_tiers: list[ChoiceOption] = []
+    recommendations: list[ChoiceOption] = []
     languages: list[ChoiceOption]
     # Display names of the fixed values, in the user's language. Empty for English, where the value is the name.
     category_labels: dict[str, str] = {}
@@ -519,3 +575,6 @@ class InsightsIn(BaseModel):
 class InsightsOut(BaseModel):
     answer: str
     queries: list[str] = []
+
+
+WeighCreatedOut.model_rebuild()   # it names OutfitOut, which is defined after it

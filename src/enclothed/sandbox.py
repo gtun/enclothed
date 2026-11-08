@@ -93,12 +93,17 @@ def lookup_rows() -> dict[str, list[tuple]]:
     return {"colors": colors, "layers": layers}
 
 
+# Candidates from weigh (weighed_on set) aren't the user's, so they and the outfits suggested with
+# them stay out of the snapshot. Insights then can't count them by mistake, whatever SQL it writes.
+_CANDIDATE_OUTFITS = ("SELECT og.outfit_id FROM outfit_garments og JOIN garments g ON g.id = og.garment_id "
+                      "WHERE g.weighed_on IS NOT NULL")
+_USER_OUTFITS = f"SELECT id FROM outfits WHERE user_id = :user_id AND id NOT IN ({_CANDIDATE_OUTFITS})"
 WHERE_FILTERS = {
-    "garments" : " WHERE user_id = :user_id",
+    "garments" : " WHERE user_id = :user_id AND weighed_on IS NULL",
     "sets" : " WHERE user_id = :user_id",
-    "outfits" : " WHERE user_id = :user_id",
-    "outfit_garments" : " WHERE outfit_id IN (SELECT id FROM outfits WHERE user_id = :user_id)",
-    "wears" : " WHERE outfit_id IN (SELECT id FROM outfits WHERE user_id = :user_id)",
+    "outfits" : f" WHERE id IN ({_USER_OUTFITS})",
+    "outfit_garments" : f" WHERE outfit_id IN ({_USER_OUTFITS})",
+    "wears" : f" WHERE outfit_id IN ({_USER_OUTFITS})",
 }
 
 def build_snapshot(db_path: Path, user_id: int) -> sqlite3.Connection:

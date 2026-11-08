@@ -5,6 +5,7 @@ import logging
 import re
 import shutil
 import time
+from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
@@ -27,6 +28,10 @@ def _folder(drafts_dir: Path, user_id: int, draft_id: str) -> Path | None:
         return None
     folder = drafts_dir / str(user_id) / draft_id
     return folder if (folder / DRAFT_FILE).is_file() else None
+
+
+def has_draft(drafts_dir: Path, user_id: int, draft_id: str) -> bool:
+    return _folder(drafts_dir, user_id, draft_id) is not None
 
 
 def remove_old_drafts(drafts_dir: Path) -> None:
@@ -56,14 +61,16 @@ def create_draft(drafts_dir: Path, user_id: int, photo_paths: list[Path], loggin
     return draft
 
 
-def confirm_draft(drafts_dir: Path, db_path: Path, garments_path: Path, logging_path: Path, user_id: int, draft_id: str, garment: Garment) -> int | None:
-    """Add the reviewed garment to the wardrobe. None if there's no such draft."""
+def confirm_draft(drafts_dir: Path, db_path: Path, garments_path: Path, logging_path: Path, user_id: int, draft_id: str, garment: Garment,
+                  weighed_on: date | None = None) -> int | None:
+    """Add the reviewed garment to the wardrobe, or as a candidate when weighed_on is given. None if there's no such draft."""
     folder = _folder(drafts_dir, user_id, draft_id)
     if folder is None:
         return None
 
     draft = Draft.model_validate(json.loads((folder / DRAFT_FILE).read_text(encoding="utf-8")))
-    reviewed = garment.model_copy(update={"id": None, "date_added": None, "set_id": None, "disowned_on": None, "mended_on": None, "user_id": None})
+    reviewed = garment.model_copy(update={"id": None, "date_added": None, "set_id": None, "disowned_on": None, "mended_on": None, "user_id": None,
+                                        "weighed_on": weighed_on})
     garment_id = insert_garment(db_path, user_id, reviewed)
 
     photos = sorted(path for path in folder.iterdir() if path.name != DRAFT_FILE)

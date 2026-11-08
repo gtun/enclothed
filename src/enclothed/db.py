@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import date
 from pathlib import Path
-from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, User
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, User, WeighOut, WeighVerdict
 from contextlib import closing
 import json
 import logging
@@ -111,11 +111,12 @@ def select_all_garments(db_path: Path, user_id: int) -> list[Garment]:
 
 
 def select_owned_garments(db_path: Path, user_id: int) -> list[Garment]:
+    """Garments the user has now: not disowned, and not a candidate they're only weighing."""
     with closing(_connect(db_path)) as conn:
         with conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                "SELECT * from garments WHERE user_id = ? AND disowned_on IS NULL ORDER BY id", (user_id,)
+                "SELECT * from garments WHERE user_id = ? AND disowned_on IS NULL AND weighed_on IS NULL ORDER BY id", (user_id,)
             ).fetchall()
             return [_row_to_garment(row) for row in rows]
 
@@ -125,6 +126,65 @@ def _row_to_garment(row:sqlite3.Row) -> Garment:
     for key in DB_JSON_COLUMNS:
         garment_dict[key] = json.loads(garment_dict[key]) if garment_dict[key] is not None else None
     return Garment.model_validate(garment_dict)
+
+
+# --- weigh defs (#2) -------------
+def insert_weigh(db_path: Path, user_id: int, garment_id: int, verdict: WeighVerdict, weighed_at: str) -> None:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            conn.execute("INSERT INTO weighs (garment_id, user_id, weighed_at, verdict) VALUES (?, ?, ?, ?)",
+                         (garment_id, user_id, weighed_at, verdict.model_dump_json()))
+
+
+def _row_to_weigh(row: sqlite3.Row) -> WeighOut:
+    return WeighOut(garment_id=row["garment_id"], weighed_at=row["weighed_at"], verdict=WeighVerdict.model_validate_json(row["verdict"]))
+
+
+def select_weighs(db_path: Path, user_id: int) -> list[WeighOut]:
+    """Verdicts for garments still being weighed, newest first. Bought ones are left out."""
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT w.garment_id, w.weighed_at, w.verdict FROM weighs w JOIN garments g ON g.id = w.garment_id "
+            "WHERE w.user_id = ? AND g.weighed_on IS NOT NULL ORDER BY w.weighed_at DESC, w.garment_id DESC", (user_id,)
+        ).fetchall()
+        return [_row_to_weigh(row) for row in rows]
+
+
+def select_weigh(db_path: Path, user_id: int, garment_id: int) -> WeighOut | None:
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT garment_id, weighed_at, verdict FROM weighs WHERE garment_id = ? AND user_id = ?",
+                           (garment_id, user_id)).fetchone()
+        return _row_to_weigh(row) if row else None
+
+
+def buy_candidate(db_path: Path, user_id: int, garment_id: int) -> bool:
+    """Make a weighed garment owned. False if it isn't this user's candidate."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute("UPDATE garments SET weighed_on = NULL WHERE id = ? AND user_id = ? AND weighed_on IS NOT NULL",
+                                  (garment_id, user_id))
+            return cursor.rowcount == 1
+
+
+def delete_candidate(db_path: Path, user_id: int, garment_id: int) -> bool:
+    """Delete a weighed garment, its verdict, and the outfits suggested with it. Refuses anything
+    owned or disowned, so this can never delete a real wardrobe piece. False if there's nothing to delete."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            row = conn.execute("SELECT 1 FROM garments WHERE id = ? AND user_id = ? AND weighed_on IS NOT NULL",
+                               (garment_id, user_id)).fetchone()
+            if row is None:
+                return False
+            # Children before parents: foreign keys are on, so an outfit can't go while rows still point at it.
+            outfit_ids = [(r[0],) for r in conn.execute("SELECT outfit_id FROM outfit_garments WHERE garment_id = ?", (garment_id,))]
+            conn.executemany("DELETE FROM wears WHERE outfit_id = ?", outfit_ids)
+            conn.executemany("DELETE FROM outfit_garments WHERE outfit_id = ?", outfit_ids)
+            conn.executemany("DELETE FROM outfits WHERE id = ?", outfit_ids)
+            conn.execute("DELETE FROM weighs WHERE garment_id = ?", (garment_id,))
+            conn.execute("DELETE FROM garments WHERE id = ?", (garment_id,))
+            return True
 
 
 # --- outfit defs -------------
@@ -371,6 +431,7 @@ def delete_demo_wardrobe(db_path: Path, user_id: int, keep: set[int]) -> list[in
             conn.execute(f"DELETE FROM outfit_garments WHERE outfit_id IN {outfits}", (user_id,))
             conn.execute("DELETE FROM outfits WHERE user_id = ?", (user_id,))
             conn.execute("UPDATE garments SET set_id = NULL WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM weighs WHERE user_id = ?", (user_id,))
             conn.executemany("DELETE FROM garments WHERE id = ? AND user_id = ?", [(i, user_id) for i in garment_ids])
             conn.execute("DELETE FROM sets WHERE user_id = ?", (user_id,))
     return garment_ids

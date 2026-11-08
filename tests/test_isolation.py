@@ -3,6 +3,7 @@ import json
 import re
 import sqlite3
 from contextlib import closing
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -14,11 +15,14 @@ from enclothed import config
 from enclothed import api, photos
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
-from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, save_preferences, select_garment
+from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, insert_weigh, save_preferences, select_garment
 from enclothed.intake import TEST_GARMENT
-from enclothed.models import Draft, Outfit, OutfitGarment, User
+from enclothed.models import Draft, Outfit, OutfitGarment, User, WeighVerdict
 
 TIMESTAMP = "2026-11-04T00:00:00+00:00"
+_CHECK = {"answer": True, "reason": "r"}
+VERDICT = WeighVerdict.model_validate({"already_own": _CHECK, "similar": [], "makes_outfits": _CHECK, "fills_gap": _CHECK,
+                                       "fits_style": _CHECK, "recommendation": "maybe", "summary": "s"})
 ALICE = User(id=1, username="alice")
 BOB = User(id=2, username="bob")
 
@@ -33,7 +37,9 @@ def add_wardrobe(db_path, garments_dir, user_id):
     set_id = insert_set(db_path, user_id, [second_id], "suit")
     outfit = Outfit(aesthetic="a", explanation="e", garments=[OutfitGarment(garment_id=garment_id, styling_advice=None)])
     [outfit_id] = insert_outfits(db_path, user_id, [outfit], None, "dinner", TIMESTAMP)
-    return {"garment": garment_id, "second": second_id, "set": set_id, "outfit": outfit_id}
+    candidate_id = insert_garment(db_path, user_id, TEST_GARMENT.model_copy(update={"weighed_on": date(2026, 11, 8)}))
+    insert_weigh(db_path, user_id, candidate_id, VERDICT, TIMESTAMP)
+    return {"garment": garment_id, "second": second_id, "set": set_id, "outfit": outfit_id, "candidate": candidate_id}
 
 
 @pytest.fixture
@@ -47,6 +53,7 @@ def db_path(tmp_path, monkeypatch):
     monkeypatch.setattr(api, "DB_PATH", path)
     monkeypatch.setattr(config, "DB_PATH", path)
     monkeypatch.setattr(api, "GARMENTS_DIR", tmp_path / "garments")
+    monkeypatch.setattr(api, "THUMBS_DIR", tmp_path / "thumbs")
     monkeypatch.setattr(api, "INTAKE_DIR", tmp_path / "intake")
     monkeypatch.setattr(api, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
     monkeypatch.setattr(api, "PREFERENCES_LOG_PATH", tmp_path / "preferences_log.jsonl")
@@ -87,6 +94,7 @@ TARGETED = [
     ("PATCH", "/api/outfits/{outfit}", {"liked": True}),
     ("GET", "/photos/{garment}/front_00.jpg", None),
     ("GET", "/thumbs/{garment}/front_00.jpg", None),
+    ("POST", "/api/weighs/{candidate}/buy", None),
 ]
 
 
@@ -117,7 +125,18 @@ COVERED_ELSEWHERE = {   # these don't answer 200, so they have their own tests b
     ("POST", "/api/garments/{}/mend"),
     ("POST", "/api/garments/drafts/{}"),
     ("DELETE", "/api/garments/drafts/{}"),
+    ("DELETE", "/api/weighs/{}"),
 }
+
+
+def test_someone_elses_candidate_cant_be_discarded(bob, alice_data, bob_data, db_path):
+    assert bob.delete(f"/api/weighs/{alice_data['candidate']}").status_code == 404
+    assert select_garment(db_path, 1, alice_data["candidate"]) is not None
+    assert bob.delete(f"/api/weighs/{bob_data['candidate']}").status_code == 204
+
+
+def test_weighs_list_only_your_own(bob, alice_data, bob_data):
+    assert [w["garment_id"] for w in bob.get("/api/weighs").json()] == [bob_data["candidate"]]
 
 
 def test_someone_elses_garment_cant_be_mended(bob, alice_data, monkeypatch):
@@ -154,7 +173,7 @@ def ids(items):
 
 
 def test_lists_show_only_your_own(bob, alice_data, bob_data):
-    assert ids(bob.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"]]
+    assert ids(bob.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"], bob_data["candidate"]]
     assert ids(bob.get("/api/outfits").json()) == [bob_data["outfit"]]
     assert ids(bob.get("/api/sets").json()) == [bob_data["set"]]
 
@@ -258,11 +277,11 @@ def admin(as_user, db_path, monkeypatch):
 
 def test_admin_can_act_as_someone_and_come_back(admin, alice_data, bob_data):
     assert admin.put("/api/act-as", json={"user_id": 2}).status_code == 204
-    assert ids(admin.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"]]
+    assert ids(admin.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"], bob_data["candidate"]]
     assert admin.get("/api/profile").json() == {"name": "bob", "language": "en-US", "is_admin": True, "signed_in_as": "alice", "is_demo": False, "demo_user_id": None}
 
     admin.put("/api/act-as", json={"user_id": None})
-    assert ids(admin.get("/api/garments").json()) == [alice_data["garment"], alice_data["second"]]
+    assert ids(admin.get("/api/garments").json()) == [alice_data["garment"], alice_data["second"], alice_data["candidate"]]
     assert admin.get("/api/profile").json()["signed_in_as"] is None
 
 
@@ -311,5 +330,5 @@ def test_non_admin_cannot_act_as_anyone(bob, alice_data):
 
 def test_a_forged_cookie_does_nothing_for_a_non_admin(bob, alice_data, bob_data):
     bob.cookies.set("enclothed_act_as", "1")
-    assert ids(bob.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"]]
+    assert ids(bob.get("/api/garments").json()) == [bob_data["garment"], bob_data["second"], bob_data["candidate"]]
     assert bob.get(f"/api/garments/{alice_data['garment']}").status_code == 404

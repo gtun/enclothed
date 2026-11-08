@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from datetime import date
 from contextlib import closing
@@ -215,7 +216,16 @@ def make_old_db(path):
 
 
 NEW_ATTRIBUTES = {"fabric_type", "shape", "hem", "fabric_weight", "sleeve", "statement", "mended_on"}
-LATER_COLUMNS = NEW_ATTRIBUTES | {"risk_tier"}   # every column added by a migration after 008
+LATER_COLUMNS = NEW_ATTRIBUTES | {"risk_tier", "weighed_on"}   # every column added by a migration after 008
+LATER_TABLES = ["weighs"]                                       # every table added by a migration after 008
+
+
+def without_later_additions(text):
+    """schema.sql minus the columns and tables migrations after 008 added."""
+    for table in LATER_TABLES:
+        text = re.sub(rf"CREATE TABLE IF NOT EXISTS {table} \(.*?\);\n\n", "", text, flags=re.S)
+    text = "".join(line for line in text.splitlines(keepends=True) if line.strip().split(" ")[0] not in LATER_COLUMNS)
+    return re.sub(r",(\s*\n\);)", r"\1", text)   # a removed last column leaves a trailing comma
 
 
 def schema_before_user_id():
@@ -224,7 +234,7 @@ def schema_before_user_id():
     text = text.replace(",\n    language TEXT NOT NULL DEFAULT 'en-US',\n    is_demo INTEGER NOT NULL DEFAULT 0 CHECK (is_demo IN (0, 1)),\n    demo_reset_at TEXT", "")   # added later, by migrations 007 and 008
     text = text.replace(",\n    user_id INTEGER REFERENCES users(id)", "")
     text = text.replace("    user_id INTEGER REFERENCES users(id),\n", "")
-    return "".join(line for line in text.splitlines(keepends=True) if line.strip().split(" ")[0] not in LATER_COLUMNS)
+    return without_later_additions(text)
 
 
 LATEST = max(int(p.name.split("_")[0]) for p in MIGRATIONS_DIR.glob("*.sql"))
@@ -233,10 +243,7 @@ LATEST = max(int(p.name.split("_")[0]) for p in MIGRATIONS_DIR.glob("*.sql"))
 def test_attributes_migration_keeps_garments_and_leaves_the_new_fields_blank(tmp_path):
     path = tmp_path / "old.db"
     old_schema = tmp_path / "old_schema.sql"
-    old_schema.write_text("".join(
-        line for line in SCHEMA_PATH.read_text().splitlines(keepends=True)
-        if line.strip().split(" ")[0] not in LATER_COLUMNS
-    ))
+    old_schema.write_text(without_later_additions(SCHEMA_PATH.read_text()))
     upto_008 = tmp_path / "upto_008"; upto_008.mkdir()
     for migration in sorted(MIGRATIONS_DIR.glob("*.sql"))[:8]:
         (upto_008 / migration.name).write_text(migration.read_text())
