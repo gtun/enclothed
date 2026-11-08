@@ -23,13 +23,13 @@ from enclothed.config import (
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH
 )
 from enclothed.models import (
-    ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitGarment, OutfitLikedIn, OutfitOut,
+    ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, blank_fields,
 )
 from enclothed.insights import answer_question
 from enclothed.llm import UnusableResponse, improve_preferences
-from enclothed.outfit import generate_outfits
+from enclothed.outfit import fill_description, generate_outfits
 from enclothed.usage import log_failed_call, read_calls
 
 load_dotenv()
@@ -266,6 +266,31 @@ def create_outfit(body: OutfitCreateIn, user: CurrentUser) -> OutfitOut:
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     [outfit_id] = db.insert_outfits(DB_PATH, user.id, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp)
     return responses.get_outfit(DB_PATH, user.id, outfit_id)
+
+
+@app.post("/api/outfits/describe")
+def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser) -> OutfitDescription:
+    """Fill in a blank name or explanation for an outfit the user is putting together. Saves nothing."""
+    ids = list(dict.fromkeys(body.garments))
+    wardrobe = {g.id: g for g in db.select_owned_garments(DB_PATH, user.id)}
+    unknown = [i for i in ids if i not in wardrobe]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
+
+    aesthetic, explanation = _blank_to_none(body.aesthetic), _blank_to_none(body.explanation)
+    if aesthetic and explanation:
+        return OutfitDescription(aesthetic=aesthetic, explanation=explanation)  # nothing to fill, so no tokens
+
+    _require_demo_tokens(user)
+    client = _anthropic_client()
+    try:
+        return fill_description(OUTFIT_LOG_PATH, user.id, {i: wardrobe[i] for i in ids}, client, _blank_to_none(body.details),
+                                aesthetic, explanation, _saved_preferences(user), user.language)
+    except anthropic.APIError as error:
+        raise _llm_failed(error)
+    except UnusableResponse:
+        logger.exception("Outfit description gave no usable answer")
+        raise HTTPException(status_code=502, detail="The AI couldn't describe this outfit. Try again, or write it yourself.")
 
 
 @app.patch("/api/outfits/{outfit_id}")

@@ -367,6 +367,18 @@ class OutfitCreateIn(BaseModel):
     details: str | None = None
     garments: list[OutfitGarmentIn] = Field(min_length=1)
 
+class OutfitDescribeIn(BaseModel):
+    """Pieces of an outfit the user put together, to name and explain. A name or explanation already written is kept."""
+    garments: list[int] = Field(min_length=1)
+    details: str | None = Field(default=None, max_length=1000)
+    aesthetic: str | None = Field(default=None, max_length=200)
+    explanation: str | None = Field(default=None, max_length=2000)
+
+class OutfitDescription(BaseModel):
+    """A name and explanation for an outfit: what the LLM returns, and what the describe endpoint returns."""
+    aesthetic: str = Field(description="A short name, two to five words, for the outfit's look or mood, for example, 'Workwear Americana' or 'relaxed earth tones.'")
+    explanation: str = Field(description="Two or three sentences on why these pieces work together. Specific to these pieces, never generic.")
+
 class PreferencesOut(BaseModel):
     text: str | None = None
     updated_at: str | None = None

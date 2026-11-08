@@ -608,3 +608,84 @@ def test_server_start_creates_the_db(tmp_path, monkeypatch, signed_in):
     assert not path.exists()
     with TestClient(api.app) as client:   # "with" runs the startup code
         assert client.get("/api/garments").json() == []
+
+
+# --- describe: AI fills a blank name or explanation for your own outfit ---
+from enclothed.llm import UnusableResponse, describe_system_prompt
+from enclothed.models import OutfitDescription
+
+
+@pytest.fixture
+def describer(monkeypatch):
+    """Replace the describe LLM call; records what it was sent and returns `describer.result`."""
+    class Fake:
+        result = OutfitDescription(aesthetic=" Quiet weekend ", explanation=" The navy and khaki stay calm. ")
+        calls = []
+        error = None
+    def fake_describe(client, context, language="en-US"):
+        Fake.calls.append({"context": "\n".join(block["text"] for block in context), "language": language})
+        if Fake.error:
+            raise Fake.error
+        return Fake.result, TokenUsage(model="m", input_tokens=10, output_tokens=5)
+    monkeypatch.setattr(outfit_module, "describe_outfit", fake_describe)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    Fake.calls = []
+    return Fake
+
+
+def test_describe_fills_both_blanks_and_saves_nothing(client, basics, describer, tmp_path):
+    b = basics
+    response = client.post("/api/outfits/describe", json={"garments": [b["top"], b["bottom"]], "details": "rainy Sunday"})
+    assert response.status_code == 200
+    assert response.json() == {"aesthetic": "Quiet weekend", "explanation": "The navy and khaki stay calm."}
+    sent = describer.calls[0]["context"]
+    assert "<outfit>" in sent and "rainy Sunday" in sent and "<given>" not in sent
+    assert client.get("/api/outfits").json() == []
+    entry = json.loads((tmp_path / "outfit_log.jsonl").read_text())
+    assert entry["kind"] == "describe" and entry["usage"]["input_tokens"] == 10
+
+
+def test_describe_keeps_what_the_user_wrote(client, basics, describer):
+    b = basics
+    describer.result = OutfitDescription(aesthetic="A different name", explanation="Why it works.")
+    response = client.post("/api/outfits/describe", json={"garments": [b["top"]], "aesthetic": "Sunday errands"})
+    assert response.json() == {"aesthetic": "Sunday errands", "explanation": "Why it works."}
+    assert '"aesthetic": "Sunday errands"' in describer.calls[0]["context"]
+
+
+def test_describe_with_both_written_skips_the_llm(client, basics, describer, tmp_path):
+    response = client.post("/api/outfits/describe", json={"garments": [basics["top"]], "aesthetic": "Mine", "explanation": "Also mine."})
+    assert response.json() == {"aesthetic": "Mine", "explanation": "Also mine."}
+    assert describer.calls == []
+    assert not (tmp_path / "outfit_log.jsonl").exists()
+
+
+def test_describe_includes_preferences_and_language(client, basics, describer):
+    client.put("/api/preferences", json={"text": "I like muted colors"})
+    api.app.dependency_overrides[signed_in_user] = lambda: User(id=1, username="owner", is_admin=True, language="ja-JP")
+    client.post("/api/outfits/describe", json={"garments": [basics["top"]]})
+    assert "I like muted colors" in describer.calls[0]["context"]
+    assert describer.calls[0]["language"] == "ja-JP"
+
+
+def test_describe_rejects_unknown_or_missing_garments(client, basics, describer):
+    assert client.post("/api/outfits/describe", json={"garments": [9999]}).status_code == 422
+    assert client.post("/api/outfits/describe", json={"garments": []}).status_code == 422
+    assert describer.calls == []
+
+
+def test_describe_unusable_answer_is_502_and_still_logged(client, basics, describer, tmp_path):
+    describer.error = UnusableResponse("No description", TokenUsage(model="m", input_tokens=7, output_tokens=0))
+    response = client.post("/api/outfits/describe", json={"garments": [basics["top"]]})
+    assert response.status_code == 502
+    assert json.loads((tmp_path / "outfit_log.jsonl").read_text())["usage"]["input_tokens"] == 7
+
+
+def test_describe_blank_answer_counts_as_unusable(client, basics, describer):
+    describer.result = OutfitDescription(aesthetic="  ", explanation="Fine.")
+    assert client.post("/api/outfits/describe", json={"garments": [basics["top"]]}).status_code == 502
+
+
+def test_describe_prompt_names_the_language():
+    assert "Japanese" in describe_system_prompt("ja-JP")
+    assert "Language:" not in describe_system_prompt("en-US")
