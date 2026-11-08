@@ -91,6 +91,9 @@ STATEMENT_LABELS: dict[Statement, str] = {
     "feature": "feature (some interest of its own)",
     "statement": "statement (the piece people notice)",
 }
+RiskTier = Literal["safe", "stretch", "bold"]
+RISK_TIER_LABELS: dict[RiskTier, str] = {"safe": "Safe", "stretch": "Stretch", "bold": "Bold"}
+
 Category = Literal["top", "bottom", "one-piece", "outerwear", "shoes", "accessory"]
 CATEGORY_ORDER = {category: position for position, category in enumerate(get_args(Category))}
 
@@ -299,6 +302,7 @@ class Outfit(BaseModel):
     garments: list[OutfitGarment]
     explanation: str = Field(description="Your rationale for choosing the garments in this outfit")
     missing: str | None = Field(default=None, description="Garments not in the wardrobe that would complete this outfit, and the role each would fill that nothing in the wardrobe can.")
+    risk_tier: RiskTier | None = Field(default=None, description="The tier this outfit was built at, as assigned in <options>. Always fill it in.")
 
 class OutfitResult(BaseModel):
     outfits: list[Outfit]
@@ -342,6 +346,7 @@ class OutfitOut(BaseModel):
     explanation: str
     missing: str | None = None
     liked: bool | None = None
+    risk_tier: RiskTier | None = None
     wear_count: int = 0
     garments: list[OutfitGarmentOut]
 
@@ -354,6 +359,8 @@ NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_lengt
 class OutfitSuggestIn(BaseModel):
     anchors: list[int] = []
     details: str | None = None
+    count: int = Field(default=3, ge=1, le=5)
+    riskiness: RiskTier | None = None     # None mixes the tiers
 
 class OutfitGarmentIn(BaseModel):
     garment_id: int
@@ -458,6 +465,7 @@ class OptionsOut(BaseModel):
     statements: list[ChoiceOption]
     formality: list[LevelOption]
     warmth: list[LevelOption]
+    risk_tiers: list[ChoiceOption] = []
     languages: list[ChoiceOption]
     # Display names of the fixed values, in the user's language. Empty for English, where the value is the name.
     category_labels: dict[str, str] = {}

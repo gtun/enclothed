@@ -215,6 +215,7 @@ def make_old_db(path):
 
 
 NEW_ATTRIBUTES = {"fabric_type", "shape", "hem", "fabric_weight", "sleeve", "statement", "mended_on"}
+LATER_COLUMNS = NEW_ATTRIBUTES | {"risk_tier"}   # every column added by a migration after 008
 
 
 def schema_before_user_id():
@@ -223,7 +224,7 @@ def schema_before_user_id():
     text = text.replace(",\n    language TEXT NOT NULL DEFAULT 'en-US',\n    is_demo INTEGER NOT NULL DEFAULT 0 CHECK (is_demo IN (0, 1)),\n    demo_reset_at TEXT", "")   # added later, by migrations 007 and 008
     text = text.replace(",\n    user_id INTEGER REFERENCES users(id)", "")
     text = text.replace("    user_id INTEGER REFERENCES users(id),\n", "")
-    return "".join(line for line in text.splitlines(keepends=True) if line.strip().split(" ")[0] not in NEW_ATTRIBUTES)
+    return "".join(line for line in text.splitlines(keepends=True) if line.strip().split(" ")[0] not in LATER_COLUMNS)
 
 
 LATEST = max(int(p.name.split("_")[0]) for p in MIGRATIONS_DIR.glob("*.sql"))
@@ -234,7 +235,7 @@ def test_attributes_migration_keeps_garments_and_leaves_the_new_fields_blank(tmp
     old_schema = tmp_path / "old_schema.sql"
     old_schema.write_text("".join(
         line for line in SCHEMA_PATH.read_text().splitlines(keepends=True)
-        if line.strip().split(" ")[0] not in NEW_ATTRIBUTES
+        if line.strip().split(" ")[0] not in LATER_COLUMNS
     ))
     upto_008 = tmp_path / "upto_008"; upto_008.mkdir()
     for migration in sorted(MIGRATIONS_DIR.glob("*.sql"))[:8]:

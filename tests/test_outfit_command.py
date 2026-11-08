@@ -29,6 +29,8 @@ def received(tmp_path, monkeypatch):
     def fake_get_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, **kwargs):
         calls["anchors"] = anchors
         calls["caching"] = caching
+        calls["count"] = kwargs.get("count")
+        calls["riskiness"] = kwargs.get("riskiness")
         return TEST_OUTFITS
 
     # Patch the name main.py imported, not enclothed.outfit.get_outfits.
@@ -84,3 +86,21 @@ def test_caching_is_on_unless_no_cache_is_given(monkeypatch, received):
 def test_no_cache_turns_caching_off(monkeypatch, received):
     run_outfit(monkeypatch, "--no-cache", "-p", "dinner")
     assert received["caching"] is False
+
+
+def test_count_and_riskiness_default_to_three_mixed(monkeypatch, received):
+    run_outfit(monkeypatch, "-p", "dinner")
+    assert received["count"] == 3
+    assert received["riskiness"] is None
+
+
+def test_count_and_riskiness_flags_are_passed_on(monkeypatch, received):
+    run_outfit(monkeypatch, "-n", "5", "-r", "bold", "-p", "dinner")
+    assert received["count"] == 5
+    assert received["riskiness"] == "bold"
+
+
+@pytest.mark.parametrize("bad", [["-n", "6"], ["-n", "0"], ["-r", "wild"]])
+def test_bad_count_or_riskiness_is_an_error(monkeypatch, received, bad):
+    with pytest.raises(SystemExit):
+        run_outfit(monkeypatch, *bad, "-p", "dinner")

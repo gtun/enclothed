@@ -1,5 +1,5 @@
 from anthropic import Anthropic
-from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitDescription, OutfitResult, Category, layer_for
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitDescription, OutfitResult, Category, RiskTier, layer_for
 from enclothed.llm import UnusableResponse, describe_outfit, recommend_outfits
 from enclothed.usage import log_failed_call
 from enclothed import config
@@ -8,6 +8,7 @@ import logging
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from collections import Counter
 from typing import get_args
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ TEST_OUTFITS = OutfitResult.model_validate({
                 "Everything is breathable and loose, which suits 21°C sun and a relaxed lunch."
             ),
             "missing": None,
+            "risk_tier": "safe",
         },
         {
             "aesthetic": "Relaxed earth tones",
@@ -53,6 +55,7 @@ TEST_OUTFITS = OutfitResult.model_validate({
                 "The look is easy and casual, with the slightly cropped chino showing off the sneakers."
             ),
             "missing": None,
+            "risk_tier": "stretch",
         },
         {
             "aesthetic": "Dark minimalist",
@@ -68,16 +71,17 @@ TEST_OUTFITS = OutfitResult.model_validate({
                 "The jacket is light enough for 21°C and easy to take off in the sun."
             ),
             "missing": None,
+            "risk_tier": "bold",
         },
     ]
 })
 
 
-def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE) -> OutfitResult:
-    result, _ = generate_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences, language)
+def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None) -> OutfitResult:
+    result, _ = generate_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences, language, count, riskiness)
     return result
 
-def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitResult, list[int]]:
+def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None) -> tuple[OutfitResult, list[int]]:
     """Ask the LLM for outfits, save the valid ones, and return the result plus the new outfit ids."""
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
@@ -116,13 +120,17 @@ def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], 
         }
         context.append(request_block)
 
+    plan = tier_plan(count, riskiness)
+    context.append({"type": "text", "text": options_text(plan)})
+
     try:
         wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context, language)
     except UnusableResponse as error:
         log_failed_call(logging_path, user_id, error.usage, str(error))
         raise
 
-    problems, valid_outfits = validate_outfits(wrapper, wardrobe, anchors)
+    wrapper = fill_single_tier(wrapper, plan)
+    problems, valid_outfits = validate_outfits(wrapper, wardrobe, anchors, plan)
     for problem in problems:
         logger.warning("Validation: %s", problem)
 
@@ -137,6 +145,35 @@ def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], 
     log_outfit(logging_path, user_id, anchors, wrapper, usage, "\n".join(block["text"] for block in context), problems, timestamp)
 
     return wrapper, new_ids
+
+def tier_plan(count: int, riskiness: RiskTier | None) -> dict[RiskTier, int]:
+    """How many outfits to ask for at each tier.
+
+    With a riskiness, every outfit is at that tier. Without one, the count is spread across
+    safe, stretch and bold, with any remainder going to safe first, then stretch:
+    1 -> 1/0/0, 2 -> 1/1/0, 3 -> 1/1/1, 4 -> 2/1/1, 5 -> 2/2/1.
+    """
+    if not config.MIN_OUTFIT_COUNT <= count <= config.MAX_OUTFIT_COUNT:
+        raise ValueError(f"count must be {config.MIN_OUTFIT_COUNT}-{config.MAX_OUTFIT_COUNT}; got {count}")
+    tiers: tuple[RiskTier, ...] = get_args(RiskTier)
+    if riskiness is not None:
+        return {tier: (count if tier == riskiness else 0) for tier in tiers}
+    base, extra = divmod(count, len(tiers))
+    return {tier: base + (1 if i < extra else 0) for i, tier in enumerate(tiers)}
+
+def options_text(plan: dict[RiskTier, int]) -> str:
+    total = sum(plan.values())
+    wanted = ", ".join(f"{n} {tier}" for tier, n in plan.items() if n)
+    return f"<options>\nSuggest exactly {total} outfit{'s' if total != 1 else ''}: {wanted}.\n</options>"
+
+def fill_single_tier(result: OutfitResult, plan: dict[RiskTier, int]) -> OutfitResult:
+    """When every outfit was asked for at one tier, fill in any tier the LLM left blank."""
+    asked = [tier for tier, n in plan.items() if n]
+    if len(asked) != 1 or all(o.risk_tier for o in result.outfits):
+        return result
+    return result.model_copy(update={"outfits": [
+        o if o.risk_tier else o.model_copy(update={"risk_tier": asked[0]}) for o in result.outfits
+    ]})
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     records = {}
@@ -202,16 +239,21 @@ def fill_description(log_path: Path, user_id: int, pieces: dict[int, Garment], c
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     return filled
 
-def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors: list[int] | None) -> tuple[list[str], list[Outfit]]:
+def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors: list[int] | None, plan: dict[RiskTier, int] | None = None) -> tuple[list[str], list[Outfit]]:
+    """Check the reply against what was asked for. A wrong count or tier mix is reported but drops nothing."""
     problems: list[str] = []
     valid: list[Outfit] = []
 
-    count = len(result.outfits)
-    if not config.MIN_OUTFIT_SUGGESTIONS <= count <= config.MAX_OUTFIT_SUGGESTIONS:
-        problems.append(
-            f"{count} outfit(s) returned, expected "
-            f"{config.MIN_OUTFIT_SUGGESTIONS}-{config.MAX_OUTFIT_SUGGESTIONS}"
-        )
+    if plan is not None:
+        expected = sum(plan.values())
+        count = len(result.outfits)
+        if count != expected:
+            problems.append(f"{count} outfit(s) returned, expected {expected}")
+        else:   # a wrong count always gives a wrong mix too, so only check the mix when the count is right
+            returned = Counter(o.risk_tier or "untiered" for o in result.outfits)
+            wanted = {tier: n for tier, n in plan.items() if n}
+            if dict(returned) != wanted:
+                problems.append(f"tiers returned {dict(sorted(returned.items()))}, expected {dict(sorted(wanted.items()))}")
 
     for number, outfit in enumerate(result.outfits, start=1):
         outfit_problems = validate_outfit(outfit, wardrobe, anchors)

@@ -3,8 +3,8 @@ from pathlib import Path
 from enclothed import db, i18n
 from typing import get_args
 from enclothed.models import (
-    CATEGORY_ORDER, Category, Color, FIELD_CATEGORIES, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
-    FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
+    CATEGORY_ORDER, Category, Color, FIELD_CATEGORIES, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, RiskTier, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
+    FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, RISK_TIER_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
     ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, OptionsOut,
     OutfitGarmentOut, OutfitOut, SetOut, blank_fields,
 )
@@ -80,6 +80,7 @@ def get_options(language: Language = DEFAULT_LANGUAGE) -> OptionsOut:
         statements=[ChoiceOption(value=statement, label=label("statements", statement, STATEMENT_LABELS[statement])) for statement in get_args(Statement)],
         formality=[LevelOption(value=value, label=label("formality", value, text)) for value, text in FORMALITY_LABELS.items()],
         warmth=[LevelOption(value=value, label=label("warmth", value, text)) for value, text in WARMTH_LABELS.items()],
+        risk_tiers=[ChoiceOption(value=tier, label=label("risk_tiers", tier, RISK_TIER_LABELS[tier])) for tier in get_args(RiskTier)],
         languages=[ChoiceOption(value=value, label=name) for value, name in LANGUAGE_NAMES.items()],
         category_labels=terms.get("categories", {}),
         subcategory_labels=terms.get("subcategories", {}),

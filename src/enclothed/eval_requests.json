@@ -1,0 +1,11 @@
+{
+  "_about": "The fixed requests eval-outfits runs. Keep them the same between prompt versions so runs are comparable; when you change one, start a new baseline. Each request: id (short, unique), details (what you'd type in the builder), and optionally count (1-5, default 3), riskiness (safe, stretch or bold; leave out for a mix) and anchors (garment IDs to build around).",
+  "requests": [
+    {"id": "dinner-rain", "details": "Dinner with friends downtown, about 7°C and rainy"},
+    {"id": "office", "details": "Office day, business casual, about 18°C"},
+    {"id": "errands-hot", "details": "Weekend errands, hot and humid, about 32°C"},
+    {"id": "gallery", "details": "Gallery opening on a Friday evening, about 12°C"},
+    {"id": "wedding-guest", "details": "Daytime wedding guest, cocktail attire, about 22°C"},
+    {"id": "all-bold", "details": "Weekend coffee and a walk, about 15°C", "riskiness": "bold"}
+  ]
+}

@@ -11,7 +11,7 @@ function oCard(o){
   return `<div class="ocardwrap${o.liked === false ? " disliked" : ""}"><a class="ocard" href="#outfit-${o.id}">
     <div class="flat" aria-hidden="true">${pcs.map(g => `<span class="${fadeClass(g).trim()}">${ph(g, thumb(g))}${goneMark(g)}</span>`).join("")}</div>
     ${palBar(o)}
-    <div class="obody"><h3>${esc(o.aesthetic)}</h3><p class="clamp">${esc(o.explanation)}</p>
+    <div class="obody"><h3>${esc(o.aesthetic)}${tierBadge(o)}</h3><p class="clamp">${esc(o.explanation)}</p>
       <div class="ofoot"><span>${when(o.timestamp)}</span><span>${plural(pcs.length,"piece")}</span>
         <span title="Formality: ${f ? esc(levelLabel(OPT.formality, f)) : "unknown"} (least formal piece)">F${pips(f || 0, 4)}</span>
         <span title="Warmth: ${w ? esc(levelLabel(OPT.warmth, w)) : "unknown"} (warmest top layer)">W${pips(w || 0, 5)}</span>

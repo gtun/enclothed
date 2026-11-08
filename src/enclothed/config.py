@@ -27,8 +27,9 @@ MEND_TOKEN_CAP = 2048
 DRAFT_MAX_AGE_SECONDS = 24 * 60 * 60   # a garment left in review this long is cleaned up
 MEND_MAX_PHOTO_BYTES = 4 * 1024 * 1024   # the API refuses images over 5 MB, and base64 adds a third
 OUTFIT_TOKEN_CAP = 8192
-MIN_OUTFIT_SUGGESTIONS = 2
-MAX_OUTFIT_SUGGESTIONS = 4
+MIN_OUTFIT_COUNT = 1
+MAX_OUTFIT_COUNT = 5        # each outfit adds output tokens and latency under OUTFIT_TOKEN_CAP
+DEFAULT_OUTFIT_COUNT = 3
 DESCRIBE_TOKEN_CAP = 1024     # a name and two or three sentences
 
 INSIGHTS_VALUE_SIZE_LIMIT = 10_000_000
