@@ -9,8 +9,18 @@ function suggestBlockedReason(pieces){
 }
 function saveBlockedReason(pieces){
   if (!pieces.length) return "Add at least one piece.";
-  if (!builder.form.aesthetic.trim() || !builder.form.explanation.trim()) return "Fill in the name and why it works.";
+  if (!builder.form.aesthetic.trim() || !builder.form.explanation.trim()) return "Fill in the name and why it works, or let AI suggest them.";
   return "";
+}
+/* The AI fill button: its label names whichever fields are blank; null when there's nothing it can do. */
+function describeLabel(pieces){
+  const needName = !builder.form.aesthetic.trim(), needWhy = !builder.form.explanation.trim();
+  if (!pieces.length || (!needName && !needWhy)) return null;
+  return needName && needWhy ? "Suggest a name and why it works" : needName ? "Suggest a name" : "Suggest why it works";
+}
+function describeButton(pieces){
+  const label = describeLabel(pieces);
+  return `<button type="button" class="btn llm-action wide" data-describe title="Uses AI (spends tokens). Fills only the blank fields." ${!label || builderBusy ? "disabled" : ""}>${esc(label || "Suggest a name and why it works")}</button>`;
 }
 
 function builderPanel(){
@@ -30,9 +40,10 @@ function builderPanel(){
   const manualForm = `<div class="bsec">
       <div class="field"><label for="b-aes">Name <span class="req-star" aria-hidden="true">*</span></label><input id="b-aes" class="txt" data-form="aesthetic" value="${esc(builder.form.aesthetic)}" placeholder="e.g. Sunday errands" required></div>
       <div class="field"><label for="b-exp">Why it works <span class="req-star" aria-hidden="true">*</span></label><textarea id="b-exp" class="txt" rows="3" data-form="explanation" placeholder="A sentence or two for future you" required>${esc(builder.form.explanation)}</textarea></div>
+      ${describeButton(pieces)}
       <div class="field"><label for="b-mis">Still missing <em>(optional)</em></label><input id="b-mis" class="txt" data-form="missing" value="${esc(builder.form.missing)}" placeholder="e.g. a darker belt"></div>
     </div>`;
-  const busy = builderBusy ? `<div class="busy" role="status"><span class="spin" aria-hidden="true"></span>${builder.manual ? "Saving…" : "Asking for outfit suggestions… this can take up to a minute."}</div>` : "";
+  const busy = builderBusy ? `<div class="busy" role="status"><span class="spin" aria-hidden="true"></span>${builderBusyText || (builder.manual ? "Saving…" : "Asking for outfit suggestions… this can take up to a minute.")}</div>` : "";
   const manualReason = saveBlockedReason(pieces);
   const foot = builder.manual
     ? `${busy}<button type="button" class="btn primary wide" data-save-own ${manualReason || builderBusy ? "disabled" : ""}>Save outfit</button>

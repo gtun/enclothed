@@ -7,7 +7,7 @@
    A "session" is one run of suggestions: retrying after a change adds to the same results page. */
 const builder = Object.assign({open: false, min: false, pieces: [], details: "", manual: false, form: {aesthetic: "", explanation: "", missing: "", advice: {}}, session: null},
   store.get("enclothed-builder", {}));
-let builderBusy = false, restoringTree = false;
+let builderBusy = false, builderBusyText = "", restoringTree = false;
 const saveBuilder = () => store.set("enclothed-builder", {open: builder.open, min: builder.min, pieces: builder.pieces, details: builder.details,
   manual: builder.manual, form: builder.form, session: builder.session});
 const sortedPieces = () => builder.pieces.map(id => byId[id]).filter(Boolean).sort((a, b) => catRank(a) - catRank(b) || a.id - b.id);
@@ -67,6 +67,8 @@ function updateBuilderButtons(){
   if (builder.manual){
     const reason = saveBlockedReason(pieces);
     el.querySelector("[data-save-own]").disabled = !!reason || builderBusy; reasonEl.textContent = reason;
+    const fill = el.querySelector("[data-describe]"), label = describeLabel(pieces);
+    if (fill){ fill.disabled = !label || builderBusy; if (label) fill.textContent = label; }
   } else {
     const reason = suggestBlockedReason(pieces);
     el.querySelector("[data-suggest]").disabled = !!reason || builderBusy; reasonEl.textContent = reason;
@@ -106,6 +108,22 @@ async function suggest(){
   } catch (e) { toast(e.message, true); }
   builderBusy = false; renderBuilder();
 }
+/* Ask the AI for whichever of the name and "why it works" are blank. Anything typed, even while waiting, is kept. */
+async function describeOwn(){
+  if (builderBusy) return;
+  const pieces = sortedPieces();
+  if (!describeLabel(pieces)) return;
+  builderBusy = true; builderBusyText = "Writing a name and why it works…"; renderBuilder();
+  try {
+    const f = builder.form;
+    const out = await api("/api/outfits/describe", {method: "POST", body: {garments: pieces.map(g => g.id), details: builder.details || null,
+      aesthetic: f.aesthetic.trim() || null, explanation: f.explanation.trim() || null}});
+    if (!f.aesthetic.trim()) f.aesthetic = out.aesthetic;
+    if (!f.explanation.trim()) f.explanation = out.explanation;
+    saveBuilder();
+  } catch (e) { toast(e.message, true); }
+  builderBusy = false; builderBusyText = ""; renderBuilder();
+}
 async function saveOwn(){
   if (builderBusy) return;
   builderBusy = true; renderBuilder();
@@ -142,5 +160,6 @@ document.addEventListener("click", e => {
   else if (t.hasAttribute("data-builder-min")){ builder.min = !builder.min; saveBuilder(); renderBuilder(); }
   else if (t.hasAttribute("data-suggest")) suggest();
   else if (t.hasAttribute("data-save-own")) saveOwn();
+  else if (t.hasAttribute("data-describe")) describeOwn();
   else if (t.dataset.manual){ builder.manual = t.dataset.manual === "on"; saveBuilder(); renderBuilder(); }
 });

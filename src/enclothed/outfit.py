@@ -1,6 +1,6 @@
 from anthropic import Anthropic
-from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitResult, Category, layer_for
-from enclothed.llm import UnusableResponse, recommend_outfits
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitDescription, OutfitResult, Category, layer_for
+from enclothed.llm import UnusableResponse, describe_outfit, recommend_outfits
 from enclothed.usage import log_failed_call
 from enclothed import config
 from enclothed.db import insert_outfits
@@ -160,6 +160,47 @@ def log_outfit(log_path: Path, user_id: int, anchors: list[int] | None, result: 
     }
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+def fill_description(log_path: Path, user_id: int, pieces: dict[int, Garment], client: Anthropic, details: str | None,
+                     aesthetic: str | None, explanation: str | None, preferences: str | None = None,
+                     language: Language = DEFAULT_LANGUAGE) -> OutfitDescription:
+    """Ask the LLM for whichever of the name and explanation are blank. What the user wrote is kept as is.
+
+    Callers skip this when both are written, so it always spends tokens. Logs to the outfit log, so the
+    usage page counts it under outfits.
+    """
+    context = [{"type": "text", "text": f"<outfit>\n{json.dumps(wardrobe_for_prompt(pieces), ensure_ascii=False)}\n</outfit>"}]
+    if details:
+        context.append({"type": "text", "text": f"<occasion>\n{details}\n</occasion>"})
+    if preferences:
+        context.append({"type": "text", "text": f"<preferences>\n{preferences}\n</preferences>"})
+    given = {key: value for key, value in (("aesthetic", aesthetic), ("explanation", explanation)) if value}
+    if given:
+        context.append({"type": "text", "text": f"<given>\n{json.dumps(given, ensure_ascii=False)}\n</given>"})
+
+    try:
+        answer, usage = describe_outfit(client, context, language)
+    except UnusableResponse as error:
+        log_failed_call(log_path, user_id, error.usage, str(error))
+        raise
+    # The LLM is told to return given text unchanged; code makes sure of it.
+    filled = OutfitDescription(aesthetic=aesthetic or answer.aesthetic.strip(), explanation=explanation or answer.explanation.strip())
+    if not filled.aesthetic or not filled.explanation:
+        log_failed_call(log_path, user_id, usage, "Blank name or explanation in description")
+        raise UnusableResponse("Blank name or explanation in description", usage)
+
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "user_id": user_id,
+        "kind": "describe",
+        "garment_ids": list(pieces),
+        "usage": usage.model_dump(),
+        "given": given,
+        "result": filled.model_dump(),
+    }
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    return filled
 
 def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors: list[int] | None) -> tuple[list[str], list[Outfit]]:
     problems: list[str] = []
