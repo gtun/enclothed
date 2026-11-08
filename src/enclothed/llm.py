@@ -123,6 +123,18 @@ Filling in blanks:
 """
 
 
+# TODO(Gary, #92): write this section. It's a placeholder so tiers work until you do.
+# Cover: what safe, stretch and bold mean; "break one rule, anchor the rest"; that stretch and
+# bold explanations name the convention broken and what holds the outfit together; that warmth
+# vs. weather is never a convention to break; and whether bold may cross the formality cap by one
+# level. The "Coordinate each outfit" rules (harmonious palette, one focal point) read as
+# absolute right now, so say how bold relates to them. Rerun scripts/eval_outfits.py after each change and compare against the last run.
+RISK_TIER_SECTION = """Risk tiers:
+- safe: proven combinations.
+- stretch: one unexpected choice.
+- bold: deliberately breaks a styling convention.
+"""
+
 OUTFIT_SYSTEM_PROMPT = f"""You suggest outfits from a catalog of garments in one person's wardrobe. You never
 see the garments, only their text records.
 
@@ -133,6 +145,7 @@ You receive:
   anything stated as a need or rule (always, never, must) in every outfit. Treat the rest as
   defaults that a specific <request> may override.
 - <request>: what the user wants: an occasion, a vibe, or any other request, in their own words.
+- <options>: how many outfits to suggest, and how many at each risk tier.
 
 Reading the records:
 - styling_notes describe each piece's visual character and proportions, since you can't
@@ -150,7 +163,8 @@ Reading the records:
   pieces by label.
 
 Rules:
-- Suggest between {config.MIN_OUTFIT_SUGGESTIONS} and {config.MAX_OUTFIT_SUGGESTIONS} outfits, each in a clearly different aesthetic.
+- Suggest exactly as many outfits as <options> asks for, at the tiers it gives, each in a
+  clearly different aesthetic. Set each outfit's risk_tier to the tier you built it at.
 - Every outfit must include every garment listed in <anchors>, if any.
 - Choose every other piece from <wardrobe>, using only the IDs shown there. Use each
   garment at most once per outfit.
@@ -165,6 +179,7 @@ Coordinate each outfit:
 - Texture: contrast fabric_type, fabric_weight and sheen so the outfit isn't flat.
 - Focus: at most one focal point, usually a statement piece; with anchors, usually the anchor.
 
+{RISK_TIER_SECTION}
 If the wardrobe can't fully meet the request, build the best outfit you can from it,
 then name any missing garments as possible purchases. Never put a garment that isn't
 in <wardrobe> inside an outfit.

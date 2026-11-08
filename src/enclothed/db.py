@@ -136,8 +136,8 @@ def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anc
         with conn:
             for outfit in valid_outfits:
                 cursor = conn.execute(
-                    "INSERT INTO outfits (user_id, timestamp, prompt_message, aesthetic, explanation, missing) "
-                    "VALUES (:user_id, :timestamp, :prompt_message, :aesthetic, :explanation, :missing)",
+                    "INSERT INTO outfits (user_id, timestamp, prompt_message, aesthetic, explanation, missing, risk_tier) "
+                    "VALUES (:user_id, :timestamp, :prompt_message, :aesthetic, :explanation, :missing, :risk_tier)",
                     {
                         "user_id": user_id,
                         "timestamp": timestamp,
@@ -145,6 +145,7 @@ def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anc
                         "aesthetic": outfit.aesthetic,
                         "explanation": outfit.explanation,
                         "missing": outfit.missing,
+                        "risk_tier": outfit.risk_tier,
                     },
                 )
                 outfit_id = cursor.lastrowid
@@ -168,7 +169,7 @@ def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anc
 
 
 OUTFIT_SELECT = (
-    "SELECT o.id, o.timestamp, o.prompt_message, o.aesthetic, o.explanation, o.missing, o.liked, "
+    "SELECT o.id, o.timestamp, o.prompt_message, o.aesthetic, o.explanation, o.missing, o.liked, o.risk_tier, "
     "(SELECT COUNT(*) FROM wears AS w WHERE w.outfit_id = o.id) AS wear_count, "
     "json_group_array(json_object("
     "'garment_id', og.garment_id, "

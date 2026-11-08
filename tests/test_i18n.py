@@ -11,7 +11,7 @@ from enclothed.auth import signed_in_user
 from enclothed.fabrics import FABRIC_TYPES
 from enclothed.models import (
     ALL_SUBCATEGORIES, Category, Color, FabricWeight, Fit, FORMALITY_LABELS, Hem, LANGUAGE_NAMES, Language, OutfitResult,
-    Shape, Sheen, Sleeve, Statement, User,
+    RiskTier, Shape, Sheen, Sleeve, Statement, User,
     WARMTH_LABELS,
 )
 
@@ -30,6 +30,7 @@ GROUPS = {
     "statements": set(get_args(Statement)),
     "formality": {str(value) for value in FORMALITY_LABELS},
     "warmth": {str(value) for value in WARMTH_LABELS},
+    "risk_tiers": set(get_args(RiskTier)),
 }
 
 
@@ -69,6 +70,7 @@ def test_english_options_are_unchanged():
     assert options.category_labels == options.subcategory_labels == options.color_labels == {}
     assert next(f.label for f in options.fits if f.value == "slim") == "slim (close to the body)"
     assert options.formality[0].label == "casual"
+    assert [t.label for t in options.risk_tiers] == ["Safe", "Stretch", "Bold"]
 
 
 @pytest.mark.parametrize("language", TRANSLATED)
@@ -79,6 +81,7 @@ def test_translated_options_keep_english_values(language):
     assert options.color_labels["black"] == i18n.terms(language)["colors"]["black"]
     assert options.fits[0].label == i18n.terms(language)["fits"]["slim"]
     assert options.warmth[0].label == i18n.terms(language)["warmth"]["1"]
+    assert [(t.value, t.label) for t in options.risk_tiers] == [(tier, i18n.terms(language)["risk_tiers"][tier]) for tier in get_args(RiskTier)]
 
 
 def test_options_list_the_languages_to_choose_from():

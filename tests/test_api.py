@@ -264,6 +264,32 @@ def test_suggestions_rejects_unknown_anchor(client, basics, llm):
     assert llm.calls == []
 
 
+def test_suggestions_send_count_and_riskiness_and_return_the_tier(client, basics, llm):
+    b = basics
+    llm.result = OutfitResult.model_validate({"outfits": [
+        {**suggestion([b["top"], b["bottom"], b["shoes"]], "A"), "risk_tier": "bold"},
+        suggestion([b["top"], b["bottom"], b["shoes"]], "B"),   # tier left blank by the LLM
+    ]})
+    response = client.post("/api/outfits/suggestions", json={"details": "dinner", "count": 2, "riskiness": "bold"})
+    assert response.status_code == 200
+    assert any(block["text"] == "<options>\nSuggest exactly 2 outfits: 2 bold.\n</options>" for block in llm.calls[-1])
+    assert [o["risk_tier"] for o in response.json()] == ["bold", "bold"]
+
+
+def test_suggestions_default_to_three_mixed(client, basics, llm):
+    b = basics
+    llm.result = OutfitResult.model_validate({"outfits": [suggestion([b["top"], b["bottom"], b["shoes"]])]})
+    client.post("/api/outfits/suggestions", json={"details": "dinner"})
+    assert any("Suggest exactly 3 outfits: 1 safe, 1 stretch, 1 bold." in block["text"] for block in llm.calls[-1])
+
+
+def test_suggestions_reject_bad_count_or_riskiness(client, basics, llm):
+    for body in ({"count": 0}, {"count": 6}, {"riskiness": "wild"}):
+        response = client.post("/api/outfits/suggestions", json={"details": "dinner", **body})
+        assert response.status_code == 422
+    assert llm.calls == []
+
+
 def test_suggestions_without_api_key_is_503(client, basics, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     response = client.post("/api/outfits/suggestions", json={"details": "dinner"})

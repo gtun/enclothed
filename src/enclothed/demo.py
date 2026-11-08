@@ -93,6 +93,7 @@ def build_template(db_path: Path, owner_id: int, template_dir: Path, per_categor
             "explanation": o["explanation"],
             "missing": o["missing"],
             "liked": o["liked"],
+            "risk_tier": o.get("risk_tier"),
             "garments": o["garments"],
         } for o in outfits],
     }
@@ -156,6 +157,7 @@ def reset_wardrobe(db_path: Path, demo_id: int, template_dir: Path, timestamp: s
             aesthetic=entry["aesthetic"],
             explanation=entry["explanation"],
             missing=entry["missing"],
+            risk_tier=entry.get("risk_tier"),
             garments=[OutfitGarment(garment_id=new_ids[g["garment_id"]], styling_advice=g["styling_advice"]) for g in entry["garments"]],
         )
         [outfit_id] = db.insert_outfits(db_path, demo_id, [outfit], None, config.DEMO_OUTFIT_REQUEST, timestamp)

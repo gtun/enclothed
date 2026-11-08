@@ -9,6 +9,9 @@ function ph(g, src, eager){
 const showDisowned = (g, place) => !isDisowned(g) || SETTINGS.disowned[place] !== "hide";
 const fadeClass = g => isDisowned(g) ? " disowned" : "";
 const goneMark = g => isDisowned(g) ? `<span class="gone">no longer owned</span>` : "";
+/* A small label after an outfit's name saying the risk tier it was suggested at; nothing for older or hand-built outfits. */
+const TIER_TIPS = {safe: "Suggested as a safe choice", stretch: "Suggested as a stretch: one unexpected choice", bold: "Suggested as bold: breaks a styling rule on purpose"};
+const tierBadge = o => o.risk_tier ? ` <span class="tier tier-${esc(o.risk_tier)}" title="${esc(TIER_TIPS[o.risk_tier] || "")}">${esc(choiceLabel(OPT.risk_tiers || [], o.risk_tier))}</span>` : "";
 function palette(o){
   const seg = [];
   o.pieces.forEach(p => { const c = byId[p.id]?.primary_color; const last = seg[seg.length-1]; if (last && last.c === c) last.n++; else seg.push({c, n:1}); });

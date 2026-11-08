@@ -5,14 +5,17 @@
    A floating panel for putting an outfit together: pick pieces, add details, then either
    ask for suggestions (the pieces become anchors) or save it as your own outfit.
    A "session" is one run of suggestions: retrying after a change adds to the same results page. */
-const builder = Object.assign({open: false, min: false, pieces: [], details: "", manual: false, form: {aesthetic: "", explanation: "", missing: "", advice: {}}, session: null},
+/* count and risk are how many suggestions to ask for and at what tier ("mix" spreads them across safe, stretch and bold).
+   They aren't cleared with the rest of the builder, so they carry over to the next outfit. */
+const builder = Object.assign({open: false, min: false, pieces: [], details: "", manual: false, form: {aesthetic: "", explanation: "", missing: "", advice: {}}, session: null, count: 3, risk: "mix"},
   store.get("enclothed-builder", {}));
 let builderBusy = false, builderBusyText = "", restoringTree = false;
 const saveBuilder = () => store.set("enclothed-builder", {open: builder.open, min: builder.min, pieces: builder.pieces, details: builder.details,
-  manual: builder.manual, form: builder.form, session: builder.session});
+  manual: builder.manual, form: builder.form, session: builder.session, count: builder.count, risk: builder.risk});
 const sortedPieces = () => builder.pieces.map(id => byId[id]).filter(Boolean).sort((a, b) => catRank(a) - catRank(b) || a.id - b.id);
 const sameSet = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
-const unchangedSinceLast = () => builder.session && sameSet(builder.pieces, builder.session.last.pieces) && builder.details.trim() === builder.session.last.details.trim();
+const unchangedSinceLast = () => builder.session && sameSet(builder.pieces, builder.session.last.pieces) && builder.details.trim() === builder.session.last.details.trim()
+  && builder.count === (builder.session.last.count ?? 3) && builder.risk === (builder.session.last.risk ?? "mix");
 
 function pickButton(g){
   const on = builder.pieces.includes(g.id);
@@ -91,10 +94,11 @@ document.addEventListener("toggle", e => {
 async function suggest(){
   if (builderBusy) return;
   const fresh = !builder.session;
-  const sent = {pieces: builder.pieces.slice(), details: builder.details};
+  const sent = {pieces: builder.pieces.slice(), details: builder.details, count: builder.count, risk: builder.risk};
   builderBusy = true; renderBuilder();
   try {
-    const created = (await api("/api/outfits/suggestions", {method: "POST", body: {anchors: sent.pieces, details: sent.details}})).map(adoptOutfit);
+    const created = (await api("/api/outfits/suggestions", {method: "POST", body: {anchors: sent.pieces, details: sent.details,
+      count: sent.count, riskiness: sent.risk === "mix" ? null : sent.risk}})).map(adoptOutfit);
     if (!created.length) throw new Error("No complete outfits came back this time. Try again, or adjust the pieces or details.");
     O.push(...created); reindex();
     const ids = created.map(o => o.id);
@@ -162,4 +166,6 @@ document.addEventListener("click", e => {
   else if (t.hasAttribute("data-save-own")) saveOwn();
   else if (t.hasAttribute("data-describe")) describeOwn();
   else if (t.dataset.manual){ builder.manual = t.dataset.manual === "on"; saveBuilder(); renderBuilder(); }
+  else if (t.dataset.count){ builder.count = Number(t.dataset.count); saveBuilder(); renderBuilder(); }
+  else if (t.dataset.risk){ builder.risk = t.dataset.risk; saveBuilder(); renderBuilder(); }
 });

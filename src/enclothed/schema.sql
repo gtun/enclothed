@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS outfits (
     missing TEXT,
     liked INTEGER DEFAULT NULL,
     user_id INTEGER REFERENCES users(id),
+    risk_tier TEXT CHECK (risk_tier IN ('safe', 'stretch', 'bold')),
     CHECK (liked in (0, 1))
 );
 

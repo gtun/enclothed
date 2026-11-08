@@ -39,7 +39,8 @@ def format_new_garment(garment: Garment) -> str:
 def format_outfit(outfit: Outfit, wardrobe: dict[int, Garment]) -> str:
     lines = []
 
-    lines.append(f"{outfit.aesthetic.upper()} {'=' * (65 - len(outfit.aesthetic))}")
+    title = outfit.aesthetic.upper() + (f" [{outfit.risk_tier}]" if outfit.risk_tier else "")
+    lines.append(f"{title} {'=' * (65 - len(title))}")
 
     for outfit_garment in outfit.garments:
         garment = wardrobe.get(outfit_garment.garment_id)

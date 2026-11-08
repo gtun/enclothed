@@ -190,6 +190,10 @@ def test_outfit_layout():
     assert lines[4] == "  Short reason."
 
 
+def test_outfit_title_shows_its_tier():
+    assert format_outfit(outfit(risk_tier="bold"), WARDROBE).splitlines()[0].startswith("TEST LOOK [bold] =")
+
+
 def test_outfit_without_missing_has_no_consider_line():
     assert "Consider:" not in format_outfit(outfit(missing=None), WARDROBE)
 

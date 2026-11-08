@@ -16,7 +16,10 @@ from enclothed.outfit import (
     OUTFIT_INCLUDE_FIELDS,
     TEST_OUTFITS,
     count_categories,
+    fill_single_tier,
     get_outfits,
+    options_text,
+    tier_plan,
     validate_outfit,
     validate_outfits,
     wardrobe_for_prompt,
@@ -169,17 +172,23 @@ VALIDATION_WARDROBE = {
 }
 
 
-def outfit_of(*garment_ids):
+def outfit_of(*garment_ids, tier=None):
     return Outfit(
         aesthetic="test",
         explanation="test",
         garments=[{"garment_id": i, "styling_advice": "test"} for i in garment_ids],
+        risk_tier=tier,
     )
 
 
-def result_of(count):
-    """An OutfitResult with `count` valid outfits."""
-    return OutfitResult(outfits=[outfit_of(TOP, BOTTOM, SHOES) for _ in range(count)])
+def result_of(count, tier="safe"):
+    """An OutfitResult with `count` valid outfits, all at one tier."""
+    return OutfitResult(outfits=[outfit_of(TOP, BOTTOM, SHOES, tier=tier) for _ in range(count)])
+
+
+def result_of_tiers(*tiers):
+    """An OutfitResult with one valid outfit per tier given."""
+    return OutfitResult(outfits=[outfit_of(TOP, BOTTOM, SHOES, tier=t) for t in tiers])
 
 
 # count_categories
@@ -268,22 +277,43 @@ def test_several_problems_are_all_reported():
 # validate_outfits: the whole reply -> (problems, valid outfits)
 
 def test_valid_result_has_no_problems():
-    result = result_of(config.MIN_OUTFIT_SUGGESTIONS)
-    problems, valid = validate_outfits(result, VALIDATION_WARDROBE, None)
+    result = result_of_tiers("safe", "stretch", "bold")
+    problems, valid = validate_outfits(result, VALIDATION_WARDROBE, None, tier_plan(3, None))
     assert problems == []
     assert valid == result.outfits
 
 
+def test_without_a_plan_count_and_tiers_are_not_checked():
+    problems, _ = validate_outfits(result_of(7, tier=None), VALIDATION_WARDROBE, None)
+    assert problems == []
+
+
 def test_too_few_outfits_is_reported():
-    problems, _ = validate_outfits(result_of(config.MIN_OUTFIT_SUGGESTIONS - 1), VALIDATION_WARDROBE, None)
-    assert len(problems) == 1
-    assert "outfit(s) returned" in problems[0]
+    problems, _ = validate_outfits(result_of(2), VALIDATION_WARDROBE, None, tier_plan(3, "safe"))
+    assert problems == ["2 outfit(s) returned, expected 3"]
 
 
 def test_too_many_outfits_is_reported():
-    problems, _ = validate_outfits(result_of(config.MAX_OUTFIT_SUGGESTIONS + 1), VALIDATION_WARDROBE, None)
+    problems, _ = validate_outfits(result_of(4), VALIDATION_WARDROBE, None, tier_plan(3, "safe"))
+    assert problems == ["4 outfit(s) returned, expected 3"]
+
+
+def test_wrong_tier_mix_is_reported():
+    problems, _ = validate_outfits(result_of_tiers("safe", "safe", "bold"), VALIDATION_WARDROBE, None, tier_plan(3, None))
+    assert problems == ["tiers returned {'bold': 1, 'safe': 2}, expected {'bold': 1, 'safe': 1, 'stretch': 1}"]
+
+
+def test_blank_tier_counts_as_untiered():
+    problems, _ = validate_outfits(result_of_tiers("safe", "stretch", None), VALIDATION_WARDROBE, None, tier_plan(3, None))
     assert len(problems) == 1
-    assert "outfit(s) returned" in problems[0]
+    assert "'untiered': 1" in problems[0]
+
+
+def test_tier_problem_does_not_drop_valid_outfits():
+    result = result_of(3, tier="safe")
+    problems, valid = validate_outfits(result, VALIDATION_WARDROBE, None, tier_plan(3, "bold"))
+    assert len(problems) == 1
+    assert valid == result.outfits
 
 
 def test_problems_are_numbered_from_one():
@@ -321,10 +351,10 @@ def test_valid_is_empty_when_every_outfit_has_problems():
 
 def test_count_problem_does_not_drop_valid_outfits():
     # Gary's rule (10-26): the count is reported, but every clean outfit is still kept.
-    result = result_of(config.MAX_OUTFIT_SUGGESTIONS + 1)
-    problems, valid = validate_outfits(result, VALIDATION_WARDROBE, None)
+    result = result_of(4)
+    problems, valid = validate_outfits(result, VALIDATION_WARDROBE, None, tier_plan(3, "safe"))
     assert len(problems) == 1
-    assert len(valid) == config.MAX_OUTFIT_SUGGESTIONS + 1
+    assert len(valid) == 4
 
 
 def test_validate_outfits_does_not_mutate_input():
@@ -388,15 +418,16 @@ def test_caching_is_on_by_default(tmp_path, monkeypatch):
 
 def test_blocks_are_wardrobe_anchors_request_in_order(tmp_path, monkeypatch):
     blocks, _ = run_real_mode(tmp_path, monkeypatch, anchors=[1], caching=True)
-    assert len(blocks) == 3
+    assert len(blocks) == 4
     assert "<anchors>" in blocks[1]["text"]
     assert blocks[2]["text"] == "<request>dinner downtown</request>"
+    assert blocks[3]["text"].startswith("<options>")
 
 
 def test_no_anchors_means_no_anchors_block(tmp_path, monkeypatch):
     # The API rejects empty text blocks, so the anchors block must be left out, not empty.
     blocks, _ = run_real_mode(tmp_path, monkeypatch, anchors=None, caching=True)
-    assert len(blocks) == 2
+    assert len(blocks) == 3
     assert all(block["text"] for block in blocks)
 
 
@@ -412,3 +443,59 @@ def test_log_records_cache_token_counts(tmp_path, monkeypatch):
     _, entry = run_real_mode(tmp_path, monkeypatch, anchors=[1], caching=True)
     assert entry["usage"]["cache_creation_input_tokens"] == 0
     assert entry["usage"]["cache_read_input_tokens"] == 41796
+
+
+# --- risk tiers (#92) -----------------------------------------------------------
+
+def test_tier_plan_spreads_the_count_safe_first():
+    assert [tuple(tier_plan(n, None).values()) for n in range(1, 6)] == [
+        (1, 0, 0), (1, 1, 0), (1, 1, 1), (2, 1, 1), (2, 2, 1),
+    ]
+
+
+def test_tier_plan_puts_every_outfit_at_the_chosen_tier():
+    assert tier_plan(4, "bold") == {"safe": 0, "stretch": 0, "bold": 4}
+
+
+def test_tier_plan_rejects_counts_out_of_range():
+    import pytest
+    for bad in (config.MIN_OUTFIT_COUNT - 1, config.MAX_OUTFIT_COUNT + 1):
+        with pytest.raises(ValueError):
+            tier_plan(bad, None)
+
+
+def test_options_text_names_the_total_and_leaves_out_empty_tiers():
+    assert options_text(tier_plan(2, None)) == "<options>\nSuggest exactly 2 outfits: 1 safe, 1 stretch.\n</options>"
+    assert "1 outfit:" in options_text(tier_plan(1, "bold"))
+
+
+def test_options_block_follows_the_request(tmp_path):
+    _, entry = run_test_mode(tmp_path, None)
+    context = entry["context"]
+    assert context.index("<request>") < context.index("<options>")
+    assert "Suggest exactly 3 outfits: 1 safe, 1 stretch, 1 bold." in context
+
+
+def test_fill_single_tier_fills_blanks_when_one_tier_was_asked():
+    result = OutfitResult(outfits=[outfit_of(TOP, tier=None), outfit_of(TOP, tier="safe")])
+    filled = fill_single_tier(result, tier_plan(2, "bold"))
+    assert [o.risk_tier for o in filled.outfits] == ["bold", "safe"]
+    assert result.outfits[0].risk_tier is None   # the input is left alone
+
+
+def test_fill_single_tier_leaves_a_mix_alone():
+    result = OutfitResult(outfits=[outfit_of(TOP, tier=None)])
+    assert fill_single_tier(result, tier_plan(3, None)) is result
+
+
+def test_saved_outfits_keep_their_tier(tmp_path, monkeypatch):
+    from enclothed.db import insert_garment, select_all_outfits, select_owned_garments
+    db_path = tmp_path / "test.db"
+    init_db(db_path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
+    pieces = (("top", "t-shirt"), ("bottom", "jeans"), ("shoes", "derbies"))
+    ids = [insert_garment(db_path, 1, TEST_GARMENT.model_copy(update={"category": c, "subcategory": sub})) for c, sub in pieces]
+    wardrobe = {g.id: g for g in select_owned_garments(db_path, 1)}
+    reply = OutfitResult(outfits=[outfit_of(*ids, tier=t) for t in ("safe", "stretch", "bold")])
+    monkeypatch.setattr(outfit_module, "recommend_outfits", lambda client, context, language: (reply, TokenUsage(model="m", input_tokens=1, output_tokens=1)))
+    outfit_module.generate_outfits(db_path, 1, wardrobe, None, tmp_path / "log.jsonl", object(), "dinner", False)
+    assert [o["risk_tier"] for o in select_all_outfits(db_path, 1)] == ["safe", "stretch", "bold"]

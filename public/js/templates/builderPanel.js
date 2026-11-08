@@ -4,7 +4,7 @@
 /* Why "Generate" or "Save" is greyed out, shown under the button. */
 function suggestBlockedReason(pieces){
   if (!pieces.length && !builder.details.trim()) return "Pick at least one piece or describe the occasion.";
-  if (builder.session && unchangedSinceLast()) return "Change the pieces or details to get new suggestions.";
+  if (builder.session && unchangedSinceLast()) return "Change the pieces, details or options to get new suggestions.";
   return "";
 }
 function saveBlockedReason(pieces){
@@ -21,6 +21,20 @@ function describeLabel(pieces){
 function describeButton(pieces){
   const label = describeLabel(pieces);
   return `<button type="button" class="btn llm-action wide" data-describe title="Uses AI (spends tokens). Fills only the blank fields." ${!label || builderBusy ? "disabled" : ""}>${esc(label || "Suggest a name and why it works")}</button>`;
+}
+
+/* The riskiness choices, in the order shown. "mix" sends no riskiness, so the server spreads the count.
+   Tier names come from the options, so they show in the user's language. */
+const RISK_TIPS = {mix: "Some of each: safe, stretch and bold", safe: "Proven combinations", stretch: "One unexpected choice", bold: "Breaks a styling rule on purpose"};
+const riskChoices = () => [["mix", "Mix"], ...["safe", "stretch", "bold"].map(v => [v, choiceLabel(OPT.risk_tiers || [], v)])];
+function suggestOptions(){
+  const off = builderBusy ? "disabled" : "";
+  const counts = [1, 2, 3, 4, 5].map(n => `<button type="button" data-count="${n}" aria-pressed="${builder.count === n}" ${off}>${n}</button>`).join("");
+  const risks = riskChoices().map(([v, label]) => `<button type="button" data-risk="${v}" aria-pressed="${builder.risk === v}" title="${esc(RISK_TIPS[v])}" ${off}>${esc(label)}</button>`).join("");
+  return `<div class="bsec bopts">
+      <div class="field"><span class="flabel" id="b-count">How many</span><div class="seg" role="group" aria-labelledby="b-count">${counts}</div></div>
+      <div class="field"><span class="flabel" id="b-risk">How adventurous</span><div class="seg" role="group" aria-labelledby="b-risk">${risks}</div></div>
+    </div>`;
 }
 
 function builderPanel(){
@@ -62,7 +76,7 @@ function builderPanel(){
       <div class="bsec"><div class="field"><label for="b-details">${builder.manual ? "Occasion" : "Occasion and details"} <em>(optional${pieces.length || builder.manual ? "" : " if you pick pieces"})</em></label>
         ${builder.manual ? "" : `<p class="style-hint">${prefs.text ? `Your <a href="#style">style notes</a> are included.` : `Tip: describe your <a href="#style">style</a> once and it's included every time.`}</p>`}
         <textarea id="b-details" class="txt" rows="3" data-details placeholder="${builder.manual ? "e.g. rainy Sunday" : "e.g. dinner downtown, about 10°C, want to wear the new boots"}">${esc(builder.details)}</textarea></div></div>
-      ${builder.manual ? manualForm : ""}
+      ${builder.manual ? manualForm : suggestOptions()}
     </div>
     <div class="bfoot">${foot}</div>`;
 }

@@ -11,7 +11,7 @@ from enclothed.outfit import get_outfits
 from pathlib import Path
 import logging
 from typing import get_args
-from enclothed.models import DEFAULT_LANGUAGE, LIST_FILTER_CHOICES, Language
+from enclothed.models import DEFAULT_LANGUAGE, LIST_FILTER_CHOICES, Language, RiskTier
 from enclothed.cli_display import format_list, format_new_garment, format_outfit_result
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,8 @@ def main() -> int:
         metavar="ID",
         help="One or more garment IDs to build an outfit around (e.g. -w 3 4)",
     )
+    outfit_parser.add_argument("-n", "--count", type=int, default=config.DEFAULT_OUTFIT_COUNT, choices=range(config.MIN_OUTFIT_COUNT, config.MAX_OUTFIT_COUNT + 1), metavar=f"{{{config.MIN_OUTFIT_COUNT}-{config.MAX_OUTFIT_COUNT}}}", help=f"How many outfits to suggest (default {config.DEFAULT_OUTFIT_COUNT})")
+    outfit_parser.add_argument("-r", "--riskiness", choices=get_args(RiskTier), help="Suggest every outfit at this tier. Without it, the outfits are spread across safe, stretch and bold")
     outfit_parser.add_argument("--no-cache", action="store_false", dest="cache", help="Don't cache the wardrobe. By default it's cached for 5 minutes, so repeat calls use far fewer tokens (the first costs ~25% more)")
 
     set_parser = subparsers.add_parser("set", parents=[common], help="Tag multiple garments as part of the same set")
@@ -160,7 +162,8 @@ def main() -> int:
         client = None if args.test else Anthropic()
         saved_preferences = db.select_preferences(config.DB_PATH, config.DEFAULT_USER_ID)
         result = get_outfits(config.DB_PATH, config.DEFAULT_USER_ID, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test, args.cache,
-                             preferences=saved_preferences[0] if saved_preferences else None, language=owner_language())
+                             preferences=saved_preferences[0] if saved_preferences else None, language=owner_language(),
+                             count=args.count, riskiness=args.riskiness)
         print(format_outfit_result(result, wardrobe))
 
     # --- set ----------------------

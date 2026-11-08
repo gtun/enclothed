@@ -11,7 +11,7 @@ function outfitPage(o){
   return `<div class="ohead">
       <button type="button" class="back" data-back="outfits">← Outfits</button>
       <p class="req">Asked for <q>${esc(o.prompt_message)}</q> · ${esc(whenLong(o.timestamp))}</p>
-      <h1>${esc(o.aesthetic)}</h1>
+      <h1>${esc(o.aesthetic)}${tierBadge(o)}</h1>
       ${palBar(o, "big")}<div class="palnames">${names}</div>
       <div class="rate"><div class="seg" role="group" aria-label="Rate this outfit">${rateBtn(true, THUMB_UP, "Like")}${rateBtn(false, THUMB_DOWN, "Dislike")}</div>
         <small>${o.liked === null || o.liked === undefined ? "Not rated" : "Click again to clear"}</small></div>

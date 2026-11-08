@@ -1,7 +1,7 @@
 """Fixed terms in other languages. The database and the LLM always use the English value;
 these are only what a person sees. Each file in locales/ has the same groups:
 colors, categories, subcategories, fits, sheens, fabric_types, shapes, hems, fabric_weights,
-sleeves, statements, formality, warmth."""
+sleeves, statements, formality, warmth, risk_tiers."""
 import json
 from functools import lru_cache
 
