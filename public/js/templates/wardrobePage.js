@@ -18,7 +18,7 @@ function wardrobe(){
     return items.length ? `<section class="rail" id="rail-${esc(c)}"><h2>${esc(categoryName(c))} <span>${items.length}</span></h2>${body}</section>` : "";
   }).join("") || `<p class="empty">Nothing matches these filters.</p>`;
   return `<header class="hero"><div><h1>The wardrobe</h1><p class="sub">Every garment, as tagged from its photos. Open one to see its set, every outfit it has been styled into, and to correct any tag.</p>
-      <div class="hero-actions"><button type="button" class="btn primary" data-add-garment>+ Add garment</button><button type="button" class="btn" data-builder-open>${builder.open ? "Outfit builder is open" : "Put together an outfit"}</button>${disownedLink("disowned-garments", "Disowned", DISOWNED.length)}</div></div>
+      <div class="hero-actions"><button type="button" class="btn primary" data-add-garment>+ Add garment</button><button type="button" class="btn" data-weigh-garment title="Uses AI (spends tokens)">Should I buy this?</button><button type="button" class="btn" data-builder-open>${builder.open ? "Outfit builder is open" : "Put together an outfit"}</button>${weighLink()}${disownedLink("disowned-garments", "Disowned", DISOWNED.length)}</div></div>
     <div class="stats"><div><b>${OWNED.length}</b>garments</div><div><b>${brands}</b>brands</div><div><b>${SETS.length}</b>sets</div><div><b>${SHOWN.length}</b>outfits</div></div></header>
     <div class="filters" role="toolbar" aria-label="Filter garments">
       ${btn("cat","all","All",pool.length)}${cats.map(c => btn("cat", c, categoryName(c), pool.filter(g => g.category === c).length)).join("")}

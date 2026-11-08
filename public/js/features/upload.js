@@ -2,8 +2,9 @@
 "use strict";
 
 let upload = {files: [], busy: false};
-function openUpload(){
-  upload = {files: [], busy: false, prompt: "", notes: ""};
+/* purpose is "add" (Add garment) or "weigh" (should I buy this?). Both tag the photos the same way; they part at review. */
+function openUpload(purpose = "add"){
+  upload = {files: [], busy: false, prompt: "", notes: "", purpose};
   let ov = document.getElementById("upload");
   if (!ov){ ov = document.createElement("div"); ov.id = "upload"; ov.className = "overlay"; document.body.appendChild(ov);
     ov.addEventListener("click", uploadClick); ov.addEventListener("change", uploadChange); ov.addEventListener("input", e => {
@@ -51,7 +52,7 @@ async function uploadClick(e){
       if (!res.ok) throw new Error(errorText(data, res.status));
       const photos = upload.files.map(f => f.url);
       closeUpload(true);
-      openReview({mode: "new", g: data.garment, draftId: data.id, photos});
+      openReview({mode: upload.purpose === "weigh" ? "weigh" : "new", g: data.garment, draftId: data.id, photos});
     } catch (err) {
       upload.busy = false; renderUpload();
       const box = document.getElementById("u-err"); if (box) box.textContent = err.message;

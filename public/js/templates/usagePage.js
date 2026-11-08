@@ -2,7 +2,7 @@
 "use strict";
 
 const USAGE_RANGES = [["7", "7 days"], ["30", "30 days"], ["month", "This month"], ["all", "All time"]];
-const USAGE_KINDS = [["tagging", "Tagging"], ["outfits", "Outfits"], ["style", "Style"], ["insights", "Insights"]];
+const USAGE_KINDS = [["tagging", "Tagging"], ["outfits", "Outfits"], ["style", "Style"], ["insights", "Insights"], ["weigh", "Weigh"]];
 const USAGE_TOP_CALLS = 10;
 const kindLabel = kind => USAGE_KINDS.find(([k]) => k === kind)[1];
 const usd = n => n === null ? "no price" : `$${n.toFixed(n > 0 && n < 1 ? 3 : 2)}`;

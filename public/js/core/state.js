@@ -4,6 +4,7 @@
 let G = [], O = [], SETS = [], OPT = null;
 let SHOW_IDS = false;
 let OWNED = [], DISOWNED = [], SHOWN = [], DISOWNED_O = [];   // garments split by ownership, outfits split by whether they have a disowned piece (indexes.js)
+let WEIGHS = [], CANDIDATES = [], weighById = {}, weighOutfitsOf = {};   // weigh: verdicts, garments being weighed, and the outfits built around each
 let byId = {}, outById = {}, setById = {}, outfitsOf = {}, allOutfitsOf = {}, REQUESTS = [], HEX = {};
 const RAIL_ORDER = ["outerwear", "top", "bottom", "one-piece", "shoes", "accessory"];
 
