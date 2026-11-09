@@ -1,3 +1,4 @@
+import pytest
 # tests/test_outfit.py
 # Covers what outfit.py does today: trimming the wardrobe for the prompt, building
 # the context, logging, and validating Claude's reply. Test mode (is_test=True)
@@ -499,3 +500,19 @@ def test_saved_outfits_keep_their_tier(tmp_path, monkeypatch):
     monkeypatch.setattr(outfit_module, "recommend_outfits", lambda client, context, language: (reply, TokenUsage(model="m", input_tokens=1, output_tokens=1)))
     outfit_module.generate_outfits(db_path, 1, wardrobe, None, tmp_path / "log.jsonl", object(), "dinner", False)
     assert [o["risk_tier"] for o in select_all_outfits(db_path, 1)] == ["safe", "stretch", "bold"]
+
+
+# --- silhouettes ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("silhouette, article", [("I", "an"), ("H", "an"), ("A", "an"), ("Y", "a"), ("O", "an"), ("X", "an")])
+def test_options_text_names_the_silhouette(silhouette, article):
+    assert options_text(tier_plan(1, "safe"), silhouette) == (
+        f"<options>\nSuggest exactly 1 outfit: 1 safe.\nEvery outfit forms {article} {silhouette}-line silhouette.\n</options>")
+
+
+def test_every_silhouette_is_defined_for_the_llm():
+    from typing import get_args
+    from enclothed.llm import SILHOUETTE_SECTION
+    from enclothed.models import Silhouette
+    for letter in get_args(Silhouette):
+        assert f"- {letter}-line:" in SILHOUETTE_SECTION

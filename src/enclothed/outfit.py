@@ -1,5 +1,5 @@
 from anthropic import Anthropic
-from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitDescription, OutfitResult, Category, RiskTier, layer_for
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitDescription, OutfitResult, Category, RiskTier, Silhouette, layer_for
 from enclothed.llm import UnusableResponse, describe_outfit, recommend_outfits
 from enclothed.usage import log_failed_call
 from enclothed import config
@@ -77,11 +77,11 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None) -> OutfitResult:
-    result, _ = generate_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences, language, count, riskiness)
+def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None, silhouette: Silhouette | None = None) -> OutfitResult:
+    result, _ = generate_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences, language, count, riskiness, silhouette)
     return result
 
-def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None) -> tuple[OutfitResult, list[int]]:
+def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None, silhouette: Silhouette | None = None) -> tuple[OutfitResult, list[int]]:
     """Ask the LLM for outfits, save the valid ones, and return the result plus the new outfit ids."""
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
@@ -110,7 +110,7 @@ def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], 
         context.append(request_block)
 
     plan = tier_plan(count, riskiness)
-    context.append({"type": "text", "text": options_text(plan)})
+    context.append({"type": "text", "text": options_text(plan, silhouette)})
 
     try:
         wrapper, usage = (TEST_OUTFITS, None) if is_test else recommend_outfits(client, context, language)
@@ -150,10 +150,12 @@ def tier_plan(count: int, riskiness: RiskTier | None) -> dict[RiskTier, int]:
     base, extra = divmod(count, len(tiers))
     return {tier: base + (1 if i < extra else 0) for i, tier in enumerate(tiers)}
 
-def options_text(plan: dict[RiskTier, int]) -> str:
+def options_text(plan: dict[RiskTier, int], silhouette: Silhouette | None = None) -> str:
     total = sum(plan.values())
     wanted = ", ".join(f"{n} {tier}" for tier, n in plan.items() if n)
-    return f"<options>\nSuggest exactly {total} outfit{'s' if total != 1 else ''}: {wanted}.\n</options>"
+    article = "a" if silhouette == "Y" else "an"   # "a Y-line" (why), but "an A-, H-, I-, O-, X-line"
+    shape = f"\nEvery outfit forms {article} {silhouette}-line silhouette." if silhouette else ""
+    return f"<options>\nSuggest exactly {total} outfit{'s' if total != 1 else ''}: {wanted}.{shape}\n</options>"
 
 def fill_single_tier(result: OutfitResult, plan: dict[RiskTier, int]) -> OutfitResult:
     """When every outfit was asked for at one tier, fill in any tier the LLM left blank."""

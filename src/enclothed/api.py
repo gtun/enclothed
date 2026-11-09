@@ -300,7 +300,8 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]
         saved = db.select_preferences(DB_PATH, user.id)
         _, new_ids = generate_outfits(DB_PATH, user.id, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
                                       details or "everyday wear", False, preferences=saved[0] if saved else None,
-                                      language=user.language, count=body.count, riskiness=body.riskiness)
+                                      language=user.language, count=body.count, riskiness=body.riskiness,
+                                      silhouette=body.silhouette)
     except anthropic.APIError as error:
         raise _llm_failed(error, OUTFIT_LOG_PATH, user)
     return responses.get_outfits(DB_PATH, user.id, new_ids)

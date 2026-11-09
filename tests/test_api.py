@@ -283,8 +283,22 @@ def test_suggestions_default_to_three_mixed(client, basics, llm):
     assert any("Suggest exactly 3 outfits: 1 safe, 1 stretch, 1 bold." in block["text"] for block in llm.calls[-1])
 
 
+def test_suggestions_send_the_silhouette(client, basics, llm):
+    b = basics
+    llm.result = OutfitResult.model_validate({"outfits": [suggestion([b["top"], b["bottom"], b["shoes"]])]})
+    assert client.post("/api/outfits/suggestions", json={"details": "dinner", "count": 1, "silhouette": "Y"}).status_code == 200
+    assert any("Every outfit forms a Y-line silhouette." in block["text"] for block in llm.calls[-1])
+
+
+def test_suggestions_without_a_silhouette_leave_the_shape_open(client, basics, llm):
+    b = basics
+    llm.result = OutfitResult.model_validate({"outfits": [suggestion([b["top"], b["bottom"], b["shoes"]])]})
+    client.post("/api/outfits/suggestions", json={"details": "dinner"})
+    assert not any("silhouette" in block["text"] for block in llm.calls[-1])
+
+
 def test_suggestions_reject_bad_count_or_riskiness(client, basics, llm):
-    for body in ({"count": 0}, {"count": 6}, {"riskiness": "wild"}):
+    for body in ({"count": 0}, {"count": 6}, {"riskiness": "wild"}, {"silhouette": "Z"}, {"silhouette": "a"}):
         response = client.post("/api/outfits/suggestions", json={"details": "dinner", **body})
         assert response.status_code == 422
     assert llm.calls == []

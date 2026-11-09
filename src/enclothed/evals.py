@@ -134,12 +134,13 @@ def run(label: str, runs: int, user_id: int, db_path: Path, requests_path: Path,
             count = request.get("count", config.DEFAULT_OUTFIT_COUNT)
             riskiness: RiskTier | None = request.get("riskiness")
             anchors = request.get("anchors") or None
+            silhouette = request.get("silhouette")
             plan = tier_plan(count, riskiness)
-            options = ", ".join(f"{n} {tier}" for tier, n in plan.items() if n)
+            options = ", ".join(f"{n} {tier}" for tier, n in plan.items() if n) + (f", {silhouette}-line" if silhouette else "")
             for repeat in range(1, runs + 1):
                 print(f"{request['id']} run {repeat}/{runs}…", file=sys.stderr, flush=True)
                 result, _ = generate_outfits(work_db, user_id, wardrobe, anchors, log_path, client, request["details"],
-                                             is_test, True, preferences, user.language, count, riskiness)
+                                             is_test, True, preferences, user.language, count, riskiness, silhouette)
                 entry = json.loads(log_path.read_text(encoding="utf-8").splitlines()[-1])
                 usage = entry["usage"] or {}
                 totals["input"] += usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)

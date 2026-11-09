@@ -137,6 +137,19 @@ RISK_TIER_SECTION = """Risk tiers:
 - bold: deliberately breaks a styling convention.
 """
 
+# Letter names popularized by Dior in the 1950s and standard in Japanese styling. Sources describe a few loosely
+# (Y is sometimes given as either way round), so each gets one fixed meaning here. The builder's alt text matches.
+SILHOUETTE_SECTION = """Silhouettes, when <options> names one:
+- I-line: slim and straight from shoulders to hem, a long vertical column.
+- H-line: straight and boxy with no waist, the same generous width top to bottom.
+- A-line: compact on top and wider toward the hem: a short or fitted top over a wide or flared bottom.
+- Y-line: volume on top and slim below: a roomy or broad top over a narrow or tapered bottom.
+- O-line: rounded volume through the middle, narrowing at the shoulders and hem, like a cocoon.
+- X-line: a defined waist, with volume above and below it.
+Every outfit must form the named silhouette, at every risk tier. Judge each piece's volume from shape, fit, hem,
+fabric_weight and styling_notes, and the outfit's line from the outermost layer at each part of the body.
+"""
+
 OUTFIT_SYSTEM_PROMPT = f"""You suggest outfits from a catalog of garments in one person's wardrobe. You never
 see the garments, only their text records.
 
@@ -147,7 +160,7 @@ You receive:
   anything stated as a need or rule (always, never, must) in every outfit. Treat the rest as
   defaults that a specific <request> may override.
 - <request>: what the user wants: an occasion, a vibe, or any other request, in their own words.
-- <options>: how many outfits to suggest, and how many at each risk tier.
+- <options>: how many outfits to suggest, how many at each risk tier, and sometimes a silhouette.
 
 Reading the records:
 - styling_notes describe each piece's visual character and proportions, since you can't
@@ -176,12 +189,14 @@ Rules:
 
 Coordinate each outfit:
 - Color: harmonious palette (tonal, neutrals with one accent, or deliberate contrast).
-- Silhouette: balanced proportions and volumes, judged from fit, shape, hem and styling_notes.
+- Silhouette: balanced proportions and volumes, judged from fit, shape, hem and styling_notes, or the
+  silhouette <options> names.
 - Refinement: pieces at a similar level of polish, unless mixing is the point.
 - Texture: contrast fabric_type, fabric_weight and sheen so the outfit isn't flat.
 - Focus: at most one focal point, usually a statement piece; with anchors, usually the anchor.
 
 {RISK_TIER_SECTION}
+{SILHOUETTE_SECTION}
 If the wardrobe can't fully meet the request, build the best outfit you can from it,
 then name any missing garments as possible purchases. Never put a garment that isn't
 in <wardrobe> inside an outfit.
