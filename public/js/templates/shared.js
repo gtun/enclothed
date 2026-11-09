@@ -5,6 +5,25 @@ function ph(g, src, eager){
   return src ? `<img src="${esc(encodeURI(src))}" alt="" ${eager ? "" : 'loading="lazy"'} decoding="async">`
              : `<span class="sw" style="background:${hex(g.primary_color)}"></span>`;
 }
+/* Garments named in AI prose. The AI writes "[the camel shearling field jacket](5)"; verdicts from before that rule have
+   bare IDs, "(5)" or "(52, 71)", which become the garments' names. Each is a link that shows the garment's photo on hover
+   (features/garmentPeek.js). links=false where the text sits inside another link, such as a card. Unknown IDs keep their text. */
+const GARMENT_REF = /\[([^\]\n]+)\]\((\d+)\)|\((\d+(?:\s*,\s*\d+)*)\)/g;
+function garmentRefs(text, links = true){
+  const named = (label, g) => links ? `<a class="gref" href="#garment-${g.id}" data-gref="${g.id}">${esc(label)}</a>` : esc(label);
+  let html = "", last = 0;
+  for (const m of (text || "").matchAll(GARMENT_REF)){
+    let piece;
+    if (m[1] !== undefined) piece = byId[m[2]] ? named(m[1], byId[m[2]]) : esc(m[1]);
+    else {
+      const gs = m[3].split(",").map(id => byId[id.trim()]);
+      piece = gs.every(Boolean) ? `(${gs.map(g => named(title(g), g)).join(", ")})` : esc(m[0]);   // "(3)" that isn't a garment stays as typed
+    }
+    html += esc(text.slice(last, m.index)) + piece;
+    last = m.index + m[0].length;
+  }
+  return html + esc((text || "").slice(last));
+}
 /* Garments you no longer own, where old links still show them. Each place's choice is in settings.js. */
 const showDisowned = (g, place) => !isDisowned(g) || SETTINGS.disowned[place] !== "hide";
 const fadeClass = g => isDisowned(g) ? " disowned" : "";

@@ -288,3 +288,10 @@ def test_resetting_the_demo_clears_its_weighs(db_path):
     assert db.delete_demo_wardrobe(db_path, demo_id, keep=set()) == [maybe]
     with closing(sqlite3.connect(db_path)) as conn:
         assert conn.execute("SELECT COUNT(*) FROM weighs").fetchone()[0] == 0
+
+
+def test_weigh_names_garments_as_links_not_bare_ids():
+    # The page turns [description](ID) into a link with a photo preview (garmentRefs in shared.js)
+    from enclothed.llm import WEIGH_INSTRUCTIONS
+    assert "[short description](ID)" in WEIGH_INSTRUCTIONS
+    assert "never write a bare ID" in WEIGH_INSTRUCTIONS

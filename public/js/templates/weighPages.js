@@ -15,7 +15,7 @@ function weighLink(){
 function weighCheck(key, label, check){
   const good = key === "already_own" ? !check.answer : check.answer;
   return `<li class="wcheck ${good ? "good" : "bad"}"><span class="wmark" aria-hidden="true">${good ? "✓" : "✕"}</span>
-    <div><b>${esc(label)}</b> <span class="wans">${check.answer ? "Yes" : "No"}</span><p>${esc(check.reason)}</p></div></li>`;
+    <div><b>${esc(label)}</b> <span class="wans">${check.answer ? "Yes" : "No"}</span><p>${garmentRefs(check.reason)}</p></div></li>`;
 }
 function weighPage(g){
   const w = weighById[g.id];
@@ -24,7 +24,7 @@ function weighPage(g){
     ? `<div class="wphotos">${g.photos.map((p, i) => `<img src="${esc(encodeURI(i ? p.thumb_url : p.url))}" alt="${esc(title(g))}, ${esc(photoName(p.url))}" ${i ? 'loading="lazy"' : ""}>`).join("")}</div>`
     : `<div class="ph">${ph(g, null)}</div>`;
   const similar = w ? w.verdict.similar.map(m => byId[m.garment_id] && `<a class="mini" href="#garment-${m.garment_id}"><div class="ph">${ph(byId[m.garment_id], thumb(byId[m.garment_id]))}</div>
-      <span>${esc(subcategoryName(byId[m.garment_id].subcategory))}</span><em class="sim-${esc(m.similarity)}">${esc(SIMILARITY[m.similarity])}</em><em>${esc(m.differences)}</em></a>`).filter(Boolean).join("") : "";
+      <span>${esc(subcategoryName(byId[m.garment_id].subcategory))}</span><em class="sim-${esc(m.similarity)}">${esc(SIMILARITY[m.similarity])}</em><em>${garmentRefs(m.differences, false)}</em></a>`).filter(Boolean).join("") : "";
   const busy = weighBusy ? "disabled" : "";
   const actions = weighConfirm
     ? `<p class="dnote">Delete this garment, its photos and the outfits built around it?</p>
@@ -37,7 +37,7 @@ function weighPage(g){
     <div class="info">
       <div><span class="eyebrow">Weighing · ${esc(g.brand || "unknown brand")} · ${esc(categoryName(g.category))}${SHOW_IDS ? ` · #${g.id}` : ""}</span>
         <h2>${esc(subcategoryName(g.subcategory))}</h2>
-        ${w ? `<div class="wverdict">${verdictBadge(w.verdict.recommendation)}<p>${esc(w.verdict.summary)}</p></div>` : `<p class="gonenote">No verdict was saved for this garment.</p>`}
+        ${w ? `<div class="wverdict">${verdictBadge(w.verdict.recommendation)}<p>${garmentRefs(w.verdict.summary)}</p></div>` : `<p class="gonenote">No verdict was saved for this garment.</p>`}
         ${actions}</div>
       ${w ? `<div class="panel"><h4>The checks <small>Weighed ${esc(when(w.weighed_at))}</small></h4><ul class="wchecks">${WEIGH_CHECKS.map(([k, label]) => weighCheck(k, label, w.verdict[k])).join("")}</ul></div>` : ""}
       ${similar ? `<div class="panel"><h4>Closest in your wardrobe</h4><div class="inset">${similar}</div></div>` : ""}
@@ -52,5 +52,5 @@ function weighedPage(){
   return head + `<main class="wlist">${list.map(g => { const w = weighById[g.id];
     return `<a class="wrow" href="#weigh-${g.id}"><div class="ph">${ph(g, thumb(g))}</div>
       <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(when(w.weighed_at))}</span><h3>${esc(subcategoryName(g.subcategory))} ${verdictBadge(w.verdict.recommendation)}</h3>
-      <p class="clamp">${esc(w.verdict.summary)}</p></div></a>`; }).join("")}</main>`;
+      <p class="clamp">${garmentRefs(w.verdict.summary, false)}</p></div></a>`; }).join("")}</main>`;
 }
