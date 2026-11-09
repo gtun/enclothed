@@ -19,7 +19,7 @@ function garmentRow(g){
         ${materials ? `<span><b>Materials</b> ${materials}</span>` : ""}
         <span><b>Formality</b> ${g.formality ? esc(levelLabel(OPT.formality, g.formality)) : "—"}</span>
         <span><b>Warmth</b> ${g.warmth ? esc(warmthShort(levelLabel(OPT.warmth, g.warmth))) : "—"}</span>
-        <span>${n ? plural(n, "outfit") : "no outfits"}</span>
+        <span>${wearsAndOutfits(g, n)}</span>
       </div>
       <p class="gnotes">${linkify(g.styling_notes)}</p>
     </div>

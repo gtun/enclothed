@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS outfits (
     liked INTEGER DEFAULT NULL,
     user_id INTEGER REFERENCES users(id),
     risk_tier TEXT CHECK (risk_tier IN ('safe', 'stretch', 'bold')),
+    source TEXT NOT NULL DEFAULT 'ai' CHECK (source IN ('ai', 'own')),
     CHECK (liked in (0, 1))
 );
 

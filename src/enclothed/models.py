@@ -458,6 +458,17 @@ class OutfitGarmentOut(BaseModel):
     styling_advice: str | None = None
     is_anchor: bool = False
 
+OutfitSource = Literal["ai", "own"]   # suggested by the AI (weigh included) or put together by the user
+
+class WearOut(BaseModel):
+    id: int
+    date: str
+    notes: str | None = None
+
+class WearIn(BaseModel):
+    worn_on: date | None = None   # the day it was worn; the server's today when left out
+    notes: str | None = None
+
 class OutfitOut(BaseModel):
     id: int
     timestamp: str
@@ -467,7 +478,10 @@ class OutfitOut(BaseModel):
     missing: str | None = None
     liked: bool | None = None
     risk_tier: RiskTier | None = None
+    source: OutfitSource = "ai"
     wear_count: int = 0
+    last_worn: str | None = None
+    wears: list[WearOut] = []   # newest first
     garments: list[OutfitGarmentOut]
 
 class SetOut(BaseModel):

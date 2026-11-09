@@ -34,6 +34,11 @@ function reindex(){
   REQUESTS.forEach((r, i) => r.key = "r" + i);
   applyLlmColors();   // AI button color can depend on the wardrobe (settings.js)
 }
+/* A garment's wears are its outfits' wears added up: every outfit it's in except weigh's, since a wear of an
+   outfit is a wear of each piece in it, whether or not the outfit is shown. */
+const garmentWears = g => (allOutfitsOf[g.id] || []).reduce((n, u) => n + u.o.wear_count, 0);
+/* "3 wears, 5 outfits" once a garment is in any outfit; "no outfits" before that. */
+const wearsAndOutfits = (g, n) => n ? `${plural(garmentWears(g), "wear")}, ${plural(n, "outfit")}` : "no outfits";
 const reqOf = o => REQUESTS.find(r => r.text === o.prompt_message);
 const visible = o => showDisliked || o.liked !== false;
 

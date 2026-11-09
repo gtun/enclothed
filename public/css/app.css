@@ -95,6 +95,15 @@ section.rail{scroll-margin-top:84px}
 .ratebtn:hover{color:var(--ink);border-color:var(--ink)}
 .ratebtn[data-rate="true"][aria-pressed="true"]{background:var(--good);border-color:var(--good);color:var(--on-status)}
 .ratebtn[data-rate="false"][aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:var(--on-status)}
+.wearbtn b{font:600 .8rem var(--mono);color:var(--ink)}
+.wearbtn.worn{border-color:var(--ink)}
+.wearlog{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:.86rem;color:var(--muted)}
+.wearlog ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.wearlog li{display:inline-flex;align-items:center;gap:2px;padding:2px 4px 2px 9px;border-radius:999px;background:var(--chip);color:var(--ink)}
+.wearlog li button{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 4px;font-size:1rem;line-height:1}
+.wearlog li button:hover{color:var(--bad)}
+.wearpop{position:fixed;z-index:70;display:flex;flex-direction:column;gap:8px;padding:12px;width:220px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px var(--shade);font-size:.88rem}
+.wearpop .row{display:flex;gap:6px}
 .ofilters{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .ofilters .field{min-width:0}
 .ofilters .field .txt{width:auto;min-width:150px}
@@ -147,6 +156,8 @@ section.rail{scroll-margin-top:84px}
 .olist{max-height:300px;overflow-y:auto;display:flex;flex-direction:column;margin:-4px -6px;padding:0 6px;overscroll-behavior:contain}
 .orow{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:12px;align-items:start;padding:10px 4px;text-decoration:none;border-bottom:1px solid var(--line)}
 .orow:last-child{border-bottom:0}
+.orow .ometa{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.orow .ometa em{font-style:normal;font-size:.78rem;color:var(--muted)}
 .orow:hover b{text-decoration:underline}
 .orow .vpal{display:flex;flex-direction:column;width:10px;align-self:stretch;border-radius:3px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
 .vpal i{flex:1}
@@ -280,6 +291,8 @@ mark{background:var(--mark);color:var(--mark-ink);border-radius:2px;padding:0 2p
 .bopts{gap:12px}
 .bopts .flabel{font:500 .82rem var(--body)}
 .bopts .seg{align-self:flex-start;flex-wrap:wrap}
+.osrc{align-items:center}
+.osrc .seg button span{opacity:.7;font-family:var(--mono);font-size:.78rem}
 .bopts .seg button:disabled{cursor:default;opacity:.6}
 .silgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:8px 10px 4px}
 .siltile{display:grid;place-items:center;padding:6px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);cursor:pointer}

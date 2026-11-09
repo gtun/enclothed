@@ -83,9 +83,9 @@ function garmentPage(g){
   const allUses = ((isDisowned(g) ? allOutfitsOf : outfitsOf)[g.id] || []).slice().sort((a, b) => b.o.timestamp.localeCompare(a.o.timestamp));
   const uses = allUses.filter(u => visible(u.o));
   const hidden = allUses.length - uses.length;
-  const outPanel = `<div class="panel"><h4>In outfits <small>${uses.length ? plural(uses.length,"outfit") : ""}${hidden ? ` · ${hidden} disliked hidden` : ""}</small></h4>
+  const outPanel = `<div class="panel"><h4>In outfits <small>${uses.length ? wearsAndOutfits(g, uses.length) : ""}${hidden ? ` · ${hidden} disliked hidden` : ""}</small></h4>
     ${uses.length ? `<div class="olist" tabindex="0" aria-label="Outfits with this garment">${uses.map(u => `
-      <a class="orow" href="#outfit-${u.o.id}">${vPal(u.o)}<span><b>${esc(u.o.aesthetic)}</b><span>${u.advice ? esc(u.advice) : esc(u.o.prompt_message)}</span></span><time>${when(u.o.timestamp)}</time></a>`).join("")}</div>`
+      <a class="orow" href="#outfit-${u.o.id}">${vPal(u.o)}<span><b>${esc(u.o.aesthetic)}</b><span>${u.advice ? esc(u.advice) : esc(u.o.prompt_message)}</span></span><span class="ometa"><time>${when(u.o.timestamp)}</time>${u.o.wear_count ? `<em title="${esc(wearTip(u.o).replace(" Click to log another wear.", ""))}">worn ${u.o.wear_count}×</em>` : ""}</span></a>`).join("")}</div>`
       : `<p class="empty">${hidden ? "Only in disliked outfits." : allOutfitsOf[g.id] ? `Only in <a href="#disowned-outfits">disowned outfits</a>.` : "Not in any outfit yet."}</p>`}</div>`;
   const co = {};
   uses.forEach(u => u.o.pieces.forEach(p => { if (p.id !== g.id && byId[p.id] && showDisowned(byId[p.id], "pairedWith") && !(g.set_id && byId[p.id].set_id === g.set_id)) co[p.id] = (co[p.id]||0) + 1; }));

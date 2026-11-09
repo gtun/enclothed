@@ -45,6 +45,10 @@ const choiceLabel = (list, v) => (list.find(l => l.value === v) || {}).label || 
 const unique = arr => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const SET_ICON = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="1.5" y="4.5" width="8" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="6.5" y="1.5" width="8" height="10" rx="1.5" fill="var(--surface)" stroke="currentColor" stroke-width="1.4"/></svg>`;
 const PEN = `<svg class="pen" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M11.3 2.3a1.6 1.6 0 0 1 2.3 2.3L5.4 12.8l-3 .8.8-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
+/* A coat hanger: the "mark as worn" button before an outfit has any wears. */
+const WEAR_ICON = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 5.2V4.6c0-.4.2-.6.5-.8.7-.4 1-1 .9-1.6C9.2 1.5 8.6 1 8 1s-1.2.5-1.3 1.2M8 5.2 1.6 10.4c-.6.5-.3 1.4.5 1.4h11.8c.8 0 1.1-.9.5-1.4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+/* Today as a plain local day ("2026-11-08"), the way wears are dated. */
+const todayLocal = () => { const d = new Date(); return [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n, i) => String(n).padStart(i ? 2 : 4, "0")).join("-"); };
 const THUMB_UP = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 7v7H2.5V7zM5 7l3-5c1.2 0 1.8.8 1.6 2L9.2 6.5h3.6c.9 0 1.5.8 1.3 1.6l-1.2 4.9c-.2.6-.7 1-1.3 1H5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 const THUMB_DOWN = `<svg viewBox="0 0 16 16" aria-hidden="true" style="transform:rotate(180deg)"><path d="M5 7v7H2.5V7zM5 7l3-5c1.2 0 1.8.8 1.6 2L9.2 6.5h3.6c.9 0 1.5.8 1.3 1.6l-1.2 4.9c-.2.6-.7 1-1.3 1H5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 

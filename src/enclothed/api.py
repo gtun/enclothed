@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 import tempfile
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -23,7 +23,7 @@ from enclothed.config import (
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH
 )
 from enclothed.models import (
-    ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut,
+    ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, WeighCreatedOut, WeighIn, WeighOut, blank_fields,
 )
@@ -325,7 +325,7 @@ def create_outfit(body: OutfitCreateIn, user: CurrentUser) -> OutfitOut:
         garments=[OutfitGarment(garment_id=g.garment_id, styling_advice=_blank_to_none(g.styling_advice)) for g in body.garments],
     )
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    [outfit_id] = db.insert_outfits(DB_PATH, user.id, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp)
+    [outfit_id] = db.insert_outfits(DB_PATH, user.id, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp, source="own")
     return responses.get_outfit(DB_PATH, user.id, outfit_id)
 
 
@@ -358,6 +358,25 @@ def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser) -> OutfitDesc
 def edit_outfit_liked(outfit_id: int, body: OutfitLikedIn, user: CurrentUser) -> OutfitOut:
     if not db.set_outfit_liked(DB_PATH, user.id, outfit_id, body.liked):
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
+    return responses.get_outfit(DB_PATH, user.id, outfit_id)
+
+
+@app.post("/api/outfits/{outfit_id}/wears", status_code=201)
+def log_wear(outfit_id: int, body: WearIn, user: CurrentUser) -> OutfitOut:
+    """Record that the user wore this outfit, on body.worn_on (today by default). Returns the outfit with its wears."""
+    day = body.worn_on or date.today()
+    if day > date.today() + timedelta(days=1):   # a day of slack: the browser's today can be ahead of the server's
+        raise HTTPException(status_code=422, detail="That date hasn't happened yet.")
+    if db.insert_wear(DB_PATH, user.id, outfit_id, day, _blank_to_none(body.notes)) is None:
+        raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
+    return responses.get_outfit(DB_PATH, user.id, outfit_id)
+
+
+@app.delete("/api/outfits/{outfit_id}/wears/{wear_id}")
+def remove_wear(outfit_id: int, wear_id: int, user: CurrentUser) -> OutfitOut:
+    """Undo a wear logged by mistake. Returns the outfit with its remaining wears."""
+    if not db.delete_wear(DB_PATH, user.id, outfit_id, wear_id):
+        raise HTTPException(status_code=404, detail=f"Wear {wear_id} not found on outfit {outfit_id}")
     return responses.get_outfit(DB_PATH, user.id, outfit_id)
 
 

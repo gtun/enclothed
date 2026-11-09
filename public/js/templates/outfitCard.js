@@ -1,9 +1,19 @@
-/* TEMPLATE: one outfit card (outfits page and new-suggestions page), with its like/dislike buttons. */
+/* TEMPLATE: one outfit card (outfits page and new-suggestions page), with its worn and like/dislike buttons. */
 "use strict";
+
+/* The round button left of Like: a hanger until the outfit is worn, then the number of wears. Either way it opens
+   the "wore it" date picker (features/wears.js). Its tooltip says what the number is and when it was last worn. */
+function wearTip(o){
+  return o.wear_count ? `Worn ${plural(o.wear_count, "time")}, last on ${when(o.last_worn)}. Click to log another wear.` : "Mark as worn";
+}
+function wearButton(o){
+  const tip = wearTip(o);
+  return `<button type="button" class="ratebtn wearbtn${o.wear_count ? " worn" : ""}" data-wear="${o.id}" aria-label="${esc(tip)}" title="${esc(tip)}">${o.wear_count ? `<b>${o.wear_count}</b>` : WEAR_ICON}</button>`;
+}
 
 function rateButtons(o){
   const b = (v, icon, verb) => `<button type="button" class="ratebtn" data-rate="${v}" data-rate-id="${o.id}" aria-pressed="${o.liked === v}" aria-label="${verb} ${esc(o.aesthetic)}" title="${o.liked === v ? "Clear rating" : verb}">${icon}</button>`;
-  return `<div class="ocard-rate" role="group" aria-label="Rate this outfit">${b(true, THUMB_UP, "Like")}${b(false, THUMB_DOWN, "Dislike")}</div>`;
+  return `<div class="ocard-rate" role="group" aria-label="Wear and rate this outfit">${wearButton(o)}${b(true, THUMB_UP, "Like")}${b(false, THUMB_DOWN, "Dislike")}</div>`;
 }
 function oCard(o){
   const pcs = o.pieces.map(p => byId[p.id]).filter(g => g && showDisowned(g, "outfitCard"));

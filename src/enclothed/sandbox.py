@@ -47,6 +47,7 @@ INSIGHTS_SCHEMA = {
         "explanation" : "TEXT",
         "missing" : "TEXT",
         "liked" : "INTEGER",
+        "source" : "TEXT",
     },
     "outfit_garments": {
         "outfit_id" : "INTEGER",
