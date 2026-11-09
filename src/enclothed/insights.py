@@ -53,7 +53,7 @@ def answer_question(client: Anthropic, db_path: Path, user_id: int, question: st
             "content": question,
         }
     ]
-    total_usage = TokenUsage(model=config.CLAUDE_MODEL, input_tokens=0, output_tokens=0)
+    total_usage = TokenUsage(model=config.MODELS["insights"], input_tokens=0, output_tokens=0)
     queries = []
     answer = None
     error = None

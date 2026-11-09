@@ -381,14 +381,14 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
         content.append({"type": "text", "text": f"The owner's preferences, to use only when judging hem:\n<preferences>\n{preferences}\n</preferences>"})
 
     response = client.messages.parse(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["tag"],
         max_tokens=config.TAG_TOKEN_CAP,
         system=tag_system_prompt(language),
         messages=[{"role": "user", "content": content}],
         output_format=TaggingReply,   # not TaggingResult: see the note above TaggedGarment in models.py
     )
     usage = TokenUsage(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["tag"],
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
     )
@@ -432,14 +432,14 @@ def fill_blanks(client: Anthropic, photo_paths: list[Path], record: dict, blanks
         content.append({"type": "text", "text": f"The owner's preferences, to use only when judging hem:\n<preferences>\n{preferences}\n</preferences>"})
 
     response = client.messages.parse(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["mend"],
         max_tokens=config.MEND_TOKEN_CAP,
         system=tag_system_prompt(language) + MEND_RULES,
         messages=[{"role": "user", "content": content}],
         output_format=answers,
     )
     usage = TokenUsage(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["mend"],
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
     )
@@ -452,14 +452,14 @@ def fill_blanks(client: Anthropic, photo_paths: list[Path], record: dict, blanks
 def improve_preferences(client: Anthropic, text: str) -> tuple[str, TokenUsage]:
     """Rewrite the user's preferences so the outfit LLM can follow them reliably. Saves nothing."""
     response = client.messages.parse(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["preferences"],
         max_tokens=config.PREFERENCES_TOKEN_CAP,
         system=PREFERENCES_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": f"<description>{text}</description>"}],
         output_format=ImprovedPreferences,
     )
     usage = TokenUsage(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["preferences"],
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
     )
@@ -470,14 +470,14 @@ def improve_preferences(client: Anthropic, text: str) -> tuple[str, TokenUsage]:
 def describe_outfit(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitDescription, TokenUsage]:
     """Name and explain an outfit the user put together. Saves nothing."""
     response = client.messages.parse(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["describe"],
         max_tokens=config.DESCRIBE_TOKEN_CAP,
         system=describe_system_prompt(language),
         messages=[{"role": "user", "content": context}],
         output_format=OutfitDescription,
     )
     usage = TokenUsage(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["describe"],
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
     )
@@ -508,19 +508,19 @@ Write reasons, differences and the summary in the language you use for the outfi
 
 
 def recommend_outfits(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitResult, TokenUsage]:
-    return _outfit_style_call(client, context, language, OutfitResult, "outfits")
+    return _outfit_style_call(client, context, language, OutfitResult, "outfits", config.MODELS["outfits"])
 
 
 def weigh_candidate(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[WeighResult, TokenUsage]:
     """The weigh call: the outfit system prompt, the weigh instructions in the message, and a verdict plus outfits back."""
-    return _outfit_style_call(client, context, language, WeighResult, "verdict")
+    return _outfit_style_call(client, context, language, WeighResult, "verdict", config.MODELS["outfits"])
 
 
-def _outfit_style_call[T](client: Anthropic, context: list[dict], language: Language, output_format: type[T], what: str) -> tuple[T, TokenUsage]:
+def _outfit_style_call[T](client: Anthropic, context: list[dict], language: Language, output_format: type[T], what: str, model: str) -> tuple[T, TokenUsage]:
     """One structured call with the outfit system prompt. Outfits and weigh share it, so the outfit
     rules (coordination, weather, tiers) apply to the outfits weigh builds too."""
     response = client.messages.parse(
-        model=config.CLAUDE_MODEL,
+        model=model,
         max_tokens=config.OUTFIT_TOKEN_CAP,
         system=outfit_system_prompt(language),
         messages=[{"role": "user", "content": context}],
@@ -528,7 +528,7 @@ def _outfit_style_call[T](client: Anthropic, context: list[dict], language: Lang
     )
 
     usage = TokenUsage(
-        model=config.CLAUDE_MODEL,
+        model=model,
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
         cache_creation_input_tokens=response.usage.cache_creation_input_tokens or 0,
@@ -546,7 +546,7 @@ def _outfit_style_call[T](client: Anthropic, context: list[dict], language: Lang
 
 def insights_turn(client: Anthropic, messages: list[dict], language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> tuple[Message, TokenUsage]:
     response = client.messages.create(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["insights"],
         max_tokens=config.INSIGHTS_TOKEN_CAP,
         system=insights_system_prompt(language, preferences),
         tools=[RUN_SELECT_TOOL],
@@ -555,7 +555,7 @@ def insights_turn(client: Anthropic, messages: list[dict], language: Language = 
     )
 
     usage = TokenUsage(
-        model=config.CLAUDE_MODEL,
+        model=config.MODELS["insights"],
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
         cache_creation_input_tokens=response.usage.cache_creation_input_tokens or 0,

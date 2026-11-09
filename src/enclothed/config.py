@@ -20,8 +20,18 @@ PUBLIC_DIR = PROJECT_ROOT / "public"
 LOCALES_DIR = PKG_DIR / "locales"
 
 DEFAULT_USER_ID = 1
-CLAUDE_MODEL = "claude-sonnet-5-5"
-TEST_CLAUDE_MODEL = "claude-haiku-5-5"
+# Which Claude model each AI feature uses. They all share one API, so switching a feature is a change to its line.
+# Before moving a feature to a bigger model: Opus and Fable always think first, and thinking counts toward that
+# feature's token cap below; they're also slower, and the site's proxy gives up on a request after 100 seconds.
+# Weigh uses "outfits": the two share the cached wardrobe only while they're on the same model.
+MODELS: dict[str, str] = {
+    "tag": "claude-sonnet-5-5",          # reading photos and labels into a garment record
+    "mend": "claude-sonnet-5-5",         # filling a garment's blank fields from its photos
+    "outfits": "claude-sonnet-5-5",      # outfit suggestions and weigh
+    "describe": "claude-haiku-5-5",      # a name and "why it works" for an outfit you put together
+    "preferences": "claude-haiku-5-5",   # tidying your style notes
+    "insights": "claude-sonnet-5-5",     # "Ask your wardrobe": writes SQL over several steps, so accuracy matters
+}
 MAX_LLM_ATTEMPTS = 2
 TAG_TOKEN_CAP = 2048
 MEND_TOKEN_CAP = 2048
