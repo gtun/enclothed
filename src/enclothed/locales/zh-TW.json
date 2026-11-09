@@ -506,5 +506,10 @@
     "safe": "穩妥",
     "stretch": "小突破",
     "bold": "大膽"
+  },
+  "recommendations": {
+    "worth_it": "值得買",
+    "maybe": "再想想",
+    "pass": "不買"
   }
 }

@@ -464,10 +464,12 @@ body.with-builder .wrap{margin-right:max(392px,calc((100% - 1180px)/2))}
 .ukey-outfits{background:var(--series-outfits)}
 .ukey-style{background:var(--series-style)}
 .ukey-insights{background:var(--series-insights)}
+.ukey-weigh{background:var(--series-weigh)}
 .useg-tagging{fill:var(--series-tagging)}
 .useg-outfits{fill:var(--series-outfits)}
 .useg-style{fill:var(--series-style)}
 .useg-insights{fill:var(--series-insights)}
+.useg-weigh{fill:var(--series-weigh)}
 .uchart{position:relative}
 .uchart svg{display:block;width:100%;height:auto}
 .ugrid{stroke:var(--line);stroke-width:1}
@@ -537,3 +539,31 @@ body.with-builder .insights-open,body.with-builder .insights-panel{right:392px}
 .review-photos img{height:132px;width:auto;border-radius:8px;flex:none;background:var(--line)}
 .review-dialog .dbtns{display:flex;gap:8px}
 .review-dialog .dbtns .btn.primary{flex:1}
+
+/* ---- weigh: should I buy this? ---- */
+.verdict{display:inline-block;vertical-align:middle;font:600 .72rem var(--body);text-transform:uppercase;letter-spacing:.07em;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.verdict-worth_it{background:var(--good);border-color:var(--good);color:var(--on-status)}
+.verdict-pass{border-color:var(--bad);color:var(--bad)}
+.verdict-maybe{border-color:var(--ink);color:var(--ink)}
+.wverdict{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:12px}
+.wverdict p{margin:0;max-width:60ch;line-height:1.5}
+.wchecks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.wcheck{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start}
+.wcheck p{margin:3px 0 0;color:var(--muted);font-size:.86rem;line-height:1.45}
+.wcheck b{font-weight:600;font-size:.9rem}
+.wmark{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.78rem;font-weight:700;color:var(--on-status)}
+.wcheck.good .wmark{background:var(--good)}
+.wcheck.bad .wmark{background:var(--bad)}
+.wans{font-size:.8rem;color:var(--muted);margin-left:4px}
+.wphotos{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.wphotos img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}
+.wphotos img:first-child{grid-column:1/-1}
+.mini .sim-same{color:var(--bad);font-weight:600}
+.mini .sim-close{color:var(--ink);font-weight:600}
+.wlist{display:flex;flex-direction:column;gap:12px}
+.wrow{display:grid;grid-template-columns:88px 1fr;gap:14px;align-items:start;text-decoration:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;transition:border-color .15s}
+.wrow:hover{border-color:var(--ink)}
+.wrow .ph{border-radius:5px}
+.wrow h3{margin:4px 0 6px;font:600 1rem var(--body);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* On a phone in the store, the verdict comes before the photos you just took. */
+@media (max-width:780px){ .wdetail .gallery{order:2;position:static} .wphotos{grid-template-columns:repeat(4,1fr)} .wphotos img:first-child{grid-column:auto} }

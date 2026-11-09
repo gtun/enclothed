@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS garments (
     set_id INTEGER REFERENCES sets(id),
     mended_on TEXT,
     disowned_on TEXT,
+    weighed_on TEXT,
     user_id INTEGER REFERENCES users(id)
 );
 
@@ -65,6 +66,13 @@ CREATE TABLE IF NOT EXISTS wears (
     notes TEXT,
     date TEXT NOT NULL,
     FOREIGN KEY (outfit_id) REFERENCES outfits(id)
+);
+
+CREATE TABLE IF NOT EXISTS weighs (
+    garment_id INTEGER PRIMARY KEY NOT NULL REFERENCES garments(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    weighed_at TEXT NOT NULL,
+    verdict TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_outfit_garments_garment ON outfit_garments(garment_id);

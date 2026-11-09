@@ -6,20 +6,28 @@ function adoptOutfit(o){
   return o;
 }
 const isDisowned = g => !!g?.disowned_on;
+/* A garment being weighed (weigh, "should I buy this?") isn't owned, so it's in none of the wardrobe's lists.
+   The outfits built around it live on its weigh page until it's bought, then they become ordinary outfits. */
+const isCandidate = g => !!g?.weighed_on;
+const candidateOf = o => o.pieces.map(p => byId[p.id]).find(isCandidate);
 /* An outfit with a piece you no longer own lives on the Disowned outfits page, not the Outfits page. Its own link still works. */
-const outfitHidden = o => o.pieces.some(p => isDisowned(byId[p.id]));
+const outfitHidden = o => o.pieces.some(p => isDisowned(byId[p.id])) || !!candidateOf(o);
 function reindex(){
   byId = Object.fromEntries(G.map(g => [g.id, g]));
-  OWNED = G.filter(g => !isDisowned(g));
+  OWNED = G.filter(g => !isDisowned(g) && !isCandidate(g));
   DISOWNED = G.filter(isDisowned);
+  CANDIDATES = G.filter(isCandidate);
+  weighById = Object.fromEntries(WEIGHS.map(w => [w.garment_id, w]));
   SHOWN = O.filter(o => !outfitHidden(o));
-  DISOWNED_O = O.filter(outfitHidden);
+  DISOWNED_O = O.filter(o => outfitHidden(o) && !candidateOf(o));
+  weighOutfitsOf = {};
+  O.forEach(o => { const c = candidateOf(o); if (c) (weighOutfitsOf[c.id] ||= []).push(o); });
   outById = Object.fromEntries(O.map(o => [o.id, o]));
   setById = Object.fromEntries(SETS.map(s => [s.id, s]));
   O.forEach(o => o.pieces.sort((a, b) => catRank(byId[a.id]) - catRank(byId[b.id])));
   outfitsOf = {};
   allOutfitsOf = {};
-  O.forEach(o => o.pieces.forEach(p => (allOutfitsOf[p.id] ||= []).push({o, advice: p.advice, anchor: p.anchor})));
+  O.filter(o => !candidateOf(o)).forEach(o => o.pieces.forEach(p => (allOutfitsOf[p.id] ||= []).push({o, advice: p.advice, anchor: p.anchor})));
   outfitsOf = Object.fromEntries(Object.entries(allOutfitsOf).map(([id, uses]) => [id, uses.filter(u => !outfitHidden(u.o))]).filter(([, uses]) => uses.length));
   REQUESTS = [];
   SHOWN.forEach(o => { let r = REQUESTS.find(x => x.text === o.prompt_message); if (!r) REQUESTS.push(r = {text: o.prompt_message, items: []}); r.items.push(o); });

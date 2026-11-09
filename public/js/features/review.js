@@ -19,7 +19,7 @@ function openReview(details){
   ov.querySelector("[data-r-accept]").focus();
 }
 function closeReview(){
-  if (review.mode === "new") review.photos.forEach(url => URL.revokeObjectURL(url));
+  if (review.mode === "new" || review.mode === "weigh") review.photos.forEach(url => URL.revokeObjectURL(url));
   review = {open: false};
   const ov = document.getElementById("review"); ov.hidden = true; ov.innerHTML = ""; document.body.style.overflow = "";
 }
@@ -37,7 +37,13 @@ function askToCancel(){
 async function acceptReview(){
   review.busy = true; review.error = ""; renderReview();
   try {
-    if (review.mode === "new"){
+    if (review.mode === "weigh"){
+      // The draft stays on the server until this succeeds, so a failed call can simply be tried again.
+      const weighed = await api("/api/weighs", {method: "POST", body: {draft_id: review.draftId, garment: review.g}});
+      adoptWeigh(weighed);
+      closeReview();
+      location.hash = "#weigh-" + weighed.candidate.id;
+    } else if (review.mode === "new"){
       const added = await api(`/api/garments/drafts/${review.draftId}`, {method: "POST", body: review.g});
       G.push(added); reindex();
       closeReview();

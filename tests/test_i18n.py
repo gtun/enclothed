@@ -11,7 +11,7 @@ from enclothed.auth import signed_in_user
 from enclothed.fabrics import FABRIC_TYPES
 from enclothed.models import (
     ALL_SUBCATEGORIES, Category, Color, FabricWeight, Fit, FORMALITY_LABELS, Hem, LANGUAGE_NAMES, Language, OutfitResult,
-    RiskTier, Shape, Sheen, Sleeve, Statement, User,
+    RiskTier, Recommendation, Shape, Sheen, Sleeve, Statement, User,
     WARMTH_LABELS,
 )
 
@@ -31,6 +31,7 @@ GROUPS = {
     "formality": {str(value) for value in FORMALITY_LABELS},
     "warmth": {str(value) for value in WARMTH_LABELS},
     "risk_tiers": set(get_args(RiskTier)),
+    "recommendations": set(get_args(Recommendation)),
 }
 
 

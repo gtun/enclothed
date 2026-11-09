@@ -1,4 +1,4 @@
-/* Page routing (#wardrobe, #outfits, #garment-N, #outfit-N, #results, #usage), click handling, Day/Evening, and start-up. Loaded last. */
+/* Page routing (#wardrobe, #outfits, #garment-N, #outfit-N, #results, #usage, #weighed, #weigh-N), click handling, Day/Evening, and start-up. Loaded last. */
 "use strict";
 
 const app = document.getElementById("app");
@@ -21,7 +21,14 @@ function render(){
     view = "outfit"; pageFound = !!o;
     html = o ? outfitPage(o) : `<div class="state"><h1>Outfit not found</h1><p><a href="#outfits">Back to outfits</a></p></div>`;
     document.title = o ? `${o.aesthetic} · enclothed` : "enclothed";
-  } else if (h === "outfits"){ view = "outfits"; html = outfits(); document.title = "Outfits · enclothed"; }
+  } else if ((m = h.match(/^weigh-(\d+)$/))){
+    const g = byId[m[1]];
+    view = "weigh"; pageFound = !!g && isCandidate(g);
+    html = pageFound ? weighPage(g) : g ? garmentPage(g) : `<div class="state"><h1>Not found</h1><p><a href="#weighed">Back to Weighing</a></p></div>`;
+    document.title = pageFound ? `Weighing ${title(g)} · enclothed` : "enclothed";
+    if (g && !pageFound) view = "garment";   // bought since: an old link shows it in the wardrobe
+  } else if (h === "weighed"){ view = "weighed"; html = weighedPage(); document.title = "Weighing · enclothed"; }
+  else if (h === "outfits"){ view = "outfits"; html = outfits(); document.title = "Outfits · enclothed"; }
   else if (h === "results"){ view = "results"; pageFound = !!builder.session?.ids.length; html = resultsPage(); document.title = "New suggestions · enclothed"; }
   else if (h === "disowned-garments"){ view = "disowned-garments"; html = disownedGarments(); document.title = "Disowned garments · enclothed"; }
   else if (h === "disowned-outfits"){ view = "disowned-outfits"; html = disownedOutfits(); document.title = "Disowned outfits · enclothed"; }
@@ -35,12 +42,13 @@ function render(){
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;
   const bk = app.querySelector("[data-back]");
   if (bk && prev){ const pm = prev.match(/^#(garment|outfit)-/);
-    bk.textContent = pm ? `← Back to ${pm[1]}` : prev === "#results" ? "← New suggestions" : prev === "#outfits" ? "← Outfits" : prev === "#disowned-garments" ? "← Disowned garments" : prev === "#disowned-outfits" ? "← Disowned outfits" : "← Wardrobe"; }
+    bk.textContent = pm ? `← Back to ${pm[1]}` : prev.startsWith("#weigh-") ? "← Back to the verdict" : prev === "#weighed" ? "← Weighing" : prev === "#results" ? "← New suggestions" : prev === "#outfits" ? "← Outfits" : prev === "#disowned-garments" ? "← Disowned garments" : prev === "#disowned-outfits" ? "← Disowned outfits" : "← Wardrobe"; }
   return view;
 }
 function route(){
   closeHelp();
   if (current === "wardrobe" || current === "outfits") scrollMem[current] = scrollY;
+  weighConfirm = false;
   const view = render();
   current = view;
   if (view === "garment") wireGallery();
@@ -93,6 +101,7 @@ app.addEventListener("click", e => {
   if (e.target.closest("[data-reown]")){ const g = currentGarment(); if (g) reown(g); return; }
   if (handleNotesCheckClick(e)) return;
   if (handleBuilderClick(e)) return;
+  if (handleWeighClick(e)) return;
   const r = e.target.closest("[data-rate]");
   if (r){ const id = r.dataset.rateId || (location.hash.match(/^#outfit-(\d+)$/) || [])[1]; if (id && outById[id]) rate(outById[id], r.dataset.rate === "true"); return; }
   const b = e.target.closest("[data-back]");
@@ -135,8 +144,9 @@ paintTheme();
   try {
     const profile = await api("/api/profile");
     SHOW_IDS = profile.is_admin;
-    const [garments, outfitList, sets, options, preferences] = await Promise.all([
-      api("/api/garments"), api("/api/outfits"), api("/api/sets"), api("/api/options"), api("/api/preferences")]);
+    const [garments, outfitList, sets, options, preferences, weighs] = await Promise.all([
+      api("/api/garments"), api("/api/outfits"), api("/api/sets"), api("/api/options"), api("/api/preferences"), api("/api/weighs")]);
+    WEIGHS = weighs;
     Object.assign(prefs, preferences);
     G = garments; O = outfitList.map(adoptOutfit); SETS = sets; OPT = options;
     SETTINGS.locale ||= profile.language;
@@ -148,7 +158,7 @@ paintTheme();
     startHelp(profile.signed_in_as || profile.name);
     usage.admin = profile.is_admin;
     reindex();
-    builder.pieces = builder.pieces.filter(id => byId[id] && !isDisowned(byId[id]));
+    builder.pieces = builder.pieces.filter(id => byId[id] && !isDisowned(byId[id]) && !isCandidate(byId[id]));
     if (builder.session) builder.session.ids = builder.session.ids.filter(id => outById[id]);
     renderBuilder();
     startInsights();

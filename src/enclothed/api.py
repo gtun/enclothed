@@ -16,16 +16,16 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 
-from enclothed import db, demo, drafts, mend, photos, responses
+from enclothed import db, demo, drafts, mend, photos, responses, weigh
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
-    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH
+    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH
 )
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
-    User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, blank_fields,
+    User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, WeighCreatedOut, WeighIn, WeighOut, blank_fields,
 )
 from enclothed.insights import answer_question
 from enclothed.llm import UnusableResponse, improve_preferences
@@ -186,7 +186,7 @@ def mend_garment(garment_id: int, user: CurrentUser) -> MendOut:
     return MendOut(filled=result.filled, unanswered=result.unanswered)
 
 
-EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id", "mended_on", "user_id"}
+EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id", "mended_on", "user_id", "weighed_on"}   # weigh has its own buy endpoint
 
 @app.patch("/api/garments/{garment_id}")
 def edit_garment(garment_id: int, changes: dict[str, Any], user: CurrentUser) -> GarmentOut:
@@ -205,6 +205,51 @@ def edit_garment(garment_id: int, changes: dict[str, Any], user: CurrentUser) ->
 
     db.update_garment(DB_PATH, user.id, edited)
     return responses.to_garment_out(edited)
+
+
+# --- weigh: should I buy this? (#2) -------
+@app.post("/api/weighs", status_code=201)
+def weigh_garment(body: WeighIn, user: CurrentUser) -> WeighCreatedOut:
+    """Weigh a tagged, reviewed draft against the wardrobe. Saves it as a candidate, not as owned.
+    If the AI call fails, the draft is left as it was, so trying again doesn't re-tag the photos."""
+    _require_demo_tokens(user)
+    client = _anthropic_client()
+    try:
+        saved, garment_id, outfit_ids = weigh.weigh_draft(
+            DB_PATH, _drafts_dir(), GARMENTS_DIR, TAGGING_LOG_PATH, WEIGH_LOG_PATH, user.id, body.draft_id, body.garment, client,
+            _saved_preferences(user), user.language)
+    except weigh.DraftGone:
+        raise HTTPException(status_code=404, detail="That garment is no longer waiting. Photograph it again.")
+    except anthropic.APIError as error:
+        raise _llm_failed(error)
+    except UnusableResponse:
+        logger.exception("Weigh gave no usable answer")
+        raise HTTPException(status_code=502, detail="The AI couldn't weigh this garment. Nothing was saved; try again.")
+    return WeighCreatedOut(weigh=saved, candidate=responses.get_garment(DB_PATH, user.id, garment_id),
+                           outfits=responses.get_outfits(DB_PATH, user.id, outfit_ids))
+
+
+@app.get("/api/weighs")
+def list_weighs(user: CurrentUser) -> list[WeighOut]:
+    """Verdicts for garments still being weighed. The garments and outfits come with the usual lists."""
+    return db.select_weighs(DB_PATH, user.id)
+
+
+@app.post("/api/weighs/{garment_id}/buy")
+def buy_weighed(garment_id: int, user: CurrentUser) -> GarmentOut:
+    """I bought it: the candidate joins the wardrobe as it is, photos and outfits included."""
+    if not db.buy_candidate(DB_PATH, user.id, garment_id):
+        raise HTTPException(status_code=404, detail=f"No garment {garment_id} is being weighed")
+    return responses.get_garment(DB_PATH, user.id, garment_id)
+
+
+@app.delete("/api/weighs/{garment_id}", status_code=204)
+def discard_weighed(garment_id: int, user: CurrentUser) -> None:
+    """Not buying: delete the candidate, its photos, its verdict and the outfits suggested with it."""
+    if not db.delete_candidate(DB_PATH, user.id, garment_id):
+        raise HTTPException(status_code=404, detail=f"No garment {garment_id} is being weighed")
+    shutil.rmtree(GARMENTS_DIR / str(garment_id), ignore_errors=True)
+    shutil.rmtree(THUMBS_DIR / str(garment_id), ignore_errors=True)
 
 
 # --- outfits -------------------------
@@ -392,7 +437,7 @@ FromParam = Annotated[datetime | None, Query(alias="from")]
 
 
 def _usage_logs() -> dict[str, Path]:
-    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH}
+    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH, "weigh": WEIGH_LOG_PATH}
 
 
 @app.get("/api/usage")

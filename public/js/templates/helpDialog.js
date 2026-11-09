@@ -40,6 +40,15 @@ const HELP = {
     "These won't be suggested in new outfits.",
     "To bring a piece back, open it and choose <b>Add this to my wardrobe again</b>.",
   ]},
+  weigh: {title: "Should I get this?", tips: [
+    "This is the verdict for something you photographed while shopping. It isn't in your wardrobe, so it's never suggested in other outfits.",
+    "<b>The checks</b> say whether you already own something like it, whether it makes good outfits, fills a gap and fits your style.",
+    "<b>Get</b> adds it to your wardrobe as it is, photos and outfits included. <b>Pass</b> deletes it.",
+  ]},
+  weighed: {title: "Weighing", tips: [
+    "Everything you're deciding whether to get, newest first. Open one for its verdict and outfits.",
+    "<b>Weigh a garment</b> takes photos like adding one, then uses AI once to judge it against your wardrobe.",
+  ]},
   style: {title: "Your style", tips: [
     "Describe your tastes and needs in your own words. They're included with every outfit request.",
     "Words like <b>always</b>, <b>never</b> and <b>must</b> make something a rule. Everything else is a default that a specific request can override.",

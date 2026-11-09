@@ -2,7 +2,7 @@ from anthropic import Anthropic
 from anthropic.types import Message
 from enclothed import config, i18n
 from enclothed.fabrics import FABRIC_GROUPS
-from enclothed.models import DEFAULT_LANGUAGE, Garment, SUBCATEGORIES, Language, TaggingResult, TokenUsage, OutfitResult, OutfitDescription, ImprovedPreferences
+from enclothed.models import DEFAULT_LANGUAGE, Garment, SUBCATEGORIES, Language, TaggingResult, TokenUsage, OutfitResult, OutfitDescription, ImprovedPreferences, WeighResult
 from enclothed.sandbox import insights_schema_text
 import base64
 import json
@@ -461,13 +461,38 @@ def describe_outfit(client: Anthropic, context: list[dict], language: Language =
         raise UnusableResponse(f"No description in response (stop_reason={response.stop_reason})", usage)
     return response.parsed_output, usage
 
+# Sent in the user message, not the system prompt, so weigh and outfits share one system prompt.
+WEIGH_INSTRUCTIONS = """<weigh>
+The owner is in a store deciding whether to buy the garment in <candidate>. They don't own it.
+Weigh it against the wardrobe:
+- already_own: compare it with each garment in <similar>, the owned pieces most like it. "Same" means it
+  does the same job, so the owner doesn't need both. A near-duplicate usually means pass, however good it is.
+- outfits: build them as <options> asks, each with the candidate (ID 0) and only owned garments otherwise.
+- makes_outfits, fills_gap, fits_style: answer from the wardrobe and the outfits you built, naming garments.
+- recommendation: worth_it only when it adds something real. Don't encourage buying for its own sake;
+  pass is a good answer when it's earned.
+Write reasons, differences and the summary in the language you use for the outfits.
+</weigh>"""
+
+
 def recommend_outfits(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitResult, TokenUsage]:
+    return _outfit_style_call(client, context, language, OutfitResult, "outfits")
+
+
+def weigh_candidate(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[WeighResult, TokenUsage]:
+    """The weigh call: the outfit system prompt, the weigh instructions in the message, and a verdict plus outfits back."""
+    return _outfit_style_call(client, context, language, WeighResult, "verdict")
+
+
+def _outfit_style_call[T](client: Anthropic, context: list[dict], language: Language, output_format: type[T], what: str) -> tuple[T, TokenUsage]:
+    """One structured call with the outfit system prompt. Outfits and weigh share it, so the outfit
+    rules (coordination, weather, tiers) apply to the outfits weigh builds too."""
     response = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=config.OUTFIT_TOKEN_CAP,
         system=outfit_system_prompt(language),
         messages=[{"role": "user", "content": context}],
-        output_format=OutfitResult,
+        output_format=output_format,
     )
 
     usage = TokenUsage(
@@ -481,9 +506,9 @@ def recommend_outfits(client: Anthropic, context: list[dict], language: Language
     logger.debug("blocks: %s", [block.type for block in response.content])
 
     if response.stop_reason == "max_tokens":
-        logger.warning("Outfit response cut off at max_tokens (%s)", config.OUTFIT_TOKEN_CAP)
+        logger.warning("%s response cut off at max_tokens (%s)", what.capitalize(), config.OUTFIT_TOKEN_CAP)
     if response.parsed_output is None:
-        raise UnusableResponse(f"No outfits in response (stop_reason={response.stop_reason})", usage)
+        raise UnusableResponse(f"No {what} in response (stop_reason={response.stop_reason})", usage)
     return response.parsed_output, usage
 
 

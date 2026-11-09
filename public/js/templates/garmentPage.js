@@ -102,7 +102,8 @@ function garmentPage(g){
     <div class="gallery">${gallery}</div>
     <div class="info">
       <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(categoryName(g.category))}${SHOW_IDS ? ` · #${g.id}` : ""}</span><h2>${esc(subcategoryName(g.subcategory))}</h2>
-        ${isDisowned(g) ? `<p class="gonenote">No longer owned · since ${esc(whenDay(g.disowned_on))}</p><div class="hero-actions"><button type="button" class="btn primary" data-reown>Add this to my wardrobe again</button></div>`
+        ${isCandidate(g) ? `<p class="gonenote">Not in your wardrobe · you're weighing whether to get it</p><div class="hero-actions"><a class="btn primary" href="#weigh-${g.id}" style="text-decoration:none">See the verdict</a></div>`
+          : isDisowned(g) ? `<p class="gonenote">No longer owned · since ${esc(whenDay(g.disowned_on))}</p><div class="hero-actions"><button type="button" class="btn primary" data-reown>Add this to my wardrobe again</button></div>`
           : `<div class="hero-actions"><button type="button" class="btn${builder.pieces.includes(g.id) ? " primary" : ""}" data-pick="${g.id}" aria-pressed="${builder.pieces.includes(g.id)}">${builder.pieces.includes(g.id) ? "− Remove from outfit" : "+ Add to outfit"}</button>${mendButton(g)}<button type="button" class="btn quiet" data-disown>I no longer own this</button></div>`}</div>
       ${setPanel}
       ${stylingNotes}

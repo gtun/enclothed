@@ -88,18 +88,7 @@ def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], 
 
     logger.debug(json.dumps(prompt_wardrobe, ensure_ascii=False, indent=2))
 
-    context = []
-
-    wardrobe_block = {
-        "type": "text",
-        "text": f"""<wardrobe>
-{json.dumps(prompt_wardrobe, ensure_ascii=False)}
-</wardrobe>
-""",
-    }
-    if caching:
-        wardrobe_block["cache_control"] = {"type": "ephemeral"}
-    context.append(wardrobe_block)
+    context = [wardrobe_block(prompt_wardrobe, caching)]
 
     if preferences:
         context.append({"type": "text", "text": f"<preferences>\n{preferences}\n</preferences>"})
@@ -174,6 +163,14 @@ def fill_single_tier(result: OutfitResult, plan: dict[RiskTier, int]) -> OutfitR
     return result.model_copy(update={"outfits": [
         o if o.risk_tier else o.model_copy(update={"risk_tier": asked[0]}) for o in result.outfits
     ]})
+
+def wardrobe_block(prompt_wardrobe: dict, caching: bool) -> dict:
+    """The <wardrobe> block. It's the largest and steadiest part of the message, so it goes first and
+    is marked for caching: the next call with the same wardrobe reads it from the cache."""
+    block = {"type": "text", "text": f"<wardrobe>\n{json.dumps(prompt_wardrobe, ensure_ascii=False)}\n</wardrobe>\n"}
+    if caching:
+        block["cache_control"] = {"type": "ephemeral"}
+    return block
 
 def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     records = {}

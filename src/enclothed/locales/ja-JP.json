@@ -506,5 +506,10 @@
     "safe": "定番",
     "stretch": "ひとひねり",
     "bold": "大胆"
+  },
+  "recommendations": {
+    "worth_it": "買い",
+    "maybe": "保留",
+    "pass": "見送り"
   }
 }

@@ -12,6 +12,7 @@ TAGGING_LOG_PATH = DATA_DIR / "tagging_log.jsonl"
 OUTFIT_LOG_PATH = DATA_DIR / "outfit_log.jsonl"
 INSIGHTS_LOG_PATH = DATA_DIR / "insights_log.jsonl"
 PREFERENCES_LOG_PATH = DATA_DIR / "preferences_log.jsonl"
+WEIGH_LOG_PATH = DATA_DIR / "weigh_log.jsonl"
 BACKUPS_DIR = PROJECT_ROOT / "backups"
 SNAPSHOTS_DIR = DATA_DIR / "snapshots"
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
@@ -30,6 +31,8 @@ OUTFIT_TOKEN_CAP = 8192
 MIN_OUTFIT_COUNT = 1
 MAX_OUTFIT_COUNT = 5        # each outfit adds output tokens and latency under OUTFIT_TOKEN_CAP
 DEFAULT_OUTFIT_COUNT = 3
+WEIGH_OUTFIT_COUNT = 3       # outfits built around a garment being weighed, one per tier
+WEIGH_SIMILAR_LIMIT = 5      # owned garments shortlisted for the "already own it?" check
 DESCRIBE_TOKEN_CAP = 1024     # a name and two or three sentences
 
 INSIGHTS_VALUE_SIZE_LIMIT = 10_000_000
