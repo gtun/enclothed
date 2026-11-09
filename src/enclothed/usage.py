@@ -76,13 +76,16 @@ def read_calls(logs: dict[str, Path], start: datetime | None = None, end: dateti
     return sorted(calls, key=lambda c: c.timestamp)
 
 
-def log_failed_call(log_path: Path, user_id: int, usage: TokenUsage, error: str) -> None:
-    """Record tokens spent on a response that couldn't be used, so the cost still shows."""
+def log_failed_call(log_path: Path, user_id: int, usage: TokenUsage | None, error: str, request_id: str | None = None) -> None:
+    """Record a call that failed. With usage, tokens were spent on an unusable answer, so the cost still shows.
+    Without it, the API refused or never answered: nothing was billed, but the failure is on record."""
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "user_id": user_id,
-        "usage": usage.model_dump(),
+        "usage": usage.model_dump() if usage else None,
         "error": error,
     }
+    if request_id:
+        entry["request_id"] = request_id   # what Anthropic support asks for
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")

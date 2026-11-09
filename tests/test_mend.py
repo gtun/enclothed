@@ -192,7 +192,9 @@ class FakeParse:
     def __call__(self, **kwargs):
         self.sent = kwargs
         usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1})()
-        parsed = kwargs["output_format"](hem="hip") if self.parsed else None
+        # hem answered; every other blank asked about comes back "unknown", as the prompt tells Claude to do
+        fields = kwargs["output_format"].model_fields
+        parsed = kwargs["output_format"](**{f: "hip" if f == "hem" else "unknown" for f in fields}) if self.parsed else None
         return type("Response", (), {"usage": usage, "parsed_output": parsed, "stop_reason": "end_turn"})()
 
 

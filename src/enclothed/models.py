@@ -289,6 +289,69 @@ class TaggingResult(BaseModel):
     garment: Garment
     photos: list[PhotoTag]
 
+
+# --- What the tagging and mend calls ask Claude for -------------------------------
+# Structured outputs compile the schema into a grammar, and "value or nothing" fields (anyOf with
+# null) make that grammar grow fast: past ~15 of them the API answers "Schema is too complex"
+# (seen 2026-11-08, after the six attribute fields). So Claude's side of the contract has no
+# optional fields at all. Every field is required, and "don't know" is a value: "unknown" for
+# fixed lists, 0 for the scales, "" for text. blank_unknowns() turns those back into None, and the
+# rest of the app only ever sees Garment. TaggedGarment must list exactly the fields of Garment
+# that Claude sees; tests/test_models.py checks that.
+UNKNOWN = "unknown"
+
+def _or_unknown(choices: Any) -> Any:
+    return Literal[get_args(choices) + (UNKNOWN,)]
+
+class TaggedMaterialPart(BaseModel):
+    part: str = Field(description='"shell", "lining", "fill"... Empty for a single-fabric garment.')
+    fibers: list[Fiber]
+
+class TaggedGarment(BaseModel):
+    category: Category
+    subcategory: str
+    primary_color: Color
+    secondary_colors: list[Color]
+    accent_colors: list[Color]
+    formality: int = Field(ge=0, le=4,
+        description="The most formal occasion it can serve. 1 = casual, 2 = smart casual, 3 = appropriate for business, 4 = formalwear, 0 = can't tell")
+    materials: list[TaggedMaterialPart]
+    warmth: int = Field(ge=0, le=5,
+        description="1 = summer-weight, 25°C+, 2 = light, 18-25°C, 3 = mid-layer, 10-18°C, 4 = warm, 0-10°C, 5 = heavy winter, below 0°C, 0 = can't tell")
+    pattern: str
+    country_of_origin: str
+    style_tags: list[str]
+    styling_notes: str
+    label_text: str
+    fit: _or_unknown(Fit)
+    sheen: _or_unknown(Sheen)
+    fabric_type: str = Field(description='The main body fabric, from the allowed list, or "unknown"')
+    shape: _or_unknown(Shape)
+    hem: _or_unknown(Hem)
+    fabric_weight: _or_unknown(FabricWeight)
+    sleeve: _or_unknown(Sleeve)
+    statement: _or_unknown(Statement)
+    brand: str
+
+class TaggingReply(BaseModel):
+    garment: TaggedGarment
+    photos: list[PhotoTag]
+
+def blank_unknowns(fields: dict[str, Any]) -> dict[str, Any]:
+    """Claude's "don't know" values ("unknown", 0, "") become None, for fields where Garment allows None."""
+    cleaned = {}
+    for name, value in fields.items():
+        if name == "materials":
+            value = [{**part, "part": part.get("part") or None} for part in value]
+        elif Garment.model_fields[name].default is None and value in (UNKNOWN, "", 0):
+            value = None
+        cleaned[name] = value
+    return cleaned
+
+def to_tagging_result(reply: TaggingReply) -> TaggingResult:
+    """Raises ValidationError when the reply breaks a Garment rule, such as a subcategory off the list."""
+    return TaggingResult(garment=Garment(**blank_unknowns(reply.garment.model_dump())), photos=reply.photos)
+
 class TokenUsage(BaseModel):
     model: str
     input_tokens: int
