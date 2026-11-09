@@ -6,7 +6,7 @@ import pytest
 from enclothed import llm
 from enclothed.fabrics import FABRIC_TYPES
 from enclothed.intake import photo_filenames, add_garment
-from enclothed.models import PhotoTag
+from enclothed.models import PhotoTag, TaggingReply, TaggingResult
 
 # Paths don't need to exist: photo_filenames only reads .name and .suffix.
 RUN = Path("data/intake/20261018-062504")
@@ -102,19 +102,32 @@ def test_invalid_photo_filepath(tmp_path):
 
 # --- what the tagger is told ---------------------------------------------------------------
 
+def tagged_reply(**garment_changes) -> TaggingReply:
+    """A reply as Claude sends it: every field filled, "don't know" as "unknown", 0 or ""."""
+    garment = {
+        "category": "top", "subcategory": "t-shirt", "primary_color": "white", "secondary_colors": [], "accent_colors": [],
+        "formality": 1, "materials": [{"part": "", "fibers": [{"fiber": "cotton", "percent": 100}]}], "warmth": 0,
+        "pattern": "", "country_of_origin": "Japan", "style_tags": ["basic"], "styling_notes": "A plain white tee.",
+        "label_text": "", "fit": "unknown", "sheen": "matte", "fabric_type": "jersey", "shape": "straight", "hem": "hip",
+        "fabric_weight": "unknown", "sleeve": "short", "statement": "basic", "brand": "",
+    }
+    return TaggingReply.model_validate({"garment": {**garment, **garment_changes}, "photos": [{"index": 0, "role": "front"}]})
+
+
 class FakeParse:
     """Stands in for client.messages.parse and keeps what it was sent."""
-    def __init__(self):
+    def __init__(self, reply=None):
         self.sent = None
+        self.reply = reply if reply is not None else tagged_reply()
 
     def __call__(self, **kwargs):
         self.sent = kwargs
         usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1})()
-        return type("Response", (), {"usage": usage, "parsed_output": "parsed", "stop_reason": "end_turn"})()
+        return type("Response", (), {"usage": usage, "parsed_output": self.reply, "stop_reason": "end_turn"})()
 
 
-def fake_client():
-    parse = FakeParse()
+def fake_client(reply=None):
+    parse = FakeParse(reply)
     client = type("Client", (), {"messages": type("Messages", (), {"parse": parse})()})()
     return client, parse
 
@@ -152,3 +165,42 @@ def test_no_preferences_means_no_preferences_block(tmp_path):
     llm.tag_garment(client, [photo])
 
     assert not any("<preferences>" in text for text in texts(parse.sent))
+
+
+# --- Claude's side of the contract: no optional fields (2026-11-08, "Schema is too complex") ---
+
+def test_the_tagger_asks_for_the_reply_model_and_returns_a_garment(tmp_path):
+    photo = tmp_path / "front.jpg"
+    photo.write_bytes(b"jpeg")
+    client, parse = fake_client()
+
+    result, usage = llm.tag_garment(client, [photo])
+
+    assert parse.sent["output_format"] is TaggingReply
+    assert isinstance(result, TaggingResult)
+    assert usage.input_tokens == 1
+
+
+def test_dont_know_values_become_blank(tmp_path):
+    photo = tmp_path / "front.jpg"
+    photo.write_bytes(b"jpeg")
+    client, _ = fake_client()
+
+    garment = llm.tag_garment(client, [photo])[0].garment
+
+    # "unknown", 0 and "" are Claude's way of saying it couldn't tell; the app stores None
+    assert (garment.fit, garment.fabric_weight, garment.warmth, garment.brand, garment.pattern, garment.label_text) == (None,) * 6
+    assert garment.materials[0].part is None
+    # real answers pass through untouched
+    assert (garment.formality, garment.hem, garment.sheen, garment.country_of_origin) == (1, "hip", "matte", "Japan")
+    assert garment.secondary_colors == []
+
+
+def test_a_reply_that_breaks_a_garment_rule_is_unusable_and_keeps_its_usage(tmp_path):
+    photo = tmp_path / "front.jpg"
+    photo.write_bytes(b"jpeg")
+    client, _ = fake_client(tagged_reply(subcategory="jeans"))   # jeans aren't a top
+
+    with pytest.raises(llm.UnusableResponse) as raised:
+        llm.tag_garment(client, [photo])
+    assert raised.value.usage.output_tokens == 1   # so the tokens still reach the usage log

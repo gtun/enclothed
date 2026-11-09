@@ -430,6 +430,24 @@ def test_a_discarded_drafts_tokens_still_count(client, tagger, tmp_path, monkeyp
     assert json.loads(line)["usage"]["input_tokens"] == 10
 
 
+def test_a_refused_tagging_call_is_logged_with_its_request_id(client, tagger, tmp_path, monkeypatch):
+    """2026-11-08: the API refused tagging ("Schema is too complex") and the only trace was in docker logs."""
+    import anthropic, httpx
+    def refusing_tag(client, photo_paths, prompt_message=None, language="en-US", preferences=None):
+        request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+        response = httpx.Response(400, request=request, headers={"request-id": "req_123"})
+        raise anthropic.BadRequestError("Schema is too complex.", response=response, body=None)
+    monkeypatch.setattr(intake, "tag_garment", refusing_tag)
+
+    response = client.post("/api/garments/drafts", files=[("photos", ("a.jpg", jpeg_bytes(), "image/jpeg"))])
+
+    assert response.status_code == 502
+    [line] = [json.loads(line) for line in (tmp_path / "tagging_log.jsonl").read_text().splitlines()]
+    assert line["usage"] is None   # nothing was billed, so the usage page shows nothing
+    assert "Schema is too complex" in line["error"]
+    assert line["request_id"] == "req_123"
+
+
 def test_an_accepted_draft_counts_its_tokens_once(client, tagger, tmp_path, monkeypatch):
     def fake_tag(client, photo_paths, prompt_message=None, language="en-US", preferences=None):
         usage = TokenUsage(model="m", input_tokens=10, output_tokens=5)

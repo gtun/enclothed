@@ -73,8 +73,10 @@ def _require_demo_tokens(user: User) -> None:
         raise HTTPException(status_code=429, detail="The demo has used up today's AI allowance. It resets overnight.")
 
 
-def _llm_failed(error: anthropic.APIError) -> HTTPException:
+def _llm_failed(error: anthropic.APIError, log_path: Path, user: User) -> HTTPException:
+    """The API refused the call or never answered. Logged to that feature's log, so it's on record outside docker logs."""
     logger.exception("LLM call failed")
+    log_failed_call(log_path, user.id, None, f"{type(error).__name__}: {error.message}", getattr(error, "request_id", None))
     return HTTPException(status_code=502, detail=f"The AI service failed: {error.message}. Nothing was saved; try again.")
 
 
@@ -140,7 +142,7 @@ def tag_new_garment(
             draft = drafts.create_draft(_drafts_dir(), user.id, paths, TAGGING_LOG_PATH, client, _blank_to_none(prompt_message),
                                         _blank_to_none(notes), user.language, _saved_preferences(user))
         except anthropic.APIError as error:
-            raise _llm_failed(error)
+            raise _llm_failed(error, TAGGING_LOG_PATH, user)
         except UnusableResponse:
             logger.exception("Tagging gave no usable answer")
             raise HTTPException(status_code=502, detail="The AI couldn't tag these photos. Nothing was saved; try again.")
@@ -179,7 +181,7 @@ def mend_garment(garment_id: int, user: CurrentUser) -> MendOut:
     except mend.NoPhotos as error:
         raise HTTPException(status_code=422, detail=str(error))
     except anthropic.APIError as error:
-        raise _llm_failed(error)
+        raise _llm_failed(error, TAGGING_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Mend gave no usable answer")
         raise HTTPException(status_code=502, detail="The AI couldn't fill these in. Nothing was saved; try again.")
@@ -221,7 +223,7 @@ def weigh_garment(body: WeighIn, user: CurrentUser) -> WeighCreatedOut:
     except weigh.DraftGone:
         raise HTTPException(status_code=404, detail="That garment is no longer waiting. Photograph it again.")
     except anthropic.APIError as error:
-        raise _llm_failed(error)
+        raise _llm_failed(error, WEIGH_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Weigh gave no usable answer")
         raise HTTPException(status_code=502, detail="The AI couldn't weigh this garment. Nothing was saved; try again.")
@@ -287,7 +289,7 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]
                                       details or "everyday wear", False, preferences=saved[0] if saved else None,
                                       language=user.language, count=body.count, riskiness=body.riskiness)
     except anthropic.APIError as error:
-        raise _llm_failed(error)
+        raise _llm_failed(error, OUTFIT_LOG_PATH, user)
     return responses.get_outfits(DB_PATH, user.id, new_ids)
 
 
@@ -332,7 +334,7 @@ def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser) -> OutfitDesc
         return fill_description(OUTFIT_LOG_PATH, user.id, {i: wardrobe[i] for i in ids}, client, _blank_to_none(body.details),
                                 aesthetic, explanation, _saved_preferences(user), user.language)
     except anthropic.APIError as error:
-        raise _llm_failed(error)
+        raise _llm_failed(error, OUTFIT_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Outfit description gave no usable answer")
         raise HTTPException(status_code=502, detail="The AI couldn't describe this outfit. Try again, or write it yourself.")
@@ -371,7 +373,7 @@ def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> P
     try:
         text, usage = improve_preferences(client, body.text)
     except anthropic.APIError as error:
-        raise _llm_failed(error)
+        raise _llm_failed(error, PREFERENCES_LOG_PATH, user)
     except UnusableResponse as error:
         log_failed_call(PREFERENCES_LOG_PATH, user.id, error.usage, str(error))
         raise
@@ -392,7 +394,7 @@ def ask_insights(body: InsightsIn, user: CurrentUser) -> InsightsOut:
         result = answer_question(client, DB_PATH, user.id, body.question, history, user.language,
                                  saved[0] if saved else None, INSIGHTS_LOG_PATH)
     except anthropic.APIError as error:
-        raise _llm_failed(error)
+        raise _llm_failed(error, INSIGHTS_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Insights gave no usable answer")
         raise HTTPException(status_code=502, detail="I couldn't work that out. Try asking it a different way.")

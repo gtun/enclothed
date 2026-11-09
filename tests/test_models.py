@@ -124,3 +124,57 @@ def test_color_traits_come_from_the_hex(color, family, temperature, lightness, s
 def test_every_color_has_traits():
     for color in get_args(Color):
         assert set(color_traits(color)) == {"family", "temperature", "lightness", "saturation"}
+
+
+# --- Claude's side of the tagging contract (2026-11-08: "Schema is too complex") ------------
+from pydantic import create_model
+
+from enclothed.models import (
+    MENDABLE_FIELDS, ImprovedPreferences, OutfitDescription, OutfitResult, TaggedGarment, TaggingReply, UNKNOWN, WeighResult,
+)
+
+
+def schema_cost(model) -> tuple[int, int]:
+    """(optional fields, "value or nothing" fields) across the whole schema, as the API counts them."""
+    optional = unions = 0
+
+    def walk(node):
+        nonlocal optional, unions
+        if isinstance(node, dict):
+            required = set(node.get("required", []))
+            for name, prop in node.get("properties", {}).items():
+                optional += name not in required
+                unions += "anyOf" in prop or isinstance(prop.get("type"), list)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(model.model_json_schema())
+    return optional, unions
+
+
+def test_tagged_garment_has_exactly_the_fields_claude_sees_on_garment():
+    # A new Garment field must be added to TaggedGarment too, or tagging silently stops filling it
+    assert set(TaggedGarment.model_fields) == set(Garment.model_json_schema()["properties"])
+
+
+@pytest.mark.parametrize("field", ["fit", "sheen", "shape", "hem", "fabric_weight", "sleeve", "statement"])
+def test_tagged_choices_are_garments_plus_unknown(field):
+    garment_choices = set(get_args(get_args(Garment.model_fields[field].annotation)[0]))
+    assert set(get_args(TaggedGarment.model_fields[field].annotation)) == garment_choices | {UNKNOWN}
+
+
+def test_tagging_and_mend_schemas_have_no_optional_fields():
+    every_blank = create_model("BlankFields", **{f: (TaggedGarment.model_fields[f].annotation, TaggedGarment.model_fields[f]) for f in MENDABLE_FIELDS})
+    assert schema_cost(TaggingReply) == (0, 0)
+    assert schema_cost(every_blank) == (0, 0)
+
+
+@pytest.mark.parametrize("model", [OutfitResult, WeighResult, OutfitDescription, ImprovedPreferences])
+def test_other_llm_schemas_stay_well_under_the_api_limits(model):
+    # The API's published limits are 24 optional and 16 union fields, and it can refuse below both.
+    # TaggingResult failed at 19 and 15, so keep the rest far from there.
+    optional, unions = schema_cost(model)
+    assert optional <= 8 and unions <= 8
