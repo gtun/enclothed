@@ -300,7 +300,7 @@ mark{background:var(--mark);color:var(--mark-ink);border-radius:2px;padding:0 2p
 .siltile:hover{color:var(--ink);border-color:var(--muted)}
 .siltile[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .siltile:disabled{cursor:default;opacity:.6}
-.silhint{margin:4px 10px 8px}
+.bhint.silhint{margin:4px 10px 8px}   /* .bhint, later in this file, resets margins */
 .tier{display:inline-block;vertical-align:middle;font:600 .66rem var(--body);text-transform:uppercase;letter-spacing:.07em;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
 .tier-stretch{border-color:var(--ink);color:var(--ink)}
 .tier-bold{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
