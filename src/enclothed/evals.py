@@ -11,6 +11,7 @@ Usage:
     uv run eval-outfits --label v1-placeholder            # every request, twice
     uv run eval-outfits --label v2-rule-of-one --runs 3 --only dinner-rain office
     uv run eval-outfits --label smoke --test              # canned outfits, no tokens
+    uv run eval-outfits --label opus-trial --model claude-opus-5-5   # the same requests on another model
 
 On the server: docker exec enclothed /app/.venv/bin/eval-outfits --label ...
 """
@@ -76,7 +77,7 @@ def write_scores(path: Path, label: str, prompt_hash: str, rows: list[dict], war
     out = [
         f"# Outfit eval: {label}",
         "",
-        f"Prompt `{prompt_hash}`. Fill in the columns, then compare with the last run's scores.md.",
+        f"Prompt `{prompt_hash}` on `{config.MODELS['outfits']}`. Fill in the columns, then compare with the last run's scores.md.",
         "Mark a tier wrong when a 'bold' outfit is really safe, or a 'safe' one is risky.",
         "",
         "| Request | Run | # | Tier | Outfit | " + " | ".join(RUBRIC) + " |",
@@ -148,7 +149,7 @@ def run(label: str, runs: int, user_id: int, db_path: Path, requests_path: Path,
                 totals["output"] += usage.get("output_tokens", 0)
                 row = {
                     "request_id": request["id"], "run": repeat, "details": request["details"], "options": options,
-                    "anchors": anchors, "prompt_hash": prompt_hash, "label": label,
+                    "anchors": anchors, "prompt_hash": prompt_hash, "label": label, "model": config.MODELS["outfits"],
                     "outfits": result.model_dump(mode="json")["outfits"],
                     "problems": entry["problems"], "usage": entry["usage"],
                 }
@@ -172,12 +173,15 @@ def main() -> None:
     parser.add_argument("--only", nargs="+", metavar="ID", help="Run only these request ids")
     parser.add_argument("--requests", type=Path, default=REQUESTS_PATH, help="A different requests file")
     parser.add_argument("--db", type=Path, default=config.DB_PATH, help="Database to copy from (default: the app's)")
+    parser.add_argument("-m", "--model", help=f"Run the outfit calls on this model instead of the configured one ({config.MODELS['outfits']}), e.g. claude-opus-5-5 to compare")
     parser.add_argument("-t", "--test", action="store_true", help="Use the canned test outfits: checks the script, spends no tokens")
     args = parser.parse_args()
     if args.runs < 1:
         parser.error("--runs must be at least 1")
     if not all(c.isalnum() or c in "-_." for c in args.label):
         parser.error("--label may only use letters, digits, - _ and .")
+    if args.model:
+        config.MODELS["outfits"] = args.model   # this run only: llm reads the setting at each call
     load_dotenv()
     try:
         run(args.label, args.runs, args.user, args.db, args.requests, args.only, args.test, EVALS_DIR)
