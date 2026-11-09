@@ -281,6 +281,13 @@ mark{background:var(--mark);color:var(--mark-ink);border-radius:2px;padding:0 2p
 .bopts .flabel{font:500 .82rem var(--body)}
 .bopts .seg{align-self:flex-start;flex-wrap:wrap}
 .bopts .seg button:disabled{cursor:default;opacity:.6}
+.silgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:8px 10px 4px}
+.siltile{display:grid;place-items:center;padding:6px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);cursor:pointer}
+.siltile svg{width:28px;height:44px;fill:currentColor}
+.siltile:hover{color:var(--ink);border-color:var(--muted)}
+.siltile[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.siltile:disabled{cursor:default;opacity:.6}
+.silhint{margin:4px 10px 8px}
 .tier{display:inline-block;vertical-align:middle;font:600 .66rem var(--body);text-transform:uppercase;letter-spacing:.07em;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
 .tier-stretch{border-color:var(--ink);color:var(--ink)}
 .tier-bold{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
@@ -298,7 +305,7 @@ mark{background:var(--mark);color:var(--mark-ink);border-radius:2px;padding:0 2p
 .tree summary{cursor:pointer;padding:7px 10px;font-size:.86rem;display:flex;justify-content:space-between;list-style:none}
 .tree summary::-webkit-details-marker{display:none}
 .tree summary::before{content:"▸";margin-right:8px;color:var(--muted);transition:transform .15s}
-.tree details[open] summary::before{transform:rotate(90deg)}
+.tree details[open] summary::before,details.tree[open]>summary::before{transform:rotate(90deg)}
 .tree summary span{margin-right:auto}
 .tree summary em{font-style:normal;color:var(--muted);font:400 .76rem var(--mono)}
 .tree ul{list-style:none;margin:0;padding:0 6px 6px;max-height:220px;overflow-y:auto}

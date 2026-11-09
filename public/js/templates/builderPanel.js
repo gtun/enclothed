@@ -27,6 +27,25 @@ function describeButton(pieces){
    Tier names come from the options, so they show in the user's language. */
 const RISK_TIPS = {mix: "Some of each: safe, stretch and bold", safe: "Proven combinations", stretch: "One unexpected choice", bold: "Breaks a styling rule on purpose"};
 const riskChoices = () => [["mix", "Mix"], ...["safe", "stretch", "bold"].map(v => [v, choiceLabel(OPT.risk_tiers || [], v)])];
+/* The silhouettes, as small figures. Each label is the alt text and tooltip, worded as the AI is told (llm.SILHOUETTE_SECTION).
+   Paths are drawn in a 40x64 box: a head, then the outfit's outline from shoulders to hem. */
+const SILHOUETTES = [
+  ["I", "I-line: slim and straight from shoulders to hem", "M15 13H25V37H24V62H16V37H15Z"],
+  ["H", "H-line: straight and boxy, the same width top to bottom", "M9 13H31V39H30V62H10V39H9Z"],
+  ["A", "A-line: compact on top, wider toward the hem", "M15 13H25L26 34L34 62H6L14 34Z"],
+  ["Y", "Y-line: roomy on top, slim below", "M6 13H34L27 37L25 62H15L13 37Z"],
+  ["O", "O-line: rounded through the middle, narrow at the shoulders and hem", "M15 13H25C35 22 35 46 25 62H15C5 46 5 22 15 13Z"],
+  ["X", "X-line: a defined waist, with volume above and below", "M8 13H32L22 37L33 62H7L18 37Z"],
+];
+const silhouetteFigure = path => `<svg viewBox="0 0 40 64" aria-hidden="true"><circle cx="20" cy="6" r="4"/><path d="${path}"/></svg>`;
+function silhouetteSection(off){
+  const picked = SILHOUETTES.find(([v]) => v === builder.silhouette);
+  const tiles = SILHOUETTES.map(([v, label, path]) => `<button type="button" class="siltile" data-sil="${v}" aria-pressed="${builder.silhouette === v}" aria-label="${esc(label)}" title="${esc(label)}" ${off}>${silhouetteFigure(path)}</button>`).join("");
+  return `<div class="field"><span class="flabel" id="b-sil">Silhouette</span>
+      <details class="tree" data-sil-section ${silhouetteOpen ? "open" : ""}><summary><span>${picked ? esc(picked[1].split(":")[0]) : "Any shape"}</span><em>${picked ? "" : "optional"}</em></summary>
+        <div class="silgrid" role="group" aria-labelledby="b-sil">${tiles}</div>
+        <p class="bhint silhint">Pick one, or none for any shape. Pick it again to clear it.</p></details></div>`;
+}
 function suggestOptions(){
   const off = builderBusy ? "disabled" : "";
   const counts = [1, 2, 3, 4, 5].map(n => `<button type="button" data-count="${n}" aria-pressed="${builder.count === n}" ${off}>${n}</button>`).join("");
@@ -34,6 +53,7 @@ function suggestOptions(){
   return `<div class="bsec bopts">
       <div class="field"><span class="flabel" id="b-count">How many</span><div class="seg" role="group" aria-labelledby="b-count">${counts}</div></div>
       <div class="field"><span class="flabel" id="b-risk">How adventurous</span><div class="seg" role="group" aria-labelledby="b-risk">${risks}</div></div>
+      ${silhouetteSection(off)}
     </div>`;
 }
 
