@@ -35,6 +35,11 @@ function newOutfit(){
   saveBuilder(); renderBuilder();
   if (location.hash !== "#wardrobe") location.hash = "#wardrobe"; else refresh();
 }
+/* Start a fresh outfit from these pieces, staying on the current page (weigh's outfit links use it). */
+function openPiecesInBuilder(ids){
+  Object.assign(builder, {open: true, min: false, pieces: ids, details: "", manual: false, form: {aesthetic: "", explanation: "", missing: "", advice: {}}, session: null});
+  saveBuilder(); renderBuilder(); refresh();
+}
 function scrollToCategory(c){
   const goScroll = () => document.getElementById("rail-" + c)?.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start"});
   if (cat !== "all" && cat !== c) cat = "all";

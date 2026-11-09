@@ -550,6 +550,18 @@ body.with-builder .insights-open,body.with-builder .insights-panel{right:392px}
 .verdict-maybe{border-color:var(--ink);color:var(--ink)}
 .wverdict{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:12px}
 .wverdict p{margin:0;max-width:60ch;line-height:1.5}
+.gref{color:inherit;text-decoration:underline;text-decoration-color:var(--link-line);text-underline-offset:2px}
+.gref:hover,.gref:focus-visible{text-decoration-color:currentColor}
+.oref{text-decoration-style:dotted}
+.peek.outfit{width:auto;max-width:min(360px,calc(100vw - 16px))}
+.peekrow{display:flex;gap:4px}
+.peekrow .peekph{width:72px;flex:none}
+.peek{position:fixed;z-index:60;width:150px;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px var(--shade);pointer-events:none;font-size:13px;line-height:1.3}
+.peek .peekph{aspect-ratio:3/4;background:var(--photo);border-radius:6px;overflow:hidden;display:grid;place-items:center}
+.peek img{width:100%;height:100%;object-fit:cover}
+.peek .sw{width:44%;aspect-ratio:1;border-radius:50%;border:1px solid var(--line)}
+.peek span{display:block;margin-top:6px}
+.peek small{color:var(--muted);font-family:var(--mono)}
 .wchecks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
 .wcheck{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start}
 .wcheck p{margin:3px 0 0;color:var(--muted);font-size:.86rem;line-height:1.45}

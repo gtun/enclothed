@@ -477,6 +477,14 @@ Weigh it against the wardrobe:
   does the same job, so the owner doesn't need both. A near-duplicate usually means pass, however good it is.
 - outfits: build them as <options> asks, each with the candidate (ID 0) and only owned garments otherwise.
 - makes_outfits, fills_gap, fits_style: answer from the wardrobe and the outfits you built, naming garments.
+- Whenever a reason, difference or the summary names an owned garment, write it as [short description](ID),
+  such as "pairs with [the camel shearling field jacket](5)". The page turns that into a link showing the
+  garment, so never write a bare ID like (5), and give each garment its own brackets. The candidate is "it",
+  never [...](0).
+- When makes_outfits describes one of the outfits you built, write the pieces it's worn with as
+  [short description](outfit: ID, ID), listing those owned garments' IDs, such as "it works
+  [with the black tee and navy jeans](outfit: 52, 71)". The page opens them with the candidate in the outfit
+  builder. Don't add the candidate's ID.
 - recommendation: worth_it only when it adds something real. Don't encourage buying for its own sake;
   pass is a good answer when it's earned.
 Write reasons, differences and the summary in the language you use for the outfits.

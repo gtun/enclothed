@@ -268,6 +268,19 @@ def get_outfit(outfit_id: int, user: CurrentUser) -> OutfitOut:
     return outfit
 
 
+def _styling_wardrobe(user: User, ids: list[int]) -> dict[int, Garment]:
+    """Garments an outfit can use: everything owned, plus any garment being weighed that the request names.
+    A weigh verdict's outfit links open the candidate with owned pieces in the builder, which then generates,
+    describes or saves around it. The candidate only joins when named, so outfits never pull it in uninvited."""
+    wardrobe = {g.id: g for g in db.select_owned_garments(DB_PATH, user.id)}
+    for garment_id in ids:
+        if garment_id not in wardrobe:
+            garment = db.select_garment(DB_PATH, user.id, garment_id)
+            if garment and garment.weighed_on and not garment.disowned_on:
+                wardrobe[garment_id] = garment
+    return wardrobe
+
+
 @app.post("/api/outfits/suggestions")
 def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]:
     """Ask the LLM for outfits built around the anchors and details; returns only the new, valid ones."""
@@ -276,7 +289,7 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]
     if not anchors and not details:
         raise HTTPException(status_code=422, detail="Add at least one piece or some details.")
 
-    wardrobe = {g.id: g for g in db.select_owned_garments(DB_PATH, user.id)}
+    wardrobe = _styling_wardrobe(user, anchors)
     unknown = [i for i in anchors if i not in wardrobe]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
@@ -299,7 +312,7 @@ def create_outfit(body: OutfitCreateIn, user: CurrentUser) -> OutfitOut:
     ids = [g.garment_id for g in body.garments]
     if len(set(ids)) < len(ids):
         raise HTTPException(status_code=422, detail="The same garment is in the outfit twice.")
-    known = {g.id for g in db.select_owned_garments(DB_PATH, user.id)}
+    known = _styling_wardrobe(user, ids)
     unknown = [i for i in ids if i not in known]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
@@ -319,7 +332,7 @@ def create_outfit(body: OutfitCreateIn, user: CurrentUser) -> OutfitOut:
 def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser) -> OutfitDescription:
     """Fill in a blank name or explanation for an outfit the user is putting together. Saves nothing."""
     ids = list(dict.fromkeys(body.garments))
-    wardrobe = {g.id: g for g in db.select_owned_garments(DB_PATH, user.id)}
+    wardrobe = _styling_wardrobe(user, ids)
     unknown = [i for i in ids if i not in wardrobe]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
