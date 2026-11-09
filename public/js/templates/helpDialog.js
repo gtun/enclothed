@@ -3,7 +3,7 @@
 
 const HELP = {
   wardrobe: {title: "Your wardrobe", tips: [
-    "<b>Add garment</b>: photograph the front, the back and every label. AI fills in the details.",
+    "<b>Add garment</b>: photograph the front, the back and every label. AI fills in the details. On a computer you can also paste a photo anywhere (Ctrl+V or ⌘V) to start.",
     "Open a garment to see its outfits or correct a detail.",
     "The buttons under the heading filter by category, by sets, or by pieces not in any outfit yet. Grid, Large and List change the view.",
     "Use the <b>+</b> on a garment, or <b>Put together an outfit</b>, to start an outfit around pieces you choose.",
