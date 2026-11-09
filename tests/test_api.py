@@ -747,3 +747,48 @@ def test_describe_blank_answer_counts_as_unusable(client, basics, describer):
 def test_describe_prompt_names_the_language():
     assert "Japanese" in describe_system_prompt("ja-JP")
     assert "Language:" not in describe_system_prompt("en-US")
+
+
+
+# --- wears -------------------------------------------------------------------------------
+
+def test_wearing_an_outfit_defaults_to_today_and_returns_its_wears(client, outfit_id):
+    from datetime import date
+    response = client.post(f"/api/outfits/{outfit_id}/wears", json={})
+    assert response.status_code == 201
+    body = response.json()
+    assert body["wear_count"] == 1
+    assert body["last_worn"] == date.today().isoformat()
+    assert [w["date"] for w in body["wears"]] == [date.today().isoformat()]
+
+
+def test_wears_take_a_date_and_come_back_newest_first(client, outfit_id):
+    for day in ("2026-10-01", "2026-11-05", "2026-10-20"):
+        client.post(f"/api/outfits/{outfit_id}/wears", json={"worn_on": day})
+    body = client.get(f"/api/outfits/{outfit_id}").json()
+    assert [w["date"] for w in body["wears"]] == ["2026-11-05", "2026-10-20", "2026-10-01"]
+    assert (body["wear_count"], body["last_worn"]) == (3, "2026-11-05")
+
+
+def test_a_future_wear_date_is_rejected(client, outfit_id):
+    assert client.post(f"/api/outfits/{outfit_id}/wears", json={"worn_on": "2099-01-01"}).status_code == 422
+
+
+def test_wearing_a_missing_outfit_is_404(client):
+    assert client.post("/api/outfits/999/wears", json={}).status_code == 404
+
+
+def test_removing_a_wear(client, outfit_id):
+    wear = client.post(f"/api/outfits/{outfit_id}/wears", json={"worn_on": "2026-11-01"}).json()["wears"][0]
+    response = client.delete(f"/api/outfits/{outfit_id}/wears/{wear['id']}")
+    assert response.status_code == 200
+    assert response.json()["wears"] == [] and response.json()["wear_count"] == 0
+    assert client.delete(f"/api/outfits/{outfit_id}/wears/{wear['id']}").status_code == 404
+
+
+def test_outfits_you_save_are_your_own_and_suggestions_are_the_ais(client, db_path, outfit_id):
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
+    own = client.post("/api/outfits", json={"aesthetic": "a", "explanation": "b", "garments": [{"garment_id": garment_id}],
+                                            "details": "rainy sunday"}).json()
+    assert own["source"] == "own"
+    assert client.get(f"/api/outfits/{outfit_id}").json()["source"] == "ai"

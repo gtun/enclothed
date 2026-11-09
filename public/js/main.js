@@ -69,12 +69,14 @@ addEventListener("hashchange", () => {
   route();
 });
 app.addEventListener("click", e => {
-  const f = e.target.closest("[data-cat],[data-scope],[data-req],[data-toggle-disliked]");
+  const f = e.target.closest("[data-cat],[data-scope],[data-req],[data-toggle-disliked],[data-osrc],[data-toggle-worn]");
   if (f){
     if (f.dataset.cat) cat = f.dataset.cat;
     if (f.dataset.scope) scope = f.dataset.scope;
     if (f.dataset.req) req = f.dataset.req;
     if (f.hasAttribute("data-toggle-disliked")){ showDisliked = !showDisliked; store.set("enclothed-show-disliked", showDisliked); }
+    if (f.dataset.osrc){ osrc = f.dataset.osrc; req = "all"; }
+    if (f.hasAttribute("data-toggle-worn")) wornOnly = !wornOnly;
     refresh(); return;
   }
   if (e.target.closest("[data-ofilt-toggle]")){ filtersOpen = !filtersOpen; refresh(); if (filtersOpen) document.getElementById("of-q")?.focus(); return; }

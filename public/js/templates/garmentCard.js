@@ -15,6 +15,6 @@ function gCard(g){
       <span class="brand">${esc(g.brand || "unknown brand")}</span>
       <span class="sc">${esc(subcategoryName(g.subcategory))}</span>
       <span class="chips">${chips}</span>
-      <span class="row">${gone ? `<span>Disowned ${esc(whenDay(g.disowned_on))}</span>` : `<span class="scales"><span>F${pips(g.formality||0,4)}</span><span>W${pips(g.warmth||0,5)}</span></span><span>${n ? plural(n,"outfit") : "no outfits"}</span>`}</span>
+      <span class="row">${gone ? `<span>Disowned ${esc(whenDay(g.disowned_on))}</span>` : `<span class="scales"><span>F${pips(g.formality||0,4)}</span><span>W${pips(g.warmth||0,5)}</span></span><span>${wearsAndOutfits(g, n)}</span>`}</span>
     </div></a>${gone ? "" : `<span class="addlayer">${pickButton(g)}</span>`}</div>`;
 }

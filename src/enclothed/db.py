@@ -188,7 +188,7 @@ def delete_candidate(db_path: Path, user_id: int, garment_id: int) -> bool:
 
 
 # --- outfit defs -------------
-def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anchors: list[int] | None, prompt_message: str, timestamp: str) -> list[int]:
+def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anchors: list[int] | None, prompt_message: str, timestamp: str, source: str = "ai") -> list[int]:
     anchor_ids = set(anchors or [])
     new_ids: list[int] = []
 
@@ -196,8 +196,8 @@ def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anc
         with conn:
             for outfit in valid_outfits:
                 cursor = conn.execute(
-                    "INSERT INTO outfits (user_id, timestamp, prompt_message, aesthetic, explanation, missing, risk_tier) "
-                    "VALUES (:user_id, :timestamp, :prompt_message, :aesthetic, :explanation, :missing, :risk_tier)",
+                    "INSERT INTO outfits (user_id, timestamp, prompt_message, aesthetic, explanation, missing, risk_tier, source) "
+                    "VALUES (:user_id, :timestamp, :prompt_message, :aesthetic, :explanation, :missing, :risk_tier, :source)",
                     {
                         "user_id": user_id,
                         "timestamp": timestamp,
@@ -206,6 +206,7 @@ def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anc
                         "explanation": outfit.explanation,
                         "missing": outfit.missing,
                         "risk_tier": outfit.risk_tier,
+                        "source": source,
                     },
                 )
                 outfit_id = cursor.lastrowid
@@ -229,8 +230,11 @@ def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anc
 
 
 OUTFIT_SELECT = (
-    "SELECT o.id, o.timestamp, o.prompt_message, o.aesthetic, o.explanation, o.missing, o.liked, o.risk_tier, "
+    "SELECT o.id, o.timestamp, o.prompt_message, o.aesthetic, o.explanation, o.missing, o.liked, o.risk_tier, o.source, "
     "(SELECT COUNT(*) FROM wears AS w WHERE w.outfit_id = o.id) AS wear_count, "
+    "(SELECT MAX(w.date) FROM wears AS w WHERE w.outfit_id = o.id) AS last_worn, "
+    "(SELECT json_group_array(json_object('id', w.id, 'date', w.date, 'notes', w.notes)) "
+    " FROM (SELECT * FROM wears WHERE outfit_id = o.id ORDER BY date DESC, id DESC) AS w) AS wears, "
     "json_group_array(json_object("
     "'garment_id', og.garment_id, "
     "'styling_advice', og.styling_advice, "
@@ -243,6 +247,7 @@ OUTFIT_SELECT = (
 def _row_to_outfit(row: sqlite3.Row) -> dict:
     outfit = dict(row)
     outfit["garments"] = json.loads(outfit["garments"])
+    outfit["wears"] = json.loads(outfit["wears"])
     return outfit
 
 def select_outfit(db_path: Path, user_id: int, outfit_id: int) -> dict | None:
@@ -265,6 +270,31 @@ def select_all_outfits(db_path: Path, user_id: int) -> list[dict]:
             OUTFIT_SELECT + "WHERE o.user_id = ? GROUP BY o.id ORDER BY o.id", (user_id,)
         ).fetchall()
     return [_row_to_outfit(row) for row in rows]
+
+
+def insert_wear(db_path: Path, user_id: int, outfit_id: int, day: date, notes: str | None = None) -> int | None:
+    """Log one wear of the user's outfit. Returns the new wear's ID, or None if the outfit isn't theirs."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute(
+                "INSERT INTO wears (outfit_id, date, notes) SELECT id, :date, :notes FROM outfits WHERE id = :id AND user_id = :user_id",
+                {"id": outfit_id, "user_id": user_id, "date": day.isoformat(), "notes": notes},
+            )
+    if cursor.rowcount == 0:
+        logger.debug("Outfit ID %s not found", outfit_id)
+        return None
+    return cursor.lastrowid
+
+
+def delete_wear(db_path: Path, user_id: int, outfit_id: int, wear_id: int) -> bool:
+    """Remove a wear logged by mistake. False if it isn't a wear of this user's outfit."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute(
+                "DELETE FROM wears WHERE id = :wear_id AND outfit_id = :id AND outfit_id IN (SELECT id FROM outfits WHERE user_id = :user_id)",
+                {"wear_id": wear_id, "id": outfit_id, "user_id": user_id},
+            )
+    return cursor.rowcount == 1
 
 
 def set_outfit_liked(db_path: Path, user_id: int, outfit_id: int, liked: bool | None) -> bool:

@@ -216,7 +216,7 @@ def make_old_db(path):
 
 
 NEW_ATTRIBUTES = {"fabric_type", "shape", "hem", "fabric_weight", "sleeve", "statement", "mended_on"}
-LATER_COLUMNS = NEW_ATTRIBUTES | {"risk_tier", "weighed_on"}   # every column added by a migration after 008
+LATER_COLUMNS = NEW_ATTRIBUTES | {"risk_tier", "weighed_on", "source"}   # every column added by a migration after 008
 LATER_TABLES = ["weighs"]                                       # every table added by a migration after 008
 
 
@@ -665,3 +665,26 @@ def test_older_db_without_a_users_table_still_reaches_the_latest_version(tmp_pat
     init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
     assert user_version(path) == LATEST
     assert select_user(path, 1).language == "en-US"
+
+
+
+def test_source_migration_backfills_own_outfits(tmp_path):
+    """Before 013 nothing recorded who made an outfit: saved ones were alone at their timestamp with no tier."""
+    path = tmp_path / "old.db"
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    with closing(sqlite3.connect(path)) as conn:
+        with conn:
+            conn.executescript("ALTER TABLE outfits DROP COLUMN source; PRAGMA user_version = 12;")
+            rows = [   # (timestamp, prompt, risk_tier, expected source)
+                ("t1", "dinner", None, "ai"), ("t1", "dinner", None, "ai"),   # a pre-tier AI reply: siblings share t1
+                ("t2", "rainy sunday", None, "own"),                          # saved alone, with an occasion typed
+                ("t3", "Put together myself", None, "own"),
+                ("t4", "lunch", "safe", "ai"),                                # tiered: AI, even alone
+                ("t5", "Weighing: black blouson", None, "ai"),
+            ]
+            for timestamp, prompt, tier, _ in rows:
+                conn.execute("INSERT INTO outfits (user_id, timestamp, prompt_message, aesthetic, explanation, risk_tier) "
+                             "VALUES (1, ?, ?, 'a', 'e', ?)", (timestamp, prompt, tier))
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    with closing(sqlite3.connect(path)) as conn:
+        assert [r[0] for r in conn.execute("SELECT source FROM outfits ORDER BY id")] == [r[3] for r in rows]

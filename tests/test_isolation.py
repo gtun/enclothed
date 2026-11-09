@@ -15,7 +15,7 @@ from enclothed import config
 from enclothed import api, photos
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
-from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, insert_weigh, save_preferences, select_garment
+from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, insert_wear, insert_weigh, save_preferences, select_garment
 from enclothed.intake import TEST_GARMENT
 from enclothed.models import Draft, Outfit, OutfitGarment, User, WeighVerdict
 
@@ -126,7 +126,20 @@ COVERED_ELSEWHERE = {   # these don't answer 200, so they have their own tests b
     ("POST", "/api/garments/drafts/{}"),
     ("DELETE", "/api/garments/drafts/{}"),
     ("DELETE", "/api/weighs/{}"),
+    ("POST", "/api/outfits/{}/wears"),        # 201
+    ("DELETE", "/api/outfits/{}/wears/{}"),   # needs a wear ID too
 }
+
+
+def test_someone_elses_outfit_cant_be_worn_or_unworn(bob, alice_data, bob_data, db_path):
+    alice_wear = insert_wear(db_path, 1, alice_data["outfit"], date(2026, 11, 8))
+    assert bob.post(f"/api/outfits/{alice_data['outfit']}/wears", json={}).status_code == 404
+    assert bob.delete(f"/api/outfits/{alice_data['outfit']}/wears/{alice_wear}").status_code == 404
+    # nor by pairing Alice's wear with Bob's own outfit
+    assert bob.delete(f"/api/outfits/{bob_data['outfit']}/wears/{alice_wear}").status_code == 404
+    with closing(sqlite3.connect(db_path)) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM wears").fetchone()[0] == 1
+    assert bob.post(f"/api/outfits/{bob_data['outfit']}/wears", json={}).status_code == 201
 
 
 def test_someone_elses_candidate_cant_be_discarded(bob, alice_data, bob_data, db_path):

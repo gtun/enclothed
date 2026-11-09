@@ -284,6 +284,7 @@ Information about the wardrobe data:
 - category, subcategory, the color columns, fit, sheen, fabric_type, shape, hem, fabric_weight, sleeve and statement always hold fixed English values, whatever language the user writes in.
 - brand, pattern, country_of_origin, materials and style_tags are free text in any language. If you're unsure which values exist, check with SELECT DISTINCT first.
 - outfits.liked: NULL is unrated, 0 is disliked, 1 is liked
+- outfits.source: 'ai' for suggested outfits, 'own' for outfits the user put together themselves
 - outfits are saved outfit ideas, suggested or put together by the user. An outfit existing doesn't mean it was worn. Only the wears table records wearing.
 - If the wears table is empty, say there's no wear data yet rather than answering zero.
 - An empty field means unknown. Mention missing data only when a query showed it and it affects the answer, such as "2 pieces have no brand recorded".

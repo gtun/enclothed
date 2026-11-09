@@ -13,8 +13,11 @@ function outfitPage(o){
       <p class="req">Asked for <q>${esc(o.prompt_message)}</q> · ${esc(whenLong(o.timestamp))}</p>
       <h1>${esc(o.aesthetic)}${tierBadge(o)}</h1>
       ${palBar(o, "big")}<div class="palnames">${names}</div>
-      <div class="rate"><div class="seg" role="group" aria-label="Rate this outfit">${rateBtn(true, THUMB_UP, "Like")}${rateBtn(false, THUMB_DOWN, "Dislike")}</div>
+      <div class="rate">${wearButton(o)}<div class="seg" role="group" aria-label="Rate this outfit">${rateBtn(true, THUMB_UP, "Like")}${rateBtn(false, THUMB_DOWN, "Dislike")}</div>
         <small>${o.liked === null || o.liked === undefined ? "Not rated" : "Click again to clear"}</small></div>
+      <div class="wearlog">${o.wears.length
+        ? `<span>Worn ${plural(o.wears.length, "time")}:</span><ul>${o.wears.map(w => `<li>${esc(whenDay(w.date))}<button type="button" data-unwear="${w.id}" data-outfit="${o.id}" aria-label="Remove the wear on ${esc(whenDay(w.date))}" title="Remove this wear">×</button></li>`).join("")}</ul>`
+        : `<span>Not worn yet. Use the hanger to log a wear.</span>`}</div>
       <p class="lede">${esc(o.explanation)}</p>
       ${o.missing ? `<div class="missing"><b>To finish the look</b>${esc(o.missing)}</div>` : ""}
       ${r.items.length > 1 ? `<nav class="pager" aria-label="Other options for this request">
