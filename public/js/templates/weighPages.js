@@ -1,7 +1,7 @@
 /* TEMPLATE: weigh ("should I buy this?"): one garment's verdict page (#weigh-N) and the list of everything being weighed (#weighed). */
 "use strict";
 
-let weighConfirm = false;   // true while "Not buying" waits for its second click
+let weighConfirm = false;   // true while "Pass" waits for its second click
 const recommendationLabel = r => choiceLabel(OPT.recommendations || [], r);
 const verdictBadge = r => `<span class="verdict verdict-${esc(r)}">${esc(recommendationLabel(r))}</span>`;
 /* The four checks, in the order the AI answered them. For already_own, "yes" is the bad answer. */
@@ -29,7 +29,7 @@ function weighPage(g){
   const actions = weighConfirm
     ? `<p class="dnote">Delete this garment, its photos and the outfits built around it?</p>
        <div class="hero-actions"><button type="button" class="btn primary" data-weigh-pass-yes ${busy}>Yes, delete it</button><button type="button" class="btn" data-weigh-pass-no ${busy}>Keep it</button></div>`
-    : `<div class="hero-actions"><button type="button" class="btn primary" data-weigh-buy ${busy}>I bought it</button><button type="button" class="btn" data-weigh-pass ${busy}>Not buying</button>
+    : `<div class="hero-actions"><button type="button" class="btn primary" data-weigh-buy ${busy}>Get</button><button type="button" class="btn" data-weigh-pass ${busy}>Pass</button>
        <a class="btn quiet" href="#garment-${g.id}" style="text-decoration:none">All details</a></div>`;
   return `<button type="button" class="back" data-back="weighed" style="margin-top:20px">← Weighing</button>
     <div class="detail wdetail">
@@ -46,9 +46,9 @@ function weighPage(g){
 }
 function weighedPage(){
   const list = WEIGHS.map(w => byId[w.garment_id]).filter(isCandidate);
-  const head = `<header class="hero"><div><h1>Weighing</h1><p class="sub">Garments you photographed while shopping, judged against your wardrobe. They aren't part of it unless you choose <b>I bought it</b>.</p>
+  const head = `<header class="hero"><div><h1>Weighing</h1><p class="sub">Garments you photographed while shopping, judged against your wardrobe. They aren't part of it unless you choose <b>Get</b>.</p>
     <div class="hero-actions"><button type="button" class="btn llm-action" data-weigh-garment title="Uses AI (spends tokens)">Weigh a garment</button></div></div></header>`;
-  if (!list.length) return head + `<div class="state"><p>Nothing being weighed. Photograph something you're thinking of buying with “Weigh a garment”.</p></div>`;
+  if (!list.length) return head + `<div class="state"><p>Nothing being weighed. Photograph something you're thinking of getting with “Weigh a garment”.</p></div>`;
   return head + `<main class="wlist">${list.map(g => { const w = weighById[g.id];
     return `<a class="wrow" href="#weigh-${g.id}"><div class="ph">${ph(g, thumb(g))}</div>
       <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(when(w.weighed_at))}</span><h3>${esc(subcategoryName(g.subcategory))} ${verdictBadge(w.verdict.recommendation)}</h3>

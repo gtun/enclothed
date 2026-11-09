@@ -6,7 +6,7 @@ function uploadDialog(){
   return `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="u-title">
     <div class="bhead"><h2 id="u-title">${weighing ? "Weigh a garment" : "Add a garment"}</h2><button type="button" class="iconbtn" data-u-close aria-label="Close" ${upload.busy ? "disabled" : ""}>×</button></div>
     <div class="bbody">
-      ${weighing ? `<p class="dnote">Thinking of buying something? Photograph it and see how it fits with what you own: whether you already have something like it, and outfits it would make. It isn't added to your wardrobe unless you buy it.</p>` : ""}
+      ${weighing ? `<p class="dnote">Thinking of buying something? Photograph it and see how it fits with what you own: whether you already have something like it, and outfits it would make. It isn't added to your wardrobe unless you choose Get.</p>` : ""}
       <ul class="tips"><li><b>Front</b> and <b>back</b> of the whole garment, on a hanger or laid flat</li><li>Every <b>label</b>: brand, size, and the care tag with the fabric content</li><li>Close-ups of any details worth noting (optional). Up to ${OPT_UPLOAD_MAX} photos.</li></ul>
       <div class="pickers">
         <label class="btn primary">Take a photo<input type="file" accept="image/*" capture="environment" data-u-input ${upload.busy ? "disabled" : ""}></label>

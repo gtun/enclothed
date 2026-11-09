@@ -1,4 +1,4 @@
-/* weigh ("should I buy this?"): starting one, and the I bought it / Not buying actions. The photos and
+/* weigh ("should I buy this?"): starting one, and the Get / Pass actions. The photos and
    review reuse the Add garment dialogs (upload.js, review.js) with purpose "weigh". Markup: templates/weighPages.js. */
 "use strict";
 
