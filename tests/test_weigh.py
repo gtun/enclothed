@@ -290,8 +290,41 @@ def test_resetting_the_demo_clears_its_weighs(db_path):
         assert conn.execute("SELECT COUNT(*) FROM weighs").fetchone()[0] == 0
 
 
-def test_weigh_names_garments_as_links_not_bare_ids():
-    # The page turns [description](ID) into a link with a photo preview (garmentRefs in shared.js)
+def test_weigh_names_garments_and_outfits_as_links_not_bare_ids():
+    # The page turns [description](ID) into a garment link and [description](outfit: ID, ID) into a builder link (garmentRefs in shared.js)
     from enclothed.llm import WEIGH_INSTRUCTIONS
     assert "[short description](ID)" in WEIGH_INSTRUCTIONS
     assert "never write a bare ID" in WEIGH_INSTRUCTIONS
+    assert "[short description](outfit: ID, ID)" in WEIGH_INSTRUCTIONS
+
+
+# --- a verdict's outfit links open the candidate in the builder, so its endpoints accept it when named ---
+
+@pytest.fixture
+def candidate(db_path):
+    return db.insert_garment(db_path, 1, garment(weighed_on=date(2026, 11, 8)))
+
+
+def test_you_can_save_an_outfit_with_the_candidate_in_it(client, owned, candidate):
+    response = client.post("/api/outfits", json={"aesthetic": "a", "explanation": "b",
+                                                 "garments": [{"garment_id": candidate}, {"garment_id": owned[0]}]})
+    assert response.status_code == 201
+
+
+def test_suggestions_can_build_around_the_candidate_but_never_pull_it_in_unasked(client, owned, candidate, monkeypatch):
+    seen = []
+    def fake_generate(db_path, user_id, wardrobe, anchors, *rest, **kwargs):
+        seen.append(set(wardrobe))
+        return None, []
+    monkeypatch.setattr(api, "generate_outfits", fake_generate)
+
+    assert client.post("/api/outfits/suggestions", json={"anchors": [candidate, owned[0]]}).status_code == 200
+    assert client.post("/api/outfits/suggestions", json={"anchors": [owned[0]]}).status_code == 200
+    assert candidate in seen[0]
+    assert candidate not in seen[1]
+
+
+def test_a_passed_candidate_can_no_longer_be_styled(client, owned, candidate):
+    client.delete(f"/api/weighs/{candidate}")
+    response = client.post("/api/outfits", json={"aesthetic": "a", "explanation": "b", "garments": [{"garment_id": candidate}]})
+    assert response.status_code == 422

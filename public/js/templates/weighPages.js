@@ -12,10 +12,11 @@ const SIMILARITY = {same: "Same job", close: "Close", different: "Different"};
 function weighLink(){
   return CANDIDATES.length ? `<a class="btn quiet" href="#weighed" style="text-decoration:none">Weighing <span>${CANDIDATES.length}</span></a>` : "";
 }
-function weighCheck(key, label, check){
+/* candidate: the garment being weighed. Only "Makes good outfits?" talks about outfits, so only it gets outfit links. */
+function weighCheck(key, label, check, candidate){
   const good = key === "already_own" ? !check.answer : check.answer;
   return `<li class="wcheck ${good ? "good" : "bad"}"><span class="wmark" aria-hidden="true">${good ? "✓" : "✕"}</span>
-    <div><b>${esc(label)}</b> <span class="wans">${check.answer ? "Yes" : "No"}</span><p>${garmentRefs(check.reason)}</p></div></li>`;
+    <div><b>${esc(label)}</b> <span class="wans">${check.answer ? "Yes" : "No"}</span><p>${garmentRefs(check.reason, true, key === "makes_outfits" ? candidate : null)}</p></div></li>`;
 }
 function weighPage(g){
   const w = weighById[g.id];
@@ -39,7 +40,7 @@ function weighPage(g){
         <h2>${esc(subcategoryName(g.subcategory))}</h2>
         ${w ? `<div class="wverdict">${verdictBadge(w.verdict.recommendation)}<p>${garmentRefs(w.verdict.summary)}</p></div>` : `<p class="gonenote">No verdict was saved for this garment.</p>`}
         ${actions}</div>
-      ${w ? `<div class="panel"><h4>The checks <small>Weighed ${esc(when(w.weighed_at))}</small></h4><ul class="wchecks">${WEIGH_CHECKS.map(([k, label]) => weighCheck(k, label, w.verdict[k])).join("")}</ul></div>` : ""}
+      ${w ? `<div class="panel"><h4>The checks <small>Weighed ${esc(when(w.weighed_at))}</small></h4><ul class="wchecks">${WEIGH_CHECKS.map(([k, label]) => weighCheck(k, label, w.verdict[k], g.id)).join("")}</ul></div>` : ""}
       ${similar ? `<div class="panel"><h4>Closest in your wardrobe</h4><div class="inset">${similar}</div></div>` : ""}
     </div></div>
     ${outfits.length ? `<section class="rail" style="margin-top:28px"><h2>Outfits with it <span>${outfits.length}</span></h2><div class="ogrid">${outfits.map(oCard).join("")}</div></section>` : ""}`;
