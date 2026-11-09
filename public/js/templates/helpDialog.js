@@ -40,7 +40,7 @@ const HELP = {
     "These won't be suggested in new outfits.",
     "To bring a piece back, open it and choose <b>Add this to my wardrobe again</b>.",
   ]},
-  weigh: {title: "Should I buy this?", tips: [
+  weigh: {title: "Should I get this?", tips: [
     "This is the verdict for something you photographed while shopping. It isn't in your wardrobe, so it's never suggested in other outfits.",
     "<b>The checks</b> say whether you already own something like it, whether it makes good outfits, fills a gap and fits your style.",
     "<b>I bought it</b> adds it to your wardrobe as it is, photos and outfits included. <b>Not buying</b> deletes it.",
