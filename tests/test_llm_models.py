@@ -37,6 +37,7 @@ CALLS = {
     "describe": lambda c, photo: llm.describe_outfit(c, [{"type": "text", "text": "x"}]),
     "preferences": lambda c, photo: llm.improve_preferences(c, "I like navy"),
     "insights": lambda c, photo: llm.insights_turn(c, [{"role": "user", "content": "how many coats?"}]),
+    "look": lambda c, photo: llm.tag_look(c, [photo]),
 }
 
 
@@ -54,6 +55,14 @@ def test_weigh_shares_the_outfit_model_so_they_share_the_cached_wardrobe(monkeyp
     client = Recorder()
     with pytest.raises(StopCall):
         llm.weigh_candidate(client, [{"type": "text", "text": "x"}])
+    assert client.models == ["shared-model"]
+
+
+def test_matching_a_look_shares_the_outfit_model_so_it_shares_the_cached_wardrobe(monkeypatch):
+    monkeypatch.setitem(config.MODELS, "outfits", "shared-model")
+    client = Recorder()
+    with pytest.raises(StopCall):
+        llm.match_look(client, [{"type": "text", "text": "x"}])
     assert client.models == ["shared-model"]
 
 

@@ -2,7 +2,7 @@ from anthropic import Anthropic
 from anthropic.types import Message
 from enclothed import config, i18n
 from enclothed.fabrics import FABRIC_GROUPS
-from enclothed.models import DEFAULT_LANGUAGE, Garment, SUBCATEGORIES, Language, TaggedGarment, TaggingReply, TaggingResult, TokenUsage, blank_unknowns, to_tagging_result, OutfitResult, OutfitDescription, ImprovedPreferences, WeighResult
+from enclothed.models import DEFAULT_LANGUAGE, Garment, SUBCATEGORIES, Language, TaggedGarment, TaggingReply, TaggingResult, TokenUsage, blank_unknowns, to_tagging_result, OutfitResult, OutfitDescription, ImprovedPreferences, WeighResult, LookReply, LookTags, MimicResult, to_look_tags
 from enclothed.sandbox import insights_schema_text
 import base64
 import json
@@ -30,21 +30,8 @@ SUBCATEGORY_TEXT = "\n".join(
 FABRIC_TEXT = "\n".join(f"- {group}: {', '.join(fabrics)}" for group, fabrics in FABRIC_GROUPS.items())
 
 
-TAG_SYSTEM_PROMPT = f"""You catalog garments for a personal wardrobe app.
-You receive several photos of ONE garment: the garment itself plus, sometimes,
-its labels (brand, care, and fabric content, possibly in Japanese or another language).
-
-Rules:
-- subcategory is the closest listed shape and construction. Put distinguishing details (closures like double-breasted, textures like corduroy) in style_tags and fabric in materials. Use "other" only when no listed shape fits.
-- Read fabric composition, brand, and country of origin from labels when visible.
-  Translate them to English. Put the raw label text in label_text.
-- If you cannot determine a field, mark it unknown rather than guessing: "unknown" for fixed-list
-  fields, 0 for formality and warmth, and an empty string for text fields.
-- styling_notes: 3-5 sentences on the piece's character, what styles it bridges,
-  how its proportions behave, and what pairs well with it. Be specific, not generic.
-- Read the user prompt, if provided, for additional details about the garment to adjust the styling_notes and style_tags. Any absolute details from the user take precedence over your evaluation; for example, if the message states the garment's primary color is black, accept it.
-- style_tags are lowercase
-- fit: how the garment is cut, judged from its proportions in the photos: where the
+# Rules for the fields a garment and a piece of a photographed look share (mimic tags looks with them too).
+CUT_AND_CLOTH_RULES = """- fit: how the garment is cut, judged from its proportions in the photos: where the
   shoulder seam falls, sleeve and body width against length, leg width through the
   thigh and hem. A hanger or flat lay shows the cut, not how it sits on a person, so
   judge the cut. If the owner's context states the fit, use theirs. Mark fit unknown for
@@ -90,11 +77,32 @@ Rules:
     - basic: quiet, and goes with almost anything.
     - feature: some interest of its own, such as an unusual color, texture or detail.
     - statement: the piece people notice first. An outfit is built around it.
-- Leave secondary_colors empty for solid garments; shading, heathering and fabric texture are not colors.
-- Use accent_colors to describe trims, small panels, contrasting stitching, prominent buttons, and other design features. Do not use accent_colors to describe tags or labels
-- White garments under warm light are still white; use cream or beige only when clearly tinted.
-- Indigo-dyed fabrics (denim, aizome) are indigo, not navy.
+"""
 
+SECONDARY_COLOR_RULE = """- Leave secondary_colors empty for solid garments; shading, heathering and fabric texture are not colors.
+"""
+
+COLOR_NAME_RULES = """- White garments under warm light are still white; use cream or beige only when clearly tinted.
+- Indigo-dyed fabrics (denim, aizome) are indigo, not navy.
+"""
+
+
+TAG_SYSTEM_PROMPT = f"""You catalog garments for a personal wardrobe app.
+You receive several photos of ONE garment: the garment itself plus, sometimes,
+its labels (brand, care, and fabric content, possibly in Japanese or another language).
+
+Rules:
+- subcategory is the closest listed shape and construction. Put distinguishing details (closures like double-breasted, textures like corduroy) in style_tags and fabric in materials. Use "other" only when no listed shape fits.
+- Read fabric composition, brand, and country of origin from labels when visible.
+  Translate them to English. Put the raw label text in label_text.
+- If you cannot determine a field, mark it unknown rather than guessing: "unknown" for fixed-list
+  fields, 0 for formality and warmth, and an empty string for text fields.
+- styling_notes: 3-5 sentences on the piece's character, what styles it bridges,
+  how its proportions behave, and what pairs well with it. Be specific, not generic.
+- Read the user prompt, if provided, for additional details about the garment to adjust the styling_notes and style_tags. Any absolute details from the user take precedence over your evaluation; for example, if the message states the garment's primary color is black, accept it.
+- style_tags are lowercase
+{CUT_AND_CLOTH_RULES}{SECONDARY_COLOR_RULE}- Use accent_colors to describe trims, small panels, contrasting stitching, prominent buttons, and other design features. Do not use accent_colors to describe tags or labels
+{COLOR_NAME_RULES}
 Photo roles:
 - Images are labeled "Image 0:", "Image 1:", etc. Return exactly one PhotoTag
   per image, using that number as its index. Every image appears once.
@@ -139,14 +147,16 @@ RISK_TIER_SECTION = """Risk tiers:
 
 # Letter names popularized by Dior in the 1950s and standard in Japanese styling. Sources describe a few loosely
 # (Y is sometimes given as either way round), so each gets one fixed meaning here. The builder's alt text matches.
-SILHOUETTE_SECTION = """Silhouettes, when <options> names one:
-- I-line: slim and straight from shoulders to hem, a long vertical column.
+SILHOUETTE_LETTERS = """- I-line: slim and straight from shoulders to hem, a long vertical column.
 - H-line: straight and boxy with no waist, the same generous width top to bottom.
 - A-line: compact on top and wider toward the hem: a short or fitted top over a wide or flared bottom.
 - Y-line: volume on top and slim below: a roomy or broad top over a narrow or tapered bottom.
 - O-line: rounded volume through the middle, narrowing at the shoulders and hem, like a cocoon.
 - X-line: a defined waist, with volume above and below it.
-Every outfit must form the named silhouette, at every risk tier. Judge each piece's volume from shape, fit, hem,
+"""
+
+SILHOUETTE_SECTION = f"""Silhouettes, when <options> names one:
+{SILHOUETTE_LETTERS}Every outfit must form the named silhouette, at every risk tier. Judge each piece's volume from shape, fit, hem,
 fabric_weight and styling_notes, and the outfit's line from the outermost layer at each part of the body.
 """
 
@@ -200,6 +210,50 @@ Coordinate each outfit:
 If the wardrobe can't fully meet the request, build the best outfit you can from it,
 then name any missing garments as possible purchases. Never put a garment that isn't
 in <wardrobe> inside an outfit.
+"""
+
+
+LOOK_TAG_SYSTEM_PROMPT = f"""You break down a photographed outfit for a personal wardrobe app, so its owner can
+recreate the look from clothes they already own. The app compares your answer with their wardrobe as text, field by
+field, so tag each piece the way the wardrobe tags a garment, with the same fixed values.
+
+You receive one or more photos of ONE look: a lookbook or catalog shot, a street snap, a store mannequin, or a
+person, sometimes from several angles. The owner may add a note about it.
+
+The look as a whole:
+- title: a short name for the look, two to five words.
+- summary: what makes the look, which a recreation has to keep: its proportions and where it divides, its palette
+  (tonal, neutrals with an accent, contrast), its textures, its level of polish and its mood.
+- silhouette: the letter shape the whole look forms, from the list below, or unknown when it forms none clearly.
+
+The pieces:
+- List every garment, pair of shoes and accessory you can see, outermost layer first. Several photos of the same
+  look show the same pieces from other angles: list each piece once.
+- Only list what you can see. Never add shoes, a bag or anything else the photos crop out or hide.
+- A layer mostly hidden under another counts when enough of it shows to tell what it is.
+- Other people, props, mannequin stands and store displays are not part of the look.
+- Follow the owner's note when it says to leave a piece out or that a detail differs from how it looks.
+- If you cannot determine a field, mark it unknown rather than guessing: "unknown" for fixed-list fields, 0 for
+  formality and warmth, and an empty string for pattern. Labels and fabric content are rarely visible, so judge
+  fabric_type from how the cloth looks.
+- subcategory is the closest listed shape and construction. Use "other" only when no listed shape fits.
+- description: one or two sentences on what the fields can't say: the cut and proportions, notable details, and
+  how it's worn (open, tucked, cuffed, sleeves pushed up, layered over something).
+- role: what the piece does for the look, in a short phrase, such as "the volume on top", "the contrast at the
+  hem" or "the one bright accent".
+- essential: false for a piece the look would survive without, such as a watch or a bag. Pieces that make the
+  silhouette, the palette or the focal point are essential.
+
+Field rules. These photos show pieces worn by a person or a form, not on a hanger, so judge fit by how each piece
+sits on the body, and hem by where it ends on this person, not on an average adult:
+{CUT_AND_CLOTH_RULES}{SECONDARY_COLOR_RULE}{COLOR_NAME_RULES}
+Silhouettes:
+{SILHOUETTE_LETTERS}
+Allowed subcategories by category:
+{SUBCATEGORY_TEXT}
+
+Allowed fabric_type values:
+{FABRIC_TEXT}
 """
 
 
@@ -328,6 +382,18 @@ Language:
 - In the fields you write, use these words for the app's terms: {_glossary(language)}
 """
 
+def look_tag_system_prompt(language: Language) -> str:
+    if language == DEFAULT_LANGUAGE:
+        return LOOK_TAG_SYSTEM_PROMPT
+    return f"""{LOOK_TAG_SYSTEM_PROMPT}
+Language:
+- Write title, summary, pattern, description and role in {LANGUAGE_DESCRIPTIONS[language]}.
+- category, subcategory, the colors, fit, sheen, fabric_type, shape, hem, fabric_weight, sleeve, statement and
+  silhouette are fixed values the app depends on. Always give their exact English values from the allowed lists,
+  never a translation.
+- In the fields you write, use these words for the app's terms: {_glossary(language)}
+"""
+
 def outfit_system_prompt(language: Language) -> str:
     if language == DEFAULT_LANGUAGE:
         return OUTFIT_SYSTEM_PROMPT
@@ -400,6 +466,42 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
         return to_tagging_result(response.parsed_output), usage
     except ValidationError as error:
         raise UnusableResponse(f"Tagged garment didn't validate: {error}", usage) from error
+
+def tag_look(client: Anthropic, photo_paths: list[Path], note: str | None = None, language: Language = DEFAULT_LANGUAGE) -> tuple[LookTags, TokenUsage]:
+    """mimic, step 1: the only call that sees the look's photos. Everything after works from what it returns."""
+    content = []
+    for i, path in enumerate(photo_paths):
+        content.append({"type": "text", "text": f"Image {i}:"})
+        content.append(image_block(path))
+    content.append({"type": "text", "text": "Break down this look, piece by piece."})
+    if note:
+        content.append({"type": "text", "text": f"The owner's note about the look:\n<note>\n{note}\n</note>"})
+
+    response = client.messages.parse(
+        model=config.MODELS["look"],
+        max_tokens=config.LOOK_TAG_TOKEN_CAP,
+        system=look_tag_system_prompt(language),
+        messages=[{"role": "user", "content": content}],
+        output_format=LookReply,
+    )
+    usage = TokenUsage(
+        model=config.MODELS["look"],
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
+    )
+    logger.debug("tokens: in=%s out=%s", usage.input_tokens, usage.output_tokens)
+
+    if response.stop_reason == "max_tokens":
+        logger.warning("Look tagging cut off at max_tokens (%s)", config.LOOK_TAG_TOKEN_CAP)
+    if response.parsed_output is None:
+        raise UnusableResponse(f"No look in response (stop_reason={response.stop_reason})", usage)
+    try:
+        tags = to_look_tags(response.parsed_output)
+    except ValidationError as error:
+        raise UnusableResponse(f"Tagged look didn't validate: {error}", usage) from error
+    if not tags.pieces:
+        raise UnusableResponse("No pieces found in the look", usage)
+    return tags, usage
 
 PREFERENCES_SYSTEM_PROMPT = """You turn a person's description of their clothing tastes and needs into a short,
 clear brief for an AI stylist. The stylist reads it before every outfit request, alongside the
@@ -507,6 +609,35 @@ Write reasons, differences and the summary in the language you use for the outfi
 </weigh>"""
 
 
+# Sent in the user message, like WEIGH_INSTRUCTIONS, so mimic shares the outfit system prompt and the cached wardrobe.
+MIMIC_INSTRUCTIONS = """<mimic>
+The owner photographed a look they like and wants to recreate it from their own wardrobe. <look> is what the photos
+showed: the look as a whole, then each piece, numbered. The pieces were tagged with the same fields as the wardrobe,
+so compare each piece with garments field by field, then by its description against their styling_notes.
+<shortlists> names the owned garments most like each piece on paper: a starting point, not a limit.
+
+Build the closest recreation you can:
+- The look decides the outfit. There are no <options> or risk tiers here, and the look's own palette, proportions and
+  focal point replace the coordination rules above. Garments still come only from <wardrobe>.
+- For each piece, pick the owned garment that best does that piece's job in the look (its role). Keeping the
+  silhouette, the palette and the proportions matters more than keeping the category: a loose match that keeps the
+  look's shape beats a same-category garment that breaks it.
+- Match the essential pieces first. Leave an inessential piece unmatched (closeness none) rather than add something
+  that pulls the outfit away from the look.
+- An owned garment stands in for one piece at most.
+- If the photos don't show a part of the body an outfit needs (often the shoes), add the owned piece that best suits
+  the look. It goes in garments, with no entry in matches.
+- Be honest about closeness. exact means the owner effectively has that piece. When nothing owned does a piece's job,
+  answer none with garment_id 0 rather than stretching a match.
+- Don't suggest buying anything. The app lists the unmatched pieces itself.
+
+Return the closest recreation first. Return a second only when a different set of stand-ins gets about as close as
+the first; otherwise return one. Never return more than two.
+Write aesthetic, explanation, styling_advice and each note in the language you use for outfits. styling_advice says
+how to wear a garment to get closer to the look (tucked, cuffed, worn open), when that helps.
+</mimic>"""
+
+
 def recommend_outfits(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitResult, TokenUsage]:
     return _outfit_style_call(client, context, language, OutfitResult, "outfits", config.MODELS["outfits"])
 
@@ -514,6 +645,11 @@ def recommend_outfits(client: Anthropic, context: list[dict], language: Language
 def weigh_candidate(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[WeighResult, TokenUsage]:
     """The weigh call: the outfit system prompt, the weigh instructions in the message, and a verdict plus outfits back."""
     return _outfit_style_call(client, context, language, WeighResult, "verdict", config.MODELS["outfits"])
+
+
+def match_look(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[MimicResult, TokenUsage]:
+    """mimic, step 2: text only. The look's tagged pieces against the cached wardrobe, and up to two recreations back."""
+    return _outfit_style_call(client, context, language, MimicResult, "recreation", config.MODELS["outfits"])
 
 
 def _outfit_style_call[T](client: Anthropic, context: list[dict], language: Language, output_format: type[T], what: str, model: str) -> tuple[T, TokenUsage]:

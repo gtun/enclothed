@@ -15,14 +15,15 @@ from enclothed import config
 from enclothed import api, photos
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
-from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, insert_wear, insert_weigh, save_preferences, select_garment
+from enclothed.db import init_db, insert_garment, insert_look, insert_outfits, insert_set, insert_wear, insert_weigh, save_preferences, select_garment
 from enclothed.intake import TEST_GARMENT
-from enclothed.models import Draft, Outfit, OutfitGarment, User, WeighVerdict
+from enclothed.models import Draft, LookPiece, LookTags, Outfit, OutfitGarment, User, WeighVerdict
 
 TIMESTAMP = "2026-11-04T00:00:00+00:00"
 _CHECK = {"answer": True, "reason": "r"}
 VERDICT = WeighVerdict.model_validate({"already_own": _CHECK, "similar": [], "makes_outfits": _CHECK, "fills_gap": _CHECK,
                                        "fits_style": _CHECK, "recommendation": "maybe", "summary": "s"})
+LOOK = LookTags(title="t", summary="s", pieces=[LookPiece(category="top", subcategory="t-shirt", primary_color="white", description="d", role="r")])
 ALICE = User(id=1, username="alice")
 BOB = User(id=2, username="bob")
 
@@ -39,7 +40,11 @@ def add_wardrobe(db_path, garments_dir, user_id):
     [outfit_id] = insert_outfits(db_path, user_id, [outfit], None, "dinner", TIMESTAMP)
     candidate_id = insert_garment(db_path, user_id, TEST_GARMENT.model_copy(update={"weighed_on": date(2026, 11, 8)}))
     insert_weigh(db_path, user_id, candidate_id, VERDICT, TIMESTAMP)
-    return {"garment": garment_id, "second": second_id, "set": set_id, "outfit": outfit_id, "candidate": candidate_id}
+    look_id = insert_look(db_path, user_id, LOOK, None, TIMESTAMP)
+    look_folder = photos.LOOKS_DIR / str(look_id)
+    look_folder.mkdir(parents=True)
+    Image.new("RGB", (20, 20)).save(look_folder / "00.jpg")
+    return {"garment": garment_id, "second": second_id, "set": set_id, "outfit": outfit_id, "candidate": candidate_id, "look": look_id}
 
 
 @pytest.fixture
@@ -59,6 +64,7 @@ def db_path(tmp_path, monkeypatch):
     monkeypatch.setattr(api, "PREFERENCES_LOG_PATH", tmp_path / "preferences_log.jsonl")
     monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
     monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
+    monkeypatch.setattr(photos, "LOOKS_DIR", tmp_path / "looks")
     return path
 
 
@@ -95,6 +101,8 @@ TARGETED = [
     ("GET", "/photos/{garment}/front_00.jpg", None),
     ("GET", "/thumbs/{garment}/front_00.jpg", None),
     ("POST", "/api/weighs/{candidate}/buy", None),
+    ("GET", "/looks/{look}/00.jpg", None),
+    ("GET", "/looks/{look}/thumbs/00.jpg", None),
 ]
 
 
@@ -112,7 +120,7 @@ def test_your_own_item_still_works(bob, alice_data, bob_data, method, path, body
 
 def test_every_route_with_an_id_is_covered():
     """A new route with an id in its path has to be added to TARGETED."""
-    covered = {(method, re.sub(r"\{\w+\}", "{}", path.replace("front_00.jpg", "{}"))) for method, path, _ in TARGETED}
+    covered = {(method, re.sub(r"\{\w+\}", "{}", re.sub(r"\w+\.jpg$", "{}", path))) for method, path, _ in TARGETED}
     found = set()
     for route in api.app.routes:
         if isinstance(route, APIRoute) and "{" in route.path:
@@ -128,7 +136,17 @@ COVERED_ELSEWHERE = {   # these don't answer 200, so they have their own tests b
     ("DELETE", "/api/weighs/{}"),
     ("POST", "/api/outfits/{}/wears"),        # 201
     ("DELETE", "/api/outfits/{}/wears/{}"),   # needs a wear ID too
+    ("POST", "/api/looks/{}/recreations"),    # 201, after an AI call
+    ("DELETE", "/api/looks/{}"),              # 204
 }
+
+
+def test_someone_elses_look_cant_be_matched_or_deleted(bob, alice_data, bob_data, db_path, tmp_path):
+    assert bob.post(f"/api/looks/{alice_data['look']}/recreations").status_code == 404
+    assert bob.delete(f"/api/looks/{alice_data['look']}").status_code == 404
+    assert (tmp_path / "looks" / str(alice_data["look"]) / "00.jpg").is_file()
+    assert [look["id"] for look in bob.get("/api/looks").json()] == [bob_data["look"]]
+    assert bob.delete(f"/api/looks/{bob_data['look']}").status_code == 204
 
 
 def test_someone_elses_outfit_cant_be_worn_or_unworn(bob, alice_data, bob_data, db_path):
