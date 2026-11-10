@@ -3,13 +3,13 @@ from pathlib import Path
 from enclothed import db, i18n
 from typing import get_args
 from enclothed.models import (
-    CATEGORY_ORDER, Category, Color, FIELD_CATEGORIES, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, RiskTier, Recommendation, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
-    FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, RISK_TIER_LABELS, RECOMMENDATION_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
-    ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, OptionsOut,
+    CATEGORY_ORDER, Category, Color, FIELD_CATEGORIES, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, RiskTier, Recommendation, Closeness, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
+    FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, RISK_TIER_LABELS, RECOMMENDATION_LABELS, CLOSENESS_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
+    ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, LookOut, OptionsOut,
     OutfitGarmentOut, OutfitOut, SetOut, blank_fields,
 )
 from enclothed.fabrics import FABRIC_TYPES
-from enclothed.photos import get_garment_photos
+from enclothed.photos import get_garment_photos, get_look_photos
 
 def to_garment_out(garment: Garment) -> GarmentOut:
     return GarmentOut(**garment.model_dump(), photos=get_garment_photos(garment.id), blank_fields=blank_fields(garment))
@@ -51,6 +51,16 @@ def list_outfits(db_path: Path, user_id: int) -> list[OutfitOut]:
     wardrobe = _wardrobe_by_id(db_path, user_id)
     return [_to_outfit_out(outfit, wardrobe) for outfit in outfits]
 
+def to_look_out(look: dict) -> LookOut:
+    return LookOut(**look, photos=get_look_photos(look["id"]))
+
+def get_look(db_path: Path, user_id: int, look_id: int) -> LookOut | None:
+    look = db.select_look(db_path, user_id, look_id)
+    return to_look_out(look) if look else None
+
+def list_looks(db_path: Path, user_id: int) -> list[LookOut]:
+    return [to_look_out(look) for look in db.select_looks(db_path, user_id)]
+
 def list_sets(db_path: Path, user_id: int) -> list[SetOut]:
     return [SetOut(id=set_id, name=name) for set_id, name in db.select_all_sets(db_path, user_id).items()]
 
@@ -82,6 +92,7 @@ def get_options(language: Language = DEFAULT_LANGUAGE) -> OptionsOut:
         warmth=[LevelOption(value=value, label=label("warmth", value, text)) for value, text in WARMTH_LABELS.items()],
         risk_tiers=[ChoiceOption(value=tier, label=label("risk_tiers", tier, RISK_TIER_LABELS[tier])) for tier in get_args(RiskTier)],
         recommendations=[ChoiceOption(value=r, label=label("recommendations", r, RECOMMENDATION_LABELS[r])) for r in get_args(Recommendation)],
+        closeness=[ChoiceOption(value=c, label=label("closeness", c, CLOSENESS_LABELS[c])) for c in get_args(Closeness)],
         languages=[ChoiceOption(value=value, label=name) for value, name in LANGUAGE_NAMES.items()],
         category_labels=terms.get("categories", {}),
         subcategory_labels=terms.get("subcategories", {}),

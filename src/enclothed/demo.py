@@ -132,9 +132,12 @@ def reset_wardrobe(db_path: Path, demo_id: int, template_dir: Path, timestamp: s
     template = json.loads(template_path.read_text(encoding="utf-8"))
     keep = {entry["demo_id"] for entry in template["garments"] if "demo_id" in entry}
 
+    look_ids = db.select_look_ids(db_path, demo_id)   # before they're deleted with the rest
     for garment_id in db.delete_demo_wardrobe(db_path, demo_id, keep):
         shutil.rmtree(photos.GARMENTS_DIR / str(garment_id), ignore_errors=True)
         shutil.rmtree(photos.THUMBS_DIR / str(garment_id), ignore_errors=True)
+    for look_id in look_ids:
+        photos.delete_look_photos(look_id)
     db.save_preferences(db_path, demo_id, None, timestamp)
 
     new_ids = {}

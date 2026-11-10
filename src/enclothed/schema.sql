@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS outfits (
     user_id INTEGER REFERENCES users(id),
     risk_tier TEXT CHECK (risk_tier IN ('safe', 'stretch', 'bold')),
     source TEXT NOT NULL DEFAULT 'ai' CHECK (source IN ('ai', 'own')),
+    look_id INTEGER REFERENCES looks(id),
     CHECK (liked in (0, 1))
 );
 
@@ -74,6 +75,26 @@ CREATE TABLE IF NOT EXISTS weighs (
     user_id INTEGER NOT NULL REFERENCES users(id),
     weighed_at TEXT NOT NULL,
     verdict TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS looks (
+    id INTEGER PRIMARY KEY NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL,
+    note TEXT,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    silhouette TEXT CHECK (silhouette IN ('I', 'H', 'A', 'Y', 'O', 'X')),
+    pieces TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS look_matches (
+    outfit_id INTEGER NOT NULL REFERENCES outfits(id),
+    piece INTEGER NOT NULL,
+    garment_id INTEGER REFERENCES garments(id),
+    closeness TEXT NOT NULL CHECK (closeness IN ('exact', 'close', 'loose', 'none')),
+    note TEXT,
+    PRIMARY KEY (outfit_id, piece)
 );
 
 CREATE INDEX IF NOT EXISTS idx_outfit_garments_garment ON outfit_garments(garment_id);

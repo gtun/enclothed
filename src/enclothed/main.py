@@ -2,17 +2,21 @@ from enclothed import config
 from enclothed import db
 from enclothed import demo
 from enclothed import mend
+from enclothed import mimic
+from enclothed import photos
 import argparse
+import shutil
 import sqlite3
+import tempfile
 from dotenv import load_dotenv
 from anthropic import Anthropic
-from enclothed.intake import add_garment, is_url
+from enclothed.intake import add_garment, download_photo, is_url
 from enclothed.outfit import get_outfits
 from pathlib import Path
 import logging
 from typing import get_args
 from enclothed.models import DEFAULT_LANGUAGE, LIST_FILTER_CHOICES, Language, RiskTier, Silhouette
-from enclothed.cli_display import format_list, format_new_garment, format_outfit_result
+from enclothed.cli_display import format_list, format_look, format_new_garment, format_outfit_result
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +63,12 @@ def main() -> int:
     outfit_parser.add_argument("-r", "--riskiness", choices=get_args(RiskTier), help="Suggest every outfit at this tier. Without it, the outfits are spread across safe, stretch and bold")
     outfit_parser.add_argument("-s", "--silhouette", choices=get_args(Silhouette), help="Make every outfit form this letter silhouette (I, H, A, Y, O or X). Without it, any shape")
     outfit_parser.add_argument("--no-cache", action="store_false", dest="cache", help="Don't cache the wardrobe. By default it's cached for 5 minutes, so repeat calls use far fewer tokens (the first costs ~25% more)")
+
+    mimic_parser = subparsers.add_parser("mimic", parents=[common], help="Recreate a photographed look from garments you own")
+    mimic_parser.add_argument("photos", type=str, nargs="*", help="Photos or image URLs of one look: a lookbook shot, a street snap, a mannequin")
+    mimic_parser.add_argument("-t", "--test", action="store_true", help="Suppress actual LLM calls; matches a sample look and saves nothing")
+    mimic_parser.add_argument("-p", "--prompt-message", help="A note about the look, such as which pieces matter most or what to leave out")
+    mimic_parser.add_argument("--no-cache", action="store_false", dest="cache", help="Don't cache the wardrobe (see outfit --no-cache)")
 
     set_parser = subparsers.add_parser("set", parents=[common], help="Tag multiple garments as part of the same set")
     set_parser.add_argument("-n", "--name", help="Name the set")
@@ -167,6 +177,31 @@ def main() -> int:
                              count=args.count, riskiness=args.riskiness, silhouette=args.silhouette)
         print(format_outfit_result(result, wardrobe))
 
+    # --- mimic ------------------
+    elif args.command == "mimic":
+        load_dotenv()
+        if not args.photos and not args.test:
+            mimic_parser.error("At least one photo URL or filepath needed")
+        invalid_photo_paths = [p for p in args.photos if not is_url(p) and not Path(p).is_file()]
+        if invalid_photo_paths:
+            mimic_parser.error(f"Nonexistent filepath(s): {invalid_photo_paths}")
+        if len(args.photos) > config.UPLOAD_MAX_PHOTOS:
+            mimic_parser.error(f"At most {config.UPLOAD_MAX_PHOTOS} photos")
+
+        client = None if args.test else Anthropic()
+        saved_preferences = db.select_preferences(config.DB_PATH, config.DEFAULT_USER_ID)
+        with tempfile.TemporaryDirectory(dir=config.INTAKE_DIR, prefix="look-", ignore_cleanup_errors=True) as tmp:
+            staged = stage_look_photos(args.photos, Path(tmp))
+            logger.info("Breaking down the look. Please wait...")
+            look_id, tags = mimic.create_look(config.DB_PATH, config.DEFAULT_USER_ID, staged, args.prompt_message, client,
+                                              owner_language(), config.MIMIC_LOG_PATH, args.test)
+        logger.info("Matching %d piece(s) to your wardrobe...", len(tags.pieces))
+        recreations, _ = mimic.recreate(config.DB_PATH, config.DEFAULT_USER_ID, look_id, tags, args.prompt_message, client,
+                                        config.MIMIC_LOG_PATH, saved_preferences[0] if saved_preferences else None,
+                                        owner_language(), args.cache, args.test)
+        wardrobe = {g.id: g for g in db.select_owned_garments(config.DB_PATH, config.DEFAULT_USER_ID)}
+        print(format_look(tags, recreations, wardrobe))
+
     # --- set ----------------------
     elif args.command == "set":
         garment_ids = set(args.garment_ids)
@@ -224,6 +259,16 @@ def main() -> int:
         print(f"Demo wardrobe ready: {len(template['garments'])} garments, {len(template['outfits'])} outfits, {len(template['sets'])} sets")
 
     return 0
+
+def stage_look_photos(sources: list[str], run_dir: Path) -> list[Path]:
+    """Each photo or URL as an upright JPEG under the API's size limit, like the web app's uploads."""
+    staged = []
+    for index, source in enumerate(sources):
+        raw = download_photo(source, run_dir, index) if is_url(source) else Path(shutil.copy2(source, run_dir / f"raw_{index:02d}_{Path(source).name}"))
+        photo = run_dir / f"{index:02d}.jpg"
+        photos.normalize_photo(raw, photo)
+        staged.append(photo)
+    return staged
 
 def init_dirs():
     for directory in (config.GARMENTS_DIR, config.INTAKE_DIR):

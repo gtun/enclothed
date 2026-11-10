@@ -20,6 +20,7 @@ from enclothed import config, db, drafts
 from enclothed.llm import WEIGH_INSTRUCTIONS, UnusableResponse, weigh_candidate
 from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, OutfitResult, TokenUsage, WeighOut, WeighResult
 from enclothed.outfit import options_text, tier_plan, validate_outfits, wardrobe_block, wardrobe_for_prompt
+from enclothed.similarity import similar_garments
 from enclothed.usage import log_failed_call
 
 logger = logging.getLogger(__name__)
@@ -29,29 +30,6 @@ CANDIDATE_ID = 0   # SQLite row IDs start at 1, so 0 can never be a real garment
 
 class DraftGone(LookupError):
     """The draft to weigh no longer exists: already weighed or added, discarded, or expired."""
-
-
-def similar_score(candidate: Garment, owned: Garment) -> int:
-    """How alike two garments are on paper. Only used to rank; the LLM judges actual similarity."""
-    score = 3 if owned.subcategory == candidate.subcategory else 0
-    if owned.primary_color == candidate.primary_color:
-        score += 2
-    elif candidate.primary_color in owned.secondary_colors or owned.primary_color in candidate.secondary_colors:
-        score += 1
-    if candidate.formality and owned.formality and abs(candidate.formality - owned.formality) <= 1:
-        score += 1
-    for field in ("fabric_type", "pattern", "fit"):
-        value = getattr(candidate, field)
-        if value and value == getattr(owned, field):
-            score += 1
-    return score
-
-
-def similar_garments(candidate: Garment, owned: dict[int, Garment], limit: int = config.WEIGH_SIMILAR_LIMIT) -> list[int]:
-    """IDs of the owned garments in the candidate's category, most alike first (ties: lower ID first)."""
-    same_category = [g for g in owned.values() if g.category == candidate.category]
-    ranked = sorted(same_category, key=lambda g: (-similar_score(candidate, g), g.id))
-    return [g.id for g in ranked[:limit]]
 
 
 def weigh_context(owned: dict[int, Garment], candidate: Garment, similar: list[int], preferences: str | None,

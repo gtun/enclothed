@@ -511,5 +511,11 @@
     "worth_it": "買い",
     "maybe": "保留",
     "pass": "見送り"
+  },
+  "closeness": {
+    "exact": "ほぼ同じ",
+    "close": "近い",
+    "loose": "代わりになる",
+    "none": "持っていない"
   }
 }

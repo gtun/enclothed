@@ -1,4 +1,4 @@
-/* Page routing (#wardrobe, #outfits, #garment-N, #outfit-N, #results, #usage, #weighed, #weigh-N), click handling, Day/Evening, and start-up. Loaded last. */
+/* Page routing (#wardrobe, #outfits, #garment-N, #outfit-N, #results, #usage, #weighed, #weigh-N, #looks, #look-N), click handling, Day/Evening, and start-up. Loaded last. */
 "use strict";
 
 const app = document.getElementById("app");
@@ -27,7 +27,13 @@ function render(){
     html = pageFound ? weighPage(g) : g ? garmentPage(g) : `<div class="state"><h1>Not found</h1><p><a href="#weighed">Back to Weighing</a></p></div>`;
     document.title = pageFound ? `Weighing ${title(g)} · enclothed` : "enclothed";
     if (g && !pageFound) view = "garment";   // bought since: an old link shows it in the wardrobe
-  } else if (h === "weighed"){ view = "weighed"; html = weighedPage(); document.title = "Weighing · enclothed"; }
+  } else if ((m = h.match(/^look-(\d+)$/))){
+    const l = lookById[m[1]];
+    view = "look"; pageFound = !!l;
+    html = l ? lookPage(l) : `<div class="state"><h1>Look not found</h1><p><a href="#looks">Back to Looks</a></p></div>`;
+    document.title = l ? `${l.title} · enclothed` : "enclothed";
+  } else if (h === "looks"){ view = "looks"; html = looksPage(); document.title = "Looks · enclothed"; }
+  else if (h === "weighed"){ view = "weighed"; html = weighedPage(); document.title = "Weighing · enclothed"; }
   else if (h === "outfits"){ view = "outfits"; html = outfits(); document.title = "Outfits · enclothed"; }
   else if (h === "results"){ view = "results"; pageFound = !!builder.session?.ids.length; html = resultsPage(); document.title = "New suggestions · enclothed"; }
   else if (h === "disowned-garments"){ view = "disowned-garments"; html = disownedGarments(); document.title = "Disowned garments · enclothed"; }
@@ -36,19 +42,19 @@ function render(){
   else if (h === "usage"){ view = "usage"; html = usagePage(); document.title = "Usage · enclothed"; }
   else { html = wardrobe(); document.title = "enclothed"; }
   app.innerHTML = html;
-  const section = (view === "outfit" || view === "outfits" || view === "results" || view === "disowned-outfits") ? "outfits" : view === "style" || view === "usage" ? view : "wardrobe";
+  const section = (view === "outfit" || view === "outfits" || view === "results" || view === "disowned-outfits" || view === "look" || view === "looks") ? "outfits" : view === "style" || view === "usage" ? view : "wardrobe";
   for (const k of ["wardrobe", "outfits", "style", "usage"]){ const n = document.getElementById("nav-" + k);
     if (k === section) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current"); }
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;
   const bk = app.querySelector("[data-back]");
   if (bk && prev){ const pm = prev.match(/^#(garment|outfit)-/);
-    bk.textContent = pm ? `← Back to ${pm[1]}` : prev.startsWith("#weigh-") ? "← Back to the verdict" : prev === "#weighed" ? "← Weighing" : prev === "#results" ? "← New suggestions" : prev === "#outfits" ? "← Outfits" : prev === "#disowned-garments" ? "← Disowned garments" : prev === "#disowned-outfits" ? "← Disowned outfits" : "← Wardrobe"; }
+    bk.textContent = pm ? `← Back to ${pm[1]}` : prev.startsWith("#weigh-") ? "← Back to the verdict" : prev === "#weighed" ? "← Weighing" : prev.startsWith("#look-") ? "← Back to the look" : prev === "#looks" ? "← Looks" : prev === "#results" ? "← New suggestions" : prev === "#outfits" ? "← Outfits" : prev === "#disowned-garments" ? "← Disowned garments" : prev === "#disowned-outfits" ? "← Disowned outfits" : "← Wardrobe"; }
   return view;
 }
 function route(){
   closeHelp();
   if (current === "wardrobe" || current === "outfits") scrollMem[current] = scrollY;
-  weighConfirm = false;
+  weighConfirm = false; lookConfirm = false;
   const view = render();
   current = view;
   if (view === "garment") wireGallery();
@@ -104,6 +110,7 @@ app.addEventListener("click", e => {
   if (handleNotesCheckClick(e)) return;
   if (handleBuilderClick(e)) return;
   if (handleWeighClick(e)) return;
+  if (handleMimicClick(e)) return;
   const r = e.target.closest("[data-rate]");
   if (r){ const id = r.dataset.rateId || (location.hash.match(/^#outfit-(\d+)$/) || [])[1]; if (id && outById[id]) rate(outById[id], r.dataset.rate === "true"); return; }
   const b = e.target.closest("[data-back]");
@@ -146,9 +153,9 @@ paintTheme();
   try {
     const profile = await api("/api/profile");
     SHOW_IDS = profile.is_admin;
-    const [garments, outfitList, sets, options, preferences, weighs] = await Promise.all([
-      api("/api/garments"), api("/api/outfits"), api("/api/sets"), api("/api/options"), api("/api/preferences"), api("/api/weighs")]);
-    WEIGHS = weighs;
+    const [garments, outfitList, sets, options, preferences, weighs, looks] = await Promise.all([
+      api("/api/garments"), api("/api/outfits"), api("/api/sets"), api("/api/options"), api("/api/preferences"), api("/api/weighs"), api("/api/looks")]);
+    WEIGHS = weighs; LOOKS = looks;
     Object.assign(prefs, preferences);
     G = garments; O = outfitList.map(adoptOutfit); SETS = sets; OPT = options;
     SETTINGS.locale ||= profile.language;

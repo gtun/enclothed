@@ -49,6 +49,16 @@ const HELP = {
     "Everything you're deciding whether to get, newest first. Open one for its verdict and outfits.",
     "<b>Weigh a garment</b> takes photos like adding one, then uses AI once to judge it against your wardrobe.",
   ]},
+  look: {title: "Recreating a look", tips: [
+    "This is a look you photographed, broken down into its pieces, each beside the garment of yours that stands in for it.",
+    "<b>Exact</b> and <b>Close</b> are near matches. <b>Loose</b> does the same job in the look but is clearly different. <b>Not owned</b> means nothing of yours does that job.",
+    "Each recreation is saved as an outfit, so you can open it, like it, log a wear, or rework it in the outfit builder.",
+    "Pieces the photos didn't show, often the shoes, are picked from your wardrobe to suit the look.",
+  ]},
+  looks: {title: "Looks", tips: [
+    "Looks you photographed to recreate, newest first. Open one to see how your wardrobe matches it.",
+    "<b>Mimic a look</b> takes one or more photos of a single outfit: a lookbook shot, a store mannequin, a street snap. It uses AI twice: once to read the photos, once to match them to your wardrobe.",
+  ]},
   style: {title: "Your style", tips: [
     "Describe your tastes and needs in your own words. They're included with every outfit request.",
     "Words like <b>always</b>, <b>never</b> and <b>must</b> make something a rule. Everything else is a default that a specific request can override.",

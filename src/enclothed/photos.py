@@ -1,4 +1,5 @@
 import logging
+import shutil
 import threading
 from pathlib import Path
 from typing import get_args
@@ -6,8 +7,8 @@ from typing import get_args
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
-from enclothed.config import GARMENTS_DIR, THUMBS_DIR, THUMB_SIZE, UPLOAD_MAX_SIDE
-from enclothed.models import Photo, PhotoRole
+from enclothed.config import GARMENTS_DIR, LOOKS_DIR, THUMBS_DIR, THUMB_SIZE, UPLOAD_MAX_SIDE
+from enclothed.models import LookPhoto, Photo, PhotoRole
 
 register_heif_opener()  # lets Pillow open iPhone HEIC photos
 logger = logging.getLogger(__name__)
@@ -70,8 +71,11 @@ def get_thumbnail(garment_id: int, filename: str) -> Path | None:
     source = get_photo(garment_id, filename)
     if source is None:
         return None
+    return _thumbnail(source, THUMBS_DIR / str(garment_id) / f"{filename}.jpg")
 
-    thumb = THUMBS_DIR / str(garment_id) / f"{filename}.jpg"
+
+def _thumbnail(source: Path, thumb: Path) -> Path:
+    """thumb, made from source if it's missing or older. The source itself if it can't be shrunk."""
     if _is_current(thumb, source):
         return thumb
 
@@ -93,6 +97,43 @@ def get_thumbnail(garment_id: int, filename: str) -> Path | None:
             return source
         partial.replace(thumb)  # atomic, so a half-written file is never served
     return thumb
+
+
+# --- looks to recreate (mimic, #5): one folder of photos per look, apart from the garments ---------
+def save_look_photos(look_id: int, staged: list[Path]) -> None:
+    """Move a look's normalized photos into its folder, keeping their order."""
+    folder = LOOKS_DIR / str(look_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    for index, path in enumerate(staged):
+        shutil.move(path, folder / f"{index:02d}.jpg")
+
+
+def get_look_photos(look_id: int) -> list[LookPhoto]:
+    folder = LOOKS_DIR / str(look_id)
+    if not folder.is_dir():
+        return []
+    names = sorted(p.name for p in folder.iterdir() if p.is_file() and not p.name.startswith("."))
+    return [LookPhoto(url=f"/looks/{look_id}/{name}", thumb_url=f"/looks/{look_id}/thumbs/{name}") for name in names]
+
+
+def get_look_photo(look_id: int, filename: str) -> Path | None:
+    """Path to one photo of a look, or None if it doesn't exist or the name isn't a plain filename."""
+    if Path(filename).name != filename or filename.startswith("."):
+        return None
+    source = LOOKS_DIR / str(look_id) / filename
+    return source if source.is_file() else None
+
+
+def get_look_thumbnail(look_id: int, filename: str) -> Path | None:
+    source = get_look_photo(look_id, filename)
+    if source is None:
+        return None
+    return _thumbnail(source, THUMBS_DIR / "looks" / str(look_id) / f"{filename}.jpg")
+
+
+def delete_look_photos(look_id: int) -> None:
+    shutil.rmtree(LOOKS_DIR / str(look_id), ignore_errors=True)
+    shutil.rmtree(THUMBS_DIR / "looks" / str(look_id), ignore_errors=True)
 
 
 def normalize_photo(source: Path, dest: Path) -> None:

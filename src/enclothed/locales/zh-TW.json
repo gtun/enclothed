@@ -511,5 +511,11 @@
     "worth_it": "值得買",
     "maybe": "再想想",
     "pass": "不買"
+  },
+  "closeness": {
+    "exact": "幾乎一樣",
+    "close": "相近",
+    "loose": "可替代",
+    "none": "沒有"
   }
 }

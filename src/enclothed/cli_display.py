@@ -1,4 +1,4 @@
-from enclothed.models import Garment, Outfit, OutfitResult, CATEGORY_ORDER
+from enclothed.models import CLOSENESS_LABELS, Garment, LookMatchOut, LookTags, Outfit, OutfitResult, CATEGORY_ORDER
 import textwrap
 
 def format_garment_id_name(garment: Garment) -> str:
@@ -66,3 +66,33 @@ def format_outfit_result(outfit_result: OutfitResult, wardrobe: dict[int, Garmen
         lines.append(format_outfit(outfit, wardrobe))
 
     return "\n\n".join(lines)
+
+
+def format_look(tags: LookTags, recreations: list[tuple[Outfit, list[LookMatchOut]]], wardrobe: dict[int, Garment]) -> str:
+    """mimic: the look as the photos showed it, then each recreation piece by piece."""
+    title = "LOOK: " + tags.title.upper() + (f" [{tags.silhouette}-line]" if tags.silhouette else "")
+    lines = [f"{title} {'=' * max(3, 65 - len(title))}", textwrap.fill(tags.summary, width=80, initial_indent="  ", subsequent_indent="  ")]
+    if not recreations:
+        lines += ["", "  Nothing in your wardrobe could recreate this look."]
+
+    for number, (outfit, matches) in enumerate(recreations, start=1):
+        heading = f"RECREATION {number}: {outfit.aesthetic.upper()}"
+        lines += ["", f"{heading} {'=' * max(3, 65 - len(heading))}"]
+        stand_ins = set()
+        for match in matches:
+            piece = tags.pieces[match.piece - 1]
+            lines.append(f"  {match.piece}. {piece.primary_color} {piece.subcategory} ({piece.role})")
+            if match.garment_id is None:
+                lines.append("       -> nothing owned")
+            else:
+                stand_ins.add(match.garment_id)
+                lines.append(f"       -> {CLOSENESS_LABELS[match.closeness].lower():<6} {format_garment_id_name(wardrobe[match.garment_id]).strip()}")
+            if match.note:
+                lines.append(textwrap.fill(match.note, width=80, initial_indent="          ", subsequent_indent="          "))
+        for extra in (g for g in outfit.garments if g.garment_id not in stand_ins):
+            lines.append(f"  + {format_garment_id_name(wardrobe[extra.garment_id]).strip()}  (not in the photos)")
+        lines += ["", textwrap.fill(outfit.explanation, width=80, initial_indent="  ", subsequent_indent="  ")]
+        if outfit.missing:
+            lines += ["", textwrap.fill(f"To finish the look: {outfit.missing}", width=80, initial_indent="  ", subsequent_indent="  ")]
+
+    return "\n".join(lines)

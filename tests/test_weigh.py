@@ -18,7 +18,8 @@ from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.intake import TEST_GARMENT
 from enclothed.llm import UnusableResponse
 from enclothed.models import Outfit, OutfitGarment, PhotoTag, TaggingResult, TokenUsage, User, WeighResult
-from enclothed.weigh import CANDIDATE_ID, check_similar, similar_garments, similar_score, weigh_context, with_real_id
+from enclothed.similarity import similar_garments, similar_score
+from enclothed.weigh import CANDIDATE_ID, check_similar, weigh_context, with_real_id
 
 USAGE = TokenUsage(model="m", input_tokens=10, output_tokens=5)
 

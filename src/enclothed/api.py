@@ -16,16 +16,18 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 
-from enclothed import db, demo, drafts, mend, photos, responses, weigh
+from enclothed import db, demo, drafts, mend, mimic, photos, responses, weigh
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
-    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH
+    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH,
+    MIMIC_LOG_PATH
 )
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, WeighCreatedOut, WeighIn, WeighOut, blank_fields,
+    LookOut, MimicCreatedOut,
 )
 from enclothed.insights import answer_question
 from enclothed.llm import UnusableResponse, improve_preferences
@@ -108,6 +110,24 @@ def _saved_preferences(user: User) -> str | None:
     return saved[0] if saved else None
 
 
+def _stage_uploads(uploads: list[UploadFile], tmp_dir: Path) -> list[Path]:
+    """Save each upload in tmp_dir as an upright JPEG the API accepts, or raise the error saying which one can't be used."""
+    paths = []
+    for index, upload in enumerate(uploads):
+        raw = tmp_dir / f"raw_{index:02d}"
+        with raw.open("wb") as out:
+            shutil.copyfileobj(upload.file, out)
+        if raw.stat().st_size > UPLOAD_MAX_BYTES:
+            raise HTTPException(status_code=413, detail=f"“{upload.filename}” is larger than {UPLOAD_MAX_BYTES // (1024 * 1024)} MB.")
+        photo = tmp_dir / f"{index:02d}.jpg"
+        try:
+            photos.normalize_photo(raw, photo)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"“{upload.filename}” isn't a photo that can be read.")
+        paths.append(photo)
+    return paths
+
+
 @app.post("/api/garments/drafts", status_code=201)
 def tag_new_garment(
     user: CurrentUser,
@@ -123,21 +143,7 @@ def tag_new_garment(
 
     _drafts_dir().mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="upload-", ignore_cleanup_errors=True) as tmp:
-        tmp_dir = Path(tmp)
-        paths = []
-        for index, upload in enumerate(photos_in):
-            raw = tmp_dir / f"raw_{index:02d}"
-            with raw.open("wb") as out:
-                shutil.copyfileobj(upload.file, out)
-            if raw.stat().st_size > UPLOAD_MAX_BYTES:
-                raise HTTPException(status_code=413, detail=f"“{upload.filename}” is larger than {UPLOAD_MAX_BYTES // (1024 * 1024)} MB.")
-            photo = tmp_dir / f"{index:02d}.jpg"
-            try:
-                photos.normalize_photo(raw, photo)
-            except ValueError:
-                raise HTTPException(status_code=422, detail=f"“{upload.filename}” isn't a photo that can be read.")
-            paths.append(photo)
-
+        paths = _stage_uploads(photos_in, Path(tmp))
         try:
             draft = drafts.create_draft(_drafts_dir(), user.id, paths, TAGGING_LOG_PATH, client, _blank_to_none(prompt_message),
                                         _blank_to_none(notes), user.language, _saved_preferences(user))
@@ -252,6 +258,74 @@ def discard_weighed(garment_id: int, user: CurrentUser) -> None:
         raise HTTPException(status_code=404, detail=f"No garment {garment_id} is being weighed")
     shutil.rmtree(GARMENTS_DIR / str(garment_id), ignore_errors=True)
     shutil.rmtree(THUMBS_DIR / str(garment_id), ignore_errors=True)
+
+
+# --- mimic: recreate a photographed look (#5) -------
+# Two requests, which the page sends one after the other: each AI call gets its own, so neither runs into the
+# proxy's 100-second limit, and the page can say which step it's on. A look whose matching failed, or never
+# ran because the browser closed, keeps its photos and tags, and its page offers to match it again.
+MATCH_FAILED = "The AI couldn't match this look to your wardrobe. The look is saved; try matching it again."
+
+
+@app.post("/api/looks", status_code=201)
+def create_look(
+    user: CurrentUser,
+    photos_in: list[UploadFile] = File(alias="photos"),
+    note: str | None = Form(None),
+) -> LookOut:
+    """Step 1: break a photographed look down into its pieces and save it. The only call that sees the photos."""
+    if not 1 <= len(photos_in) <= UPLOAD_MAX_PHOTOS:
+        raise HTTPException(status_code=422, detail=f"Send between 1 and {UPLOAD_MAX_PHOTOS} photos.")
+    _require_demo_tokens(user)
+    client = _anthropic_client()
+
+    INTAKE_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="look-", ignore_cleanup_errors=True) as tmp:
+        paths = _stage_uploads(photos_in, Path(tmp))
+        try:
+            look_id, _ = mimic.create_look(DB_PATH, user.id, paths, _blank_to_none(note), client, user.language, MIMIC_LOG_PATH)
+        except anthropic.APIError as error:
+            raise _llm_failed(error, MIMIC_LOG_PATH, user)
+        except UnusableResponse:
+            logger.exception("Tagging a look gave no usable answer")
+            raise HTTPException(status_code=502, detail="The AI couldn't make out the look in these photos. Nothing was saved; try again.")
+    return responses.get_look(DB_PATH, user.id, look_id)
+
+
+@app.get("/api/looks")
+def list_looks(user: CurrentUser) -> list[LookOut]:
+    return responses.list_looks(DB_PATH, user.id)
+
+
+@app.post("/api/looks/{look_id}/recreations", status_code=201)
+def recreate_look(look_id: int, user: CurrentUser) -> MimicCreatedOut:
+    """Step 2: recreate a saved look from the wardrobe, as up to two outfits, closest first, each with the owned
+    stand-in for every piece and how close it is. Text only. Refused once the look has recreations."""
+    look = db.select_look(DB_PATH, user.id, look_id)
+    if look is None:
+        raise HTTPException(status_code=404, detail=f"Look {look_id} not found")
+    if look["recreations"]:
+        raise HTTPException(status_code=409, detail="This look already has its recreations.")
+    _require_demo_tokens(user)
+    client = _anthropic_client()
+    try:
+        _, outfit_ids = mimic.recreate(DB_PATH, user.id, look_id, mimic.look_tags(look), look["note"], client, MIMIC_LOG_PATH,
+                                       _saved_preferences(user), user.language)
+    except anthropic.APIError as error:
+        raise _llm_failed(error, MIMIC_LOG_PATH, user)
+    except UnusableResponse:
+        logger.exception("Matching a look gave no usable answer")
+        raise HTTPException(status_code=502, detail=MATCH_FAILED)
+    return MimicCreatedOut(look=responses.get_look(DB_PATH, user.id, look_id),
+                           outfits=responses.get_outfits(DB_PATH, user.id, outfit_ids))
+
+
+@app.delete("/api/looks/{look_id}", status_code=204)
+def delete_look(look_id: int, user: CurrentUser) -> None:
+    """Delete a look and its photos. Its outfits stay, as ordinary outfits."""
+    if not db.delete_look(DB_PATH, user.id, look_id):
+        raise HTTPException(status_code=404, detail=f"Look {look_id} not found")
+    photos.delete_look_photos(look_id)
 
 
 # --- outfits -------------------------
@@ -472,7 +546,8 @@ FromParam = Annotated[datetime | None, Query(alias="from")]
 
 
 def _usage_logs() -> dict[str, Path]:
-    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH, "weigh": WEIGH_LOG_PATH}
+    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH, "weigh": WEIGH_LOG_PATH,
+            "mimic": MIMIC_LOG_PATH}
 
 
 @app.get("/api/usage")
@@ -541,6 +616,23 @@ def get_photo(garment_id: int, filename: str, user: CurrentUser) -> FileResponse
 def get_thumbnail(garment_id: int, filename: str, user: CurrentUser) -> FileResponse:
     _require_garment(user, garment_id)
     return _photo_response(photos.get_thumbnail(garment_id, filename))
+
+
+def _require_look(user: User, look_id: int) -> None:
+    if db.select_look(DB_PATH, user.id, look_id) is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+
+@app.get("/looks/{look_id}/thumbs/{filename}", include_in_schema=False)
+def get_look_thumbnail(look_id: int, filename: str, user: CurrentUser) -> FileResponse:
+    _require_look(user, look_id)
+    return _photo_response(photos.get_look_thumbnail(look_id, filename))
+
+
+@app.get("/looks/{look_id}/{filename}", include_in_schema=False)
+def get_look_photo(look_id: int, filename: str, user: CurrentUser) -> FileResponse:
+    _require_look(user, look_id)
+    return _photo_response(photos.get_look_photo(look_id, filename))
 
 
 # --- front end -----------------------

@@ -413,6 +413,137 @@ class WeighResult(BaseModel):
         return WeighVerdict.model_validate(self.model_dump(exclude={"outfits"}))
 
 
+# --- mimic: recreate a photographed look from what you own (#5) ----------------------
+# Two calls. The first looks at the photos once and tags each piece with the same fixed values the
+# wardrobe uses, so the second can compare pieces with garments as text, like for like.
+Closeness = Literal["exact", "close", "loose", "none"]
+CLOSENESS_LABELS: dict[Closeness, str] = {"exact": "Exact", "close": "Close", "loose": "Loose", "none": "Not owned"}
+
+class LookPiece(BaseModel):
+    """One garment in a photographed look, as stored. Blank where the photos don't show it."""
+    category: Category
+    subcategory: str
+    primary_color: Color
+    secondary_colors: list[Color] = []
+    pattern: str | None = None
+    formality: int | None = Field(default=None, ge=1, le=4)
+    warmth: int | None = Field(default=None, ge=1, le=5)
+    fit: Fit | None = None
+    sheen: Sheen | None = None
+    fabric_type: str | None = None
+    shape: Shape | None = None
+    hem: Hem | None = None
+    fabric_weight: FabricWeight | None = None
+    sleeve: Sleeve | None = None
+    statement: Statement | None = None
+    description: str
+    role: str
+    essential: bool = True
+
+    @model_validator(mode="after")
+    def off_list_becomes_other(self):
+        """An odd subcategory or fabric becomes "other", so one word never loses a paid call over several pieces."""
+        if self.subcategory not in SUBCATEGORIES[self.category]:
+            self.subcategory = "other"
+        if self.fabric_type is not None and self.fabric_type not in FABRIC_TYPES:
+            self.fabric_type = "other"
+        return self
+
+    def as_garment(self) -> Garment:
+        """The piece as a garment record, for the shortlist and the prompt's field descriptions."""
+        fields = self.model_dump(exclude={"description", "role", "essential"})
+        return Garment(**fields, styling_notes=self.description)
+
+class LookTags(BaseModel):
+    """What the tagging call saw in the photos, as stored."""
+    title: str
+    summary: str
+    silhouette: Silhouette | None = None
+    pieces: list[LookPiece]
+
+# Claude's side of the tagging contract: every field required, "don't know" as a value. See the note above
+# TaggedGarment for why (optional fields make the structured-output grammar too complex).
+class TaggedLookPiece(BaseModel):
+    category: Category
+    subcategory: str
+    primary_color: Color
+    secondary_colors: list[Color]
+    pattern: str
+    formality: int = Field(ge=0, le=4, description="The most formal occasion it can serve. 1 = casual, 2 = smart casual, 3 = appropriate for business, 4 = formalwear, 0 = can't tell")
+    warmth: int = Field(ge=0, le=5, description="1 = summer-weight, 25°C+, 2 = light, 18-25°C, 3 = mid-layer, 10-18°C, 4 = warm, 0-10°C, 5 = heavy winter, below 0°C, 0 = can't tell")
+    fit: _or_unknown(Fit)
+    sheen: _or_unknown(Sheen)
+    fabric_type: str = Field(description='The main body fabric, from the allowed list, or "unknown"')
+    shape: _or_unknown(Shape)
+    hem: _or_unknown(Hem)
+    fabric_weight: _or_unknown(FabricWeight)
+    sleeve: _or_unknown(Sleeve)
+    statement: _or_unknown(Statement)
+    description: str = Field(description="One or two sentences on what the fields can't say: cut, proportions, details, how it's worn.")
+    role: str = Field(description="What the piece does for the look, in a short phrase, such as 'the volume on top'.")
+    essential: bool = Field(description="False for a piece the look would survive without, such as a bag or a watch.")
+
+class LookReply(BaseModel):
+    title: str = Field(description="A short name, two to five words, for the look.")
+    summary: str = Field(description="Two or three sentences on what makes the look: its proportions, palette, textures and mood.")
+    silhouette: _or_unknown(Silhouette) = Field(description="The letter silhouette the whole look forms, or unknown when it forms none clearly.")
+    pieces: list[TaggedLookPiece] = Field(description="Every garment, shoe and accessory you can see, outermost layer first.")
+
+def to_look_tags(reply: LookReply) -> LookTags:
+    """Claude's "don't know" values become None. Raises ValidationError when a piece breaks a LookPiece rule."""
+    pieces = []
+    for tagged in reply.pieces:
+        fields = tagged.model_dump()
+        for name, value in fields.items():
+            if LookPiece.model_fields[name].default is None and value in (UNKNOWN, "", 0):
+                fields[name] = None
+        pieces.append(LookPiece(**fields))
+    silhouette = None if reply.silhouette == UNKNOWN else reply.silhouette
+    return LookTags(title=reply.title.strip(), summary=reply.summary.strip(), silhouette=silhouette, pieces=pieces)
+
+class PieceMatch(BaseModel):
+    piece: int = Field(description="The piece's number in <look>.")
+    garment_id: int = Field(description="The owned garment standing in for the piece, from this outfit's garments, or 0 when nothing owned comes close.")
+    closeness: Closeness = Field(description="exact: the same piece for practical purposes. close: same kind and color, small differences. loose: does the piece's job in the look, but clearly different. none: nothing owned does its job (garment_id 0).")
+    note: str = Field(description="A short phrase on how the stand-in differs from the piece, or what's missing. Empty for an exact match.")
+
+class MimicOutfit(BaseModel):
+    """One recreation. The model writes fields in this order: the stand-in for each piece first, then
+    the whole outfit, which may add owned pieces for anything the photos don't show."""
+    matches: list[PieceMatch] = Field(description="One entry for every piece in <look>, in order.")
+    garments: list[OutfitGarment] = Field(description="Every garment in the outfit: the stand-ins above, plus any owned piece added for a part of the body the photos don't show.")
+    aesthetic: str = Field(description="A short name for the recreated outfit.")
+    explanation: str = Field(description="Two or three sentences: how this recreates the look and where it falls short.")
+
+class MimicResult(BaseModel):
+    outfits: list[MimicOutfit] = Field(description="One or two recreations, closest to the look first.")
+
+class LookMatchOut(BaseModel):
+    piece: int
+    garment_id: int | None = None   # None: nothing owned stood in for it
+    closeness: Closeness
+    note: str | None = None
+
+class LookRecreationOut(BaseModel):
+    outfit_id: int
+    matches: list[LookMatchOut]
+
+class LookPhoto(BaseModel):
+    url: str
+    thumb_url: str
+
+class LookOut(BaseModel):
+    id: int
+    created_at: str
+    note: str | None = None
+    title: str
+    summary: str
+    silhouette: Silhouette | None = None
+    pieces: list[LookPiece]
+    photos: list[LookPhoto] = []
+    recreations: list[LookRecreationOut] = []   # closest first; empty when nothing in the wardrobe could make the look
+
+
 # --- Front-end-only models ------------
 class Photo(BaseModel):
     role: PhotoRole
@@ -446,6 +577,11 @@ class WeighOut(BaseModel):
 class WeighCreatedOut(BaseModel):
     weigh: WeighOut
     candidate: "GarmentOut"
+    outfits: list["OutfitOut"]
+
+class MimicCreatedOut(BaseModel):
+    """A look and the outfits just made to recreate it."""
+    look: LookOut
     outfits: list["OutfitOut"]
 
 class MendOut(BaseModel):
@@ -569,7 +705,7 @@ class UsageCall(BaseModel):
     """One LLM call, with no prompts or results: only what's needed to review spending."""
     timestamp: str
     user_id: int
-    kind: Literal["tagging", "outfits", "style", "insights", "weigh"]
+    kind: Literal["tagging", "outfits", "style", "insights", "weigh", "mimic"]
     model: str
     input_tokens: int
     output_tokens: int
@@ -602,6 +738,7 @@ class OptionsOut(BaseModel):
     warmth: list[LevelOption]
     risk_tiers: list[ChoiceOption] = []
     recommendations: list[ChoiceOption] = []
+    closeness: list[ChoiceOption] = []
     languages: list[ChoiceOption]
     # Display names of the fixed values, in the user's language. Empty for English, where the value is the name.
     category_labels: dict[str, str] = {}
@@ -658,3 +795,4 @@ class InsightsOut(BaseModel):
 
 
 WeighCreatedOut.model_rebuild()   # it names OutfitOut, which is defined after it
+MimicCreatedOut.model_rebuild()

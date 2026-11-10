@@ -6,7 +6,8 @@ let req = "all";
 let osrc = "all", wornOnly = false;
 const OUTFIT_SOURCES = [["all", "All"], ["ai", "Suggested by AI"], ["own", "Put together myself"]];
 function outfits(){
-  if (!SHOWN.length) return `<header class="hero"><div><h1>Outfits</h1><div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button>${disownedLink("disowned-outfits", "Disowned", DISOWNED_O.length)}</div></div></header><div class="state"><p>No outfits yet. Start one with “New outfit”.</p></div>`;
+  const mimicBtn = `<button type="button" class="btn" data-mimic-look title="Uses AI (spends tokens)">Mimic a look</button>`;
+  if (!SHOWN.length) return `<header class="hero"><div><h1>Outfits</h1><div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button>${mimicBtn}${looksLink()}${disownedLink("disowned-outfits", "Disowned", DISOWNED_O.length)}</div></div></header><div class="state"><p>No outfits yet. Start one with “New outfit”, or recreate a look you like with “Mimic a look”.</p></div>`;
   const kept = o => visible(o) && passesFilters(o) && (!wornOnly || o.wear_count > 0);   // everything but the source
   const groups = [...REQUESTS].reverse().map(r => ({...r, shown: r.items.filter(o => kept(o) && (osrc === "all" || o.source === osrc))})).filter(r => r.shown.length);
   const nDisliked = SHOWN.filter(o => o.liked === false).length;
@@ -20,7 +21,7 @@ function outfits(){
     ${nWorn || wornOnly ? `<button type="button" data-toggle-worn aria-pressed="${wornOnly}" title="Only outfits you've logged as worn">Worn <span>${nWorn}</span></button>` : ""}</div>`;
   const shown = groups.filter(r => req === "all" || r.key === req);
   return `<header class="hero"><div><h1>Outfits</h1><p class="sub">Every outfit suggested so far, grouped by what you asked for. The stripe is each piece's main color, outer layer down to shoes.</p>
-      <div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button>${builder.session ? `<a class="btn" href="#results" style="text-decoration:none">Latest suggestions</a>` : ""}${disownedLink("disowned-outfits", "Disowned", DISOWNED_O.length)}</div></div>
+      <div class="hero-actions"><button type="button" class="btn primary" data-new-outfit>+ New outfit</button>${mimicBtn}${builder.session ? `<a class="btn" href="#results" style="text-decoration:none">Latest suggestions</a>` : ""}${looksLink()}${disownedLink("disowned-outfits", "Disowned", DISOWNED_O.length)}</div></div>
     <div class="stats"><div><b>${SHOWN.length}</b>outfits</div><div><b>${REQUESTS.length}</b>requests</div><div><b>${SHOWN.filter(o => o.liked).length}</b>liked</div><div><b>${SHOWN.filter(o => o.wear_count > 0).length}</b>worn</div></div></header>
     ${filterPanel()}
     ${sourceRow}

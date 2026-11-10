@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import date
 from pathlib import Path
-from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, User, WeighOut, WeighVerdict
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, LookMatchOut, LookTags, Outfit, User, WeighOut, WeighVerdict
 from contextlib import closing
 import json
 import logging
@@ -180,6 +180,7 @@ def delete_candidate(db_path: Path, user_id: int, garment_id: int) -> bool:
             # Children before parents: foreign keys are on, so an outfit can't go while rows still point at it.
             outfit_ids = [(r[0],) for r in conn.execute("SELECT outfit_id FROM outfit_garments WHERE garment_id = ?", (garment_id,))]
             conn.executemany("DELETE FROM wears WHERE outfit_id = ?", outfit_ids)
+            conn.executemany("DELETE FROM look_matches WHERE outfit_id = ?", outfit_ids)   # never there today: looks only use owned pieces
             conn.executemany("DELETE FROM outfit_garments WHERE outfit_id = ?", outfit_ids)
             conn.executemany("DELETE FROM outfits WHERE id = ?", outfit_ids)
             conn.execute("DELETE FROM weighs WHERE garment_id = ?", (garment_id,))
@@ -187,8 +188,77 @@ def delete_candidate(db_path: Path, user_id: int, garment_id: int) -> bool:
             return True
 
 
+# --- look defs (mimic, #5) ----------
+def insert_look(db_path: Path, user_id: int, tags: LookTags, note: str | None, created_at: str) -> int:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute(
+                "INSERT INTO looks (user_id, created_at, note, title, summary, silhouette, pieces) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (user_id, created_at, note, tags.title, tags.summary, tags.silhouette,
+                 json.dumps([piece.model_dump(mode="json") for piece in tags.pieces], ensure_ascii=False)),
+            )
+            return cursor.lastrowid
+
+
+def insert_look_matches(db_path: Path, outfit_id: int, matches: list[LookMatchOut]) -> None:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            conn.executemany(
+                "INSERT INTO look_matches (outfit_id, piece, garment_id, closeness, note) VALUES (?, ?, ?, ?, ?)",
+                [(outfit_id, m.piece, m.garment_id, m.closeness, m.note) for m in matches],
+            )
+
+
+def _row_to_look(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
+    look = dict(row)
+    look.pop("user_id")
+    look["pieces"] = json.loads(look["pieces"])
+    recreations = []
+    for (outfit_id,) in conn.execute("SELECT id FROM outfits WHERE look_id = ? ORDER BY id", (look["id"],)):
+        matches = conn.execute(
+            "SELECT piece, garment_id, closeness, note FROM look_matches WHERE outfit_id = ? ORDER BY piece", (outfit_id,)
+        ).fetchall()
+        recreations.append({"outfit_id": outfit_id, "matches": [dict(m) for m in matches]})
+    look["recreations"] = recreations
+    return look
+
+
+def select_look(db_path: Path, user_id: int, look_id: int) -> dict | None:
+    """A look with its recreations (outfit IDs and matches, closest first), or None if it isn't this user's."""
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM looks WHERE id = ? AND user_id = ?", (look_id, user_id)).fetchone()
+        return _row_to_look(conn, row) if row else None
+
+
+def select_looks(db_path: Path, user_id: int) -> list[dict]:
+    """Every look of this user's, newest first."""
+    with closing(_connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM looks WHERE user_id = ? ORDER BY id DESC", (user_id,)).fetchall()
+        return [_row_to_look(conn, row) for row in rows]
+
+
+def select_look_ids(db_path: Path, user_id: int) -> list[int]:
+    with closing(_connect(db_path)) as conn:
+        return [r[0] for r in conn.execute("SELECT id FROM looks WHERE user_id = ?", (user_id,))]
+
+
+def delete_look(db_path: Path, user_id: int, look_id: int) -> bool:
+    """Delete a look and its matches. Its outfits stay, as ordinary outfits: the owner may have liked or worn them."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            if conn.execute("SELECT 1 FROM looks WHERE id = ? AND user_id = ?", (look_id, user_id)).fetchone() is None:
+                return False
+            outfits = "(SELECT id FROM outfits WHERE look_id = ? AND user_id = ?)"
+            conn.execute(f"DELETE FROM look_matches WHERE outfit_id IN {outfits}", (look_id, user_id))
+            conn.execute("UPDATE outfits SET look_id = NULL WHERE look_id = ? AND user_id = ?", (look_id, user_id))
+            conn.execute("DELETE FROM looks WHERE id = ? AND user_id = ?", (look_id, user_id))
+            return True
+
+
 # --- outfit defs -------------
-def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anchors: list[int] | None, prompt_message: str, timestamp: str, source: str = "ai") -> list[int]:
+def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anchors: list[int] | None, prompt_message: str, timestamp: str, source: str = "ai", look_id: int | None = None) -> list[int]:
     anchor_ids = set(anchors or [])
     new_ids: list[int] = []
 
@@ -196,8 +266,8 @@ def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anc
         with conn:
             for outfit in valid_outfits:
                 cursor = conn.execute(
-                    "INSERT INTO outfits (user_id, timestamp, prompt_message, aesthetic, explanation, missing, risk_tier, source) "
-                    "VALUES (:user_id, :timestamp, :prompt_message, :aesthetic, :explanation, :missing, :risk_tier, :source)",
+                    "INSERT INTO outfits (user_id, timestamp, prompt_message, aesthetic, explanation, missing, risk_tier, source, look_id) "
+                    "VALUES (:user_id, :timestamp, :prompt_message, :aesthetic, :explanation, :missing, :risk_tier, :source, :look_id)",
                     {
                         "user_id": user_id,
                         "timestamp": timestamp,
@@ -207,6 +277,7 @@ def insert_outfits(db_path: Path, user_id: int, valid_outfits: list[Outfit], anc
                         "missing": outfit.missing,
                         "risk_tier": outfit.risk_tier,
                         "source": source,
+                        "look_id": look_id,
                     },
                 )
                 outfit_id = cursor.lastrowid
@@ -457,9 +528,11 @@ def delete_demo_wardrobe(db_path: Path, user_id: int, keep: set[int]) -> list[in
             all_ids = [r[0] for r in conn.execute("SELECT id FROM garments WHERE user_id = ?", (user_id,))]
             garment_ids = [i for i in all_ids if i not in keep]
             outfits = "(SELECT id FROM outfits WHERE user_id = ?)"
+            conn.execute(f"DELETE FROM look_matches WHERE outfit_id IN {outfits}", (user_id,))
             conn.execute(f"DELETE FROM wears WHERE outfit_id IN {outfits}", (user_id,))
             conn.execute(f"DELETE FROM outfit_garments WHERE outfit_id IN {outfits}", (user_id,))
             conn.execute("DELETE FROM outfits WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM looks WHERE user_id = ?", (user_id,))
             conn.execute("UPDATE garments SET set_id = NULL WHERE user_id = ?", (user_id,))
             conn.execute("DELETE FROM weighs WHERE user_id = ?", (user_id,))
             conn.executemany("DELETE FROM garments WHERE id = ? AND user_id = ?", [(i, user_id) for i in garment_ids])

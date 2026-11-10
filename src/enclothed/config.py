@@ -13,6 +13,8 @@ OUTFIT_LOG_PATH = DATA_DIR / "outfit_log.jsonl"
 INSIGHTS_LOG_PATH = DATA_DIR / "insights_log.jsonl"
 PREFERENCES_LOG_PATH = DATA_DIR / "preferences_log.jsonl"
 WEIGH_LOG_PATH = DATA_DIR / "weigh_log.jsonl"
+MIMIC_LOG_PATH = DATA_DIR / "mimic_log.jsonl"
+LOOKS_DIR = DATA_DIR / "looks"          # photos of looks to recreate (mimic), one folder per look
 BACKUPS_DIR = PROJECT_ROOT / "backups"
 SNAPSHOTS_DIR = DATA_DIR / "snapshots"
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
@@ -23,11 +25,12 @@ DEFAULT_USER_ID = 1
 # Which Claude model each AI feature uses. They all share one API, so switching a feature is a change to its line.
 # Before moving a feature to a bigger model: Opus and Fable always think first, and thinking counts toward that
 # feature's token cap below; they're also slower, and the site's proxy gives up on a request after 100 seconds.
-# Weigh uses "outfits": the two share the cached wardrobe only while they're on the same model.
+# Weigh and mimic's matching step use "outfits": they share the cached wardrobe only while they're on the same model.
 MODELS: dict[str, str] = {
     "tag": "claude-sonnet-5-5",          # reading photos and labels into a garment record
     "mend": "claude-sonnet-5-5",         # filling a garment's blank fields from its photos
-    "outfits": "claude-sonnet-5-5",      # outfit suggestions and weigh
+    "outfits": "claude-sonnet-5-5",      # outfit suggestions, weigh, and matching a look to the wardrobe (mimic)
+    "look": "claude-sonnet-5-5",         # reading a photographed look into its pieces (mimic)
     "describe": "claude-haiku-5-5",      # a name and "why it works" for an outfit you put together
     "preferences": "claude-haiku-5-5",   # tidying your style notes
     "insights": "claude-sonnet-5-5",     # "Ask your wardrobe": writes SQL over several steps, so accuracy matters
@@ -44,6 +47,9 @@ DEFAULT_OUTFIT_COUNT = 3
 WEIGH_OUTFIT_COUNT = 3       # outfits built around a garment being weighed, one per tier
 WEIGH_SIMILAR_LIMIT = 5      # owned garments shortlisted for the "already own it?" check
 DESCRIBE_TOKEN_CAP = 1024     # a name and two or three sentences
+LOOK_TAG_TOKEN_CAP = 4096     # every piece in a look, each with about as many fields as a garment
+MIMIC_MAX_OUTFITS = 2         # recreations of a look: the closest, and a second only when it's about as close
+MIMIC_SHORTLIST_LIMIT = 3     # owned garments suggested per piece of a look, as a hint for the matching step
 
 INSIGHTS_VALUE_SIZE_LIMIT = 10_000_000
 INSIGHTS_SIZE_FUSE_LIMIT = 400_000

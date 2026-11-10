@@ -18,6 +18,9 @@ function reindex(){
   DISOWNED = G.filter(isDisowned);
   CANDIDATES = G.filter(isCandidate);
   weighById = Object.fromEntries(WEIGHS.map(w => [w.garment_id, w]));
+  lookById = Object.fromEntries(LOOKS.map(l => [l.id, l]));
+  lookOfOutfit = {};
+  LOOKS.forEach(l => l.recreations.forEach(r => { lookOfOutfit[r.outfit_id] = l; }));
   SHOWN = O.filter(o => !outfitHidden(o));
   DISOWNED_O = O.filter(o => outfitHidden(o) && !candidateOf(o));
   weighOutfitsOf = {};

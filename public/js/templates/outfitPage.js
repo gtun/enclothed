@@ -10,7 +10,7 @@ function outfitPage(o){
   const rateBtn = (v, icon, label) => `<button type="button" data-rate="${v}" aria-pressed="${o.liked === v}">${icon}${label}</button>`;
   return `<div class="ohead">
       <button type="button" class="back" data-back="outfits">← Outfits</button>
-      <p class="req">Asked for <q>${esc(o.prompt_message)}</q> · ${esc(whenLong(o.timestamp))}</p>
+      <p class="req">${lookOfOutfit[o.id] ? `Recreates the look <a href="#look-${lookOfOutfit[o.id].id}">${esc(lookOfOutfit[o.id].title)}</a>` : `Asked for <q>${esc(o.prompt_message)}</q>`} · ${esc(whenLong(o.timestamp))}</p>
       <h1>${esc(o.aesthetic)}${tierBadge(o)}</h1>
       ${palBar(o, "big")}<div class="palnames">${names}</div>
       <div class="rate">${wearButton(o)}<div class="seg" role="group" aria-label="Rate this outfit">${rateBtn(true, THUMB_UP, "Like")}${rateBtn(false, THUMB_DOWN, "Dislike")}</div>
