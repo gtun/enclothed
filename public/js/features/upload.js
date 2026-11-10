@@ -2,7 +2,8 @@
 "use strict";
 
 let upload = {files: [], busy: false};
-/* purpose is "add" (Add garment) or "weigh" (should I buy this?). Both tag the photos the same way; they part at review. */
+/* purpose is "add" (Add garment), "weigh" (should I buy this?) or "mimic" (recreate a look). Add and weigh tag the
+   photos the same way and part at review; mimic sends them to the looks endpoint instead (features/mimic.js). */
 function openUpload(purpose = "add"){
   upload = {files: [], busy: false, prompt: "", notes: "", purpose};
   let ov = document.getElementById("upload");
@@ -35,7 +36,7 @@ function addUploadFiles(fileList){
   if (images.length < all.length) toast("Only photos can be added; other files were skipped.", true);
   if (!images.length) return;
   const room = OPT_UPLOAD_MAX - upload.files.length;
-  if (images.length > room) toast(`Only ${OPT_UPLOAD_MAX} photos per garment; the rest were skipped.`, true);
+  if (images.length > room) toast(`Only ${OPT_UPLOAD_MAX} photos per ${upload.purpose === "mimic" ? "look" : "garment"}; the rest were skipped.`, true);
   upload.files.push(...images.slice(0, room).map(file => ({file, url: URL.createObjectURL(file)})));
   renderUpload();
 }
@@ -65,7 +66,7 @@ document.addEventListener("paste", e => {
   if (ov && !ov.hidden){ e.preventDefault(); if (!upload.busy) addUploadFiles(images); return; }
   if ([...document.querySelectorAll(".overlay")].some(o => !o.hidden)) return;   // another dialog is open
   e.preventDefault();
-  openUpload(location.hash.startsWith("#weigh") ? "weigh" : "add");
+  openUpload(location.hash.startsWith("#weigh") ? "weigh" : location.hash.startsWith("#look") ? "mimic" : "add");
   addUploadFiles(images);
 });
 async function uploadClick(e){
@@ -75,16 +76,18 @@ async function uploadClick(e){
   else if (t.dataset.uRm){ const [gone] = upload.files.splice(+t.dataset.uRm, 1); URL.revokeObjectURL(gone.url); renderUpload(); }
   else if (t.hasAttribute("data-u-submit")){
     upload.busy = true; renderUpload();
+    const mimicking = upload.purpose === "mimic";
     const form = new FormData();
     upload.files.forEach(f => form.append("photos", f.file, f.file.name || "photo.jpg"));
-    if (upload.prompt.trim()) form.append("prompt_message", upload.prompt);
-    if (upload.notes.trim()) form.append("notes", upload.notes);
+    if (upload.prompt.trim()) form.append(mimicking ? "note" : "prompt_message", upload.prompt);
+    if (upload.notes.trim() && !mimicking) form.append("notes", upload.notes);
     try {
       let res;
-      try { res = await fetch("/api/garments/drafts", {method: "POST", body: form}); }
+      try { res = await fetch(mimicking ? "/api/looks" : "/api/garments/drafts", {method: "POST", body: form}); }
       catch (err) { throw new Error("Couldn't reach the server. Is it still running?"); }
       let data = null; try { data = await res.json(); } catch (err) {}
       if (!res.ok) throw new Error(errorText(data, res.status));
+      if (mimicking){ closeUpload(); lookCreated(data); return; }
       const photos = upload.files.map(f => f.url);
       closeUpload(true);
       openReview({mode: upload.purpose === "weigh" ? "weigh" : "new", g: data.garment, draftId: data.id, photos});

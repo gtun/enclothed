@@ -15,13 +15,13 @@ function usageDays(calls){
   const first = usageStart(usage.range) || new Date(calls[0].timestamp);
   const byDay = {};
   calls.forEach(c => {
-    const d = byDay[localDay(new Date(c.timestamp))] ||= {calls: 0, total: 0, tagging: 0, outfits: 0, style: 0, insights: 0, weigh: 0};
+    const d = byDay[localDay(new Date(c.timestamp))] ||= {calls: 0, total: 0, tagging: 0, outfits: 0, style: 0, insights: 0, weigh: 0, mimic: 0};
     d.calls++; d.total += c.cost_usd || 0; d[c.kind] += c.cost_usd || 0;
   });
   const days = [], today = localDay(Date.now());
   for (let i = 0; ; i++){
     const day = localDay(new Date(first.getFullYear(), first.getMonth(), first.getDate() + i));
-    days.push({day, calls: 0, total: 0, tagging: 0, outfits: 0, style: 0, insights: 0, weigh: 0, ...byDay[day]});
+    days.push({day, calls: 0, total: 0, tagging: 0, outfits: 0, style: 0, insights: 0, weigh: 0, mimic: 0, ...byDay[day]});
     if (day >= today) break;
   }
   usage.days = Object.fromEntries(days.map(d => [d.day, d]));

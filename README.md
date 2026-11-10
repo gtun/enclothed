@@ -14,6 +14,7 @@ enclothed looks at each photo once, writes down what it sees (category, colors, 
 
 - **Add garments from photos.** Snap the front, back, and labels with your phone. The AI tags the garment, reads the care and brand labels (translating Japanese, Chinese and other languages), and files each photo by role. You review every field before it's saved, with a one-tap **Accept all**.
 - **Get outfit suggestions.** Describe the occasion and the weather ("17°C, burger and beer lunch with a former coworker") and get 2–4 outfits built from your wardrobe. Pick anchor pieces you want to wear, or put an outfit together yourself. Every suggestion is saved, and you can like or dislike it.
+- **Recreate a look.** Photograph an outfit you like (a lookbook shot, a store mannequin, a street snap) and get up to two recreations from your own wardrobe, with the garment standing in for each piece, how close it is, and what you don't have.
 - **Ask your wardrobe.** A chat pop-up on every page answers questions like "what's my color spread?" or "which jackets have I never worn in an outfit?" It answers with a number, a list, a table, or garment photos, whichever fits, and can show how it worked the answer out.
 - **Fix and fill in details.** Click any field to correct it. **Mend** asks the AI to fill in only the blank fields from the saved photos, and never overwrites anything you've set.
 - **Describe your style once.** Write your tastes and needs (loose fits, never shorts, glasses with everything); the AI can tidy it into a clear brief, and it's sent with every outfit request.
@@ -85,6 +86,7 @@ Test mode runs everything except the AI call, using the sample jacket photos in 
 uv run enclothed add -t tests/fixtures/*.jpg
 uv run enclothed list
 uv run enclothed outfit -t -p "autumn walk in the city"
+uv run enclothed mimic -t                  # matches a built-in sample look
 ```
 
 ## Using the web app
@@ -92,6 +94,7 @@ uv run enclothed outfit -t -p "autumn walk in the city"
 - **Wardrobe:** every garment by category, in Grid, Large, or List view, with filters for sets and for garments not in any outfit. **+ Add garment** opens the camera or photo library, with a box for details the photos can't show (the true color, the name) and one for private notes that are never sent to the AI. Cancelling the review discards the garment and its photos.
 - **Garment page:** photos, its set, every outfit it's in, and what it's most often paired with. Click any detail or the styling notes to edit. Fixed lists use a type-to-filter dropdown that only accepts listed values. If you change a color the styling notes mention, the page highlights the mention and offers to update it.
 - **Outfits:** every outfit, grouped by request, filterable by request text, date, formality (of the least formal piece) and warmth (of the warmest top layer). **+ New outfit** opens the builder: add pieces, describe the occasion, then **Generate outfit suggestions** or **Save as my own outfit**. Disliked outfits are hidden unless you turn on "Show disliked".
+- **Looks:** from Outfits, **Mimic a look** takes photos of one outfit. The AI reads the photos once, breaking the look into its pieces with the same fields your garments have, then matches them to your wardrobe as text. A look's page shows each piece beside the garment standing in for it (exact, close, loose, or not owned). Each recreation is saved as an outfit.
 - **Style:** your saved style brief, sent with every outfit request from the web and the CLI.
 - **Ask your wardrobe:** the pop-up in the corner of every page. The conversation lives in the browser, so a refresh clears it.
 - **Usage:** estimated AI cost over time. Prices live in `MODEL_PRICES` in `src/enclothed/config.py`.
@@ -108,6 +111,7 @@ The CLI works on the same database as the web app.
 | `add <photos…>` | Tags a garment from local photo paths or URLs (quote URLs) and saves it |
 | `list` | Lists garments, grouped by category |
 | `outfit` | Gets 2–4 outfit suggestions from a request, anchor pieces, or both |
+| `mimic <photos…>` | Recreates the look in one or more photos (paths or URLs) from your wardrobe |
 | `set` | Groups two or more garments into a set, like a two-piece suit |
 | `mend [ids…]` | Fills blank fields from saved photos, without review; never overwrites a value |
 | `users` | Lists everyone who can sign in |
@@ -122,6 +126,7 @@ uv run enclothed add photos/*.jpg -p "nonnative x Undercover blouson" -n "bought
 uv run enclothed list -c jeans -c chinos
 uv run enclothed outfit -p "17 degrees celsius, burger and beer lunch with a friend"
 uv run enclothed outfit -w 1 18            # outfits that include garments 1 and 18
+uv run enclothed mimic lookbook.jpg -p "the jacket is the point"
 uv run enclothed set -n "navy suit" -g 12 13
 uv run enclothed mend -l 5                 # try a small batch first
 uv run enclothed adduser alex alex@example.com -l zh-TW
@@ -132,6 +137,7 @@ Options:
 - `add`: `-t` test mode (no AI call); `-p` details you know, which take priority over what the AI sees; `-n` private notes, never sent to the AI
 - `list`: `-c NAME` a category (`outerwear`) or subcategory (`jeans`); repeat to combine
 - `outfit`: `-p` the occasion, weather, or anything else; `-w ID…` anchor pieces; `-t` test mode; `--no-cache` skip prompt caching (the first cached call costs about 25% more on the wardrobe, and the savings start with the second)
+- `mimic`: `-p` a note about the look, such as what matters most or what to leave out; `-t` test mode; `--no-cache` as for `outfit`
 - `set`: `-g ID…` the garments (at least two, required); `-n` an optional name
 - `mend`: `-l N` stop after N garments; `-r` include garments mend already tried; `-u ID` mend someone else's wardrobe
 - `adduser`: `--admin` lets them switch between wardrobes; `-l` their language (`en-US`, `zh-TW`, `ja-JP`)
@@ -197,6 +203,8 @@ src/enclothed/
   llm.py           every Anthropic API call, with token and cost logging
   intake.py        photo tagging          mend.py      filling blank fields
   outfit.py        suggestions and validation
+  weigh.py         "should I get this?"   mimic.py     recreating a photographed look
+  similarity.py    shortlisting garments that look alike on paper
   insights.py      "Ask your wardrobe"    sandbox.py   read-only query copy
   auth.py          Cloudflare Access sign-in and acting as another user
   db.py            SQLite access          schema.sql   base schema
@@ -219,7 +227,6 @@ GitHub Actions runs the suite on every pull request and push to `main`, and it m
 ## Roadmap
 
 - "Should I buy this?": photograph an item while shopping and see how it fits your wardrobe, what it duplicates, and what outfits it unlocks
-- Mimic: recreate the look of a photo using what you own
 - Charts in "Ask your wardrobe" answers
 - Configurable LLM key and model, with support for other providers
 - Logging when you actually wear an outfit

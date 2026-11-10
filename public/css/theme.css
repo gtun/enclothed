@@ -72,6 +72,7 @@
   --series-style:#1baf7a;
   --series-insights:#8a5fd0;
   --series-weigh:#b07d12;
+  --series-mimic:#c2437a;
 
   /* highlighted words in text */
   --mark:#fbe7a1;
@@ -110,6 +111,7 @@
   --series-style:#199e70;
   --series-insights:#9d72e0;
   --series-weigh:#d6a334;
+  --series-mimic:#e0699c;
   --shade:rgba(0,0,0,.4);
   --overlay:rgba(0,0,0,.6);
   /* example: a different body font only in Evening
