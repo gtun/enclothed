@@ -629,5 +629,6 @@ body.with-builder .insights-open,body.with-builder .insights-panel{right:392px}
 .closeness-loose{border-color:var(--ink);color:var(--ink)}
 .closeness-none{border-color:var(--bad);color:var(--bad)}
 .ladded{margin:0;font-size:.82rem;color:var(--muted);line-height:1.45}
-@media (max-width:780px){ .ldetail .gallery{order:0} }   /* unlike weigh, the photos come first: the matches are read against them */
+@media (max-width:780px){   /* unlike weigh, the photos come first and the main one stays large: the matches are read against it */
+  .ldetail .gallery{order:0} .ldetail .wphotos{grid-template-columns:repeat(3,1fr)} .ldetail .wphotos img:first-child{grid-column:1/-1;max-height:60vh} }
 @media (max-width:520px){ .lmatch{grid-template-columns:minmax(0,1fr)} .larrow{display:none} .lright{padding-left:31px} }
