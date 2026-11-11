@@ -239,3 +239,9 @@ Python 3.13, uv, FastAPI, Pydantic, SQLite, Anthropic API (Claude), Pillow, PyJW
 ## About
 
 enclothed started as my [Boot.dev](https://www.boot.dev) Personal Project 1, a command-line tool for tagging photos and suggesting outfits, and grew from there into a hosted, multi-user web app.
+
+### How it was built
+
+I designed enclothed and built it with Claude as a coding partner. I wrote the data model and migrations, the intake and outfit pipelines, outfit validation, prompt caching and the first REST endpoints myself, and the "Ask your wardrobe" agent and its SQL sandbox, the accounts schema, Cloudflare Access sign-in and the Docker deployment with step-by-step guidance from Claude. Claude wrote the web front end, most of the test suite, and most of the features added in November (weigh, mimic, mend, localization, the demo wardrobe), working from my specs and design decisions. I reviewed and merged every change.
+
+Since November 1, commits Claude made are marked with a co-author line; before that, Claude's code (mostly tests) came in through my commits. The reasoning behind the main design choices is in [DECISIONS.md](DECISIONS.md).
