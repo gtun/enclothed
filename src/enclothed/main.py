@@ -4,6 +4,7 @@ from enclothed import demo
 from enclothed import mend
 from enclothed import mimic
 from enclothed import photos
+from enclothed import seeds
 import argparse
 import shutil
 import sqlite3
@@ -104,6 +105,11 @@ def main() -> int:
     demo_parser = subparsers.add_parser("demo-seed", parents=[common], help="Rebuild the shared demo wardrobe from a sample of yours")
     demo_parser.add_argument("--per-category", type=int, default=config.DEMO_PER_CATEGORY, help="At least this many garments per category, when you have them")
     demo_parser.add_argument("--outfits", type=int, default=config.DEMO_MAX_OUTFITS, help="At most this many outfits, liked ones first")
+
+    seed_parser = subparsers.add_parser("load-seed", parents=[common], help="Add a synthetic wardrobe from seeds/ to a user, for testing at scale")
+    seed_parser.add_argument("seed", type=Path, help="A seed file, such as seeds/menswear.json")
+    seed_parser.add_argument("-u", "--user-id", type=int, required=True, help="Whose wardrobe to fill (see `enclothed users`)")
+    seed_parser.add_argument("--allow-existing", action="store_true", help="Add to a wardrobe that already has garments")
 
     args = parser.parse_args()
 
@@ -257,6 +263,15 @@ def main() -> int:
     elif args.command == "demo-seed":
         template = demo.seed(config.DB_PATH, config.DEFAULT_USER_ID, args.per_category, args.outfits)
         print(f"Demo wardrobe ready: {len(template['garments'])} garments, {len(template['outfits'])} outfits, {len(template['sets'])} sets")
+
+    elif args.command == "load-seed":
+        if not args.seed.is_file():
+            seed_parser.error(f"No seed file at {args.seed}")
+        try:
+            garment_count, set_count = seeds.load_seed(config.DB_PATH, args.user_id, args.seed, args.allow_existing)
+        except seeds.SeedError as error:
+            seed_parser.error(str(error))
+        print(f"Added {garment_count} garments and {set_count} sets to user {args.user_id}")
 
     return 0
 

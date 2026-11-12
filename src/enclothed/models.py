@@ -108,17 +108,26 @@ SUBCATEGORIES: dict[Category, set[str]] = {
         "camp-collar shirt", "band-collar shirt", "western shirt",
         "flannel shirt", "blouse", "tunic", "smock", "pullover", "no-collar shirt",
         "sweatshirt", "hoodie", "crewneck sweater", "v-neck sweater", "sweater",
-        "turtleneck", "mock neck", "cardigan", "sweater vest", "other",
+        "turtleneck", "mock neck", "cardigan", "sweater vest",
+        # womenswear
+        "camisole", "bodysuit", "wrap top", "crop top", "peplum top",
+        "other",
     },
     "bottom": {
         "jeans", "chinos", "dress trousers", "pleated trousers",
         "wide trousers", "easy pants", "balloon pants", "sarouel pants",
         "hakama pants", "work pants", "painter pants", "fatigue pants",
         "cargo pants", "track pants", "joggers", "sweatpants",
-        "culottes", "shorts", "skirt", "leggings", "five-pocket pants", "other",
+        "culottes", "shorts", "skirt", "leggings", "five-pocket pants",
+        # womenswear
+        "pleated skirt", "slip skirt", "wrap skirt",
+        "other",
     },
     "one-piece": {
-        "overalls", "jumpsuit", "coveralls", "dress", "other",
+        "overalls", "jumpsuit", "coveralls", "dress",
+        # womenswear
+        "slip dress", "shirt dress", "wrap dress", "sweater dress", "pinafore dress", "romper",
+        "other",
     },
     "outerwear": {
         # tailored / coats
@@ -136,7 +145,10 @@ SUBCATEGORIES: dict[Category, set[str]] = {
         "parka", "puffer jacket", "anorak", "windbreaker", "shell jacket",
         "rain jacket", "fleece",
         # sleeveless / draped
-        "vest", "poncho", "cape", "other",
+        "vest", "poncho", "cape",
+        # womenswear
+        "wrap coat", "cocoon coat", "bolero",
+        "other",
     },
     "shoes": {
         "low-top sneakers", "high-top sneakers", "running shoes",
@@ -144,14 +156,20 @@ SUBCATEGORIES: dict[Category, set[str]] = {
         "moccasins", "chelsea boots", "chukka boots", "desert boots",
         "lace-up boots", "engineer boots", "work boots", "hiking boots",
         "sandals", "slides", "clogs", "mules", "espadrilles",
-        "tabi", "geta", "other",
+        "tabi", "geta",
+        # womenswear
+        "pumps", "slingbacks", "kitten heels", "heeled sandals", "ballet flats", "mary janes", "ankle boots", "knee-high boots",
+        "other",
     },
     "accessory": {
         "belt", "suspenders", "cap", "bucket hat", "beanie", "flat cap",
         "fedora", "scarf", "stole", "bandana", "tie", "bow tie",
         "pocket square", "socks", "gloves", "tote bag", "backpack",
         "messenger bag", "crossbody bag", "waist bag", "wallet",
-        "watch", "glasses", "sunglasses", "jewelry", "other",
+        "watch", "glasses", "sunglasses", "jewelry",
+        # womenswear
+        "handbag", "clutch", "shoulder bag", "tights", "hair accessory",
+        "other",
     },
 }
 

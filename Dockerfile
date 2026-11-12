@@ -12,6 +12,7 @@ RUN uv sync --locked --no-dev --no-install-project
 COPY src ./src
 COPY public ./public
 COPY migrations ./migrations
+COPY seeds ./seeds
 RUN uv sync --locked --no-dev
 
 # Don't run as root. The same user ID as yours means files in data/ stay yours.
