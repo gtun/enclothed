@@ -14,6 +14,7 @@ const HELP = {
     "<b>Mend blank details</b> asks the AI to fill in empty details only, and you review them before they're saved.",
     "Styling notes are what the AI reads when it suggests outfits. Your own notes stay private and are never sent to it.",
     "<b>+ Add to outfit</b> puts this piece in the outfit builder.",
+    "<b>Share</b> makes a link anyone can open for 3 days. It shows a copy of the photos and main details as they are now, without your name or notes.",
     "<b>I no longer own this</b> takes it out of your wardrobe but keeps it in your outfit history. You can add it back later.",
   ]},
   outfits: {title: "Your outfits", tips: [
@@ -27,6 +28,7 @@ const HELP = {
     "<b>Like</b> or <b>Dislike</b> it, and click again to clear your rating. Disliked outfits are hidden from your list.",
     "<b>Prev</b> and <b>Next</b> appear when there are other options for the same request.",
     "Open a piece to see that garment.",
+    "<b>Share</b> makes a link anyone can open for 3 days: a copy of the outfit and its pieces as they are now, without your name, request, rating or wears.",
   ]},
   results: {title: "New suggestions", tips: [
     "These are the outfits you just asked for, newest first, and they're already saved under Outfits.",

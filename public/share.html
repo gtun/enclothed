@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>enclothed</title>
+<link rel="icon" href="/s/static/icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/s/static/icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/s/static/icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script>
+/* Same Day/Evening choice as the app, from the same storage, so a signed-in owner sees their own. */
+(function(){ let t = null; try { t = localStorage.getItem("enclothed-theme"); } catch (e) {}
+  document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light"); })();
+</script>
+<link rel="stylesheet" href="/s/static/css/theme.css">
+<link rel="stylesheet" href="/s/static/css/app.css">
+</head>
+<body class="shared">
+<!-- A share link's page: a frozen copy of a garment, or an outfit and its garments, for anyone with the link.
+     Only the backdrop and the language: no wardrobe, account, AI or help. Everything loads from /s/, which is
+     the one path Cloudflare Access lets through without signing in. -->
+<div class="bar"><div class="bar-in">
+  <a class="logo" href="#"><b>enclothed</b></a>
+  <div class="seg" role="group" aria-label="Backdrop">
+    <button type="button" data-t="light" title="Bright, neutral backdrop"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"/></g></svg>Day</button>
+    <button type="button" data-t="dark" title="Dark backdrop"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 10.2A6 6 0 0 1 5.8 2.5a6 6 0 1 0 7.7 7.7z" fill="currentColor"/></svg>Evening</button>
+  </div>
+  <select class="langpick" id="language" aria-label="Language" title="Language" hidden></select>
+</div></div>
+
+<div class="wrap" id="app"><div class="state"><p>Loading…</p></div></div>
+
+<!-- The few app scripts a shared page needs, for the same look; js/share.js starts it. -->
+<script src="/s/static/js/settings.js"></script>
+<script src="/s/static/js/core/state.js"></script>
+<script src="/s/static/js/core/format.js"></script>
+<script src="/s/static/js/core/api.js"></script>
+<script src="/s/static/js/templates/shared.js"></script>
+<script src="/s/static/js/templates/garmentPage.js"></script>
+<script src="/s/static/js/templates/sharedPages.js"></script>
+<script src="/s/static/js/features/gallery.js"></script>
+<script src="/s/static/js/share.js"></script>
+</body>
+</html>

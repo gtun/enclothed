@@ -14,7 +14,8 @@ function outfitPage(o){
       <h1>${esc(o.aesthetic)}${tierBadge(o)}</h1>
       ${palBar(o, "big")}<div class="palnames">${names}</div>
       <div class="rate">${wearButton(o)}<div class="seg" role="group" aria-label="Rate this outfit">${rateBtn(true, THUMB_UP, "Like")}${rateBtn(false, THUMB_DOWN, "Dislike")}</div>
-        <small>${o.liked === null || o.liked === undefined ? "Not rated" : "Click again to clear"}</small></div>
+        <small>${o.liked === null || o.liked === undefined ? "Not rated" : "Click again to clear"}</small>
+        <button type="button" class="btn" data-share style="margin-left:auto" title="Make a link anyone can open for a few days">Share</button></div>
       <div class="wearlog">${o.wears.length
         ? `<span>Worn ${plural(o.wears.length, "time")}:</span><ul>${o.wears.map(w => `<li>${esc(whenDay(w.date))}<button type="button" data-unwear="${w.id}" data-outfit="${o.id}" aria-label="Remove the wear on ${esc(whenDay(w.date))}" title="Remove this wear">×</button></li>`).join("")}</ul>`
         : `<span>Not worn yet. Use the hanger to log a wear.</span>`}</div>

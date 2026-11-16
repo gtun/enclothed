@@ -149,3 +149,25 @@ def normalize_photo(source: Path, dest: Path) -> None:
         raise ValueError(f"{source.name} is not a readable image") from error
     out.thumbnail((UPLOAD_MAX_SIDE, UPLOAD_MAX_SIDE), Image.Resampling.LANCZOS)
     out.save(dest, "JPEG", quality=85, optimize=True)
+
+
+def copy_without_metadata(source: Path, dest: Path, size: tuple[int, int]) -> bool:
+    """Save an upright JPEG copy of source, no larger than size, for a share link.
+
+    Pillow writes no EXIF unless asked, so the copy carries no camera, time or place: an old photo
+    added from the CLI could still have its phone's GPS tag. One at a time, like thumbnails, because
+    the server has 1 GB of memory. False when the photo can't be read, so the share leaves it out.
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with _thumbnail_lock:
+        try:
+            with Image.open(source) as image:
+                image.draft("RGB", size)   # a JPEG decodes at about the final size
+                out = _upright_rgb(image)
+                out.thumbnail(size, Image.Resampling.LANCZOS)
+                out.save(dest, "JPEG", quality=82, optimize=True)
+        except (OSError, UnidentifiedImageError, Image.DecompressionBombError):
+            logger.warning("Couldn't copy %s for a share; leaving it out", source)
+            dest.unlink(missing_ok=True)
+            return False
+    return True

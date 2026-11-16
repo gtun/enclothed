@@ -15,6 +15,9 @@ PREFERENCES_LOG_PATH = DATA_DIR / "preferences_log.jsonl"
 WEIGH_LOG_PATH = DATA_DIR / "weigh_log.jsonl"
 MIMIC_LOG_PATH = DATA_DIR / "mimic_log.jsonl"
 LOOKS_DIR = DATA_DIR / "looks"          # photos of looks to recreate (mimic), one folder per look
+# Copies of a share link's photos, one folder per link. Under thumbs/ because the NAS backup skips it: shares
+# last a few days, and the pull never deletes, so they would pile up there forever.
+SHARES_DIR = THUMBS_DIR / "shares"
 BACKUPS_DIR = PROJECT_ROOT / "backups"
 SNAPSHOTS_DIR = DATA_DIR / "snapshots"
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
@@ -62,6 +65,8 @@ UPLOAD_MAX_SIDE = 2000           # uploaded photos are resized so the longest si
 UPLOAD_MAX_PHOTOS = 10
 UPLOAD_MAX_BYTES = 40 * 1024 * 1024
 MANUAL_OUTFIT_REQUEST = "Put together myself"
+SHARE_LIFETIME_DAYS = 3          # a share link works for this long, then its copy is deleted
+SHARE_PHOTO_SIDE = 1600          # longest side of a shared photo; its thumbnail uses THUMB_SIZE
 PREFERENCES_MAX_CHARS = 4000
 PREFERENCES_TOKEN_CAP = 1024
 

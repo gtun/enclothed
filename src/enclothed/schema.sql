@@ -111,4 +111,13 @@ CREATE TABLE IF NOT EXISTS users (
     demo_reset_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS shares (
+    token TEXT PRIMARY KEY NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    kind TEXT NOT NULL CHECK (kind IN ('garment', 'outfit')),
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    snapshot TEXT NOT NULL
+);
+
 INSERT OR IGNORE INTO users (id, username, is_admin) VALUES (1, 'owner', 1);

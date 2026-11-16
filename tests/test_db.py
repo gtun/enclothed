@@ -217,7 +217,7 @@ def make_old_db(path):
 
 NEW_ATTRIBUTES = {"fabric_type", "shape", "hem", "fabric_weight", "sleeve", "statement", "mended_on"}
 LATER_COLUMNS = NEW_ATTRIBUTES | {"risk_tier", "weighed_on", "source", "look_id"}   # every column added by a migration after 008
-LATER_TABLES = ["weighs", "looks", "look_matches"]               # every table added by a migration after 008
+LATER_TABLES = ["weighs", "looks", "look_matches", "shares"]               # every table added by a migration after 008
 
 
 def without_later_additions(text):
@@ -669,8 +669,8 @@ def test_older_db_without_a_users_table_still_reaches_the_latest_version(tmp_pat
 
 
 def schema_before_looks(tmp_path):
-    """schema.sql as it was before migration 014 added looks. A foreign-key column can't be dropped, so it's left out."""
-    text = re.sub(r"CREATE TABLE IF NOT EXISTS (looks|look_matches) \(.*?\);\n\n", "", SCHEMA_PATH.read_text(), flags=re.S)
+    """schema.sql as it was before migration 014 added looks (and 015 shares). A foreign-key column can't be dropped, so it's left out."""
+    text = re.sub(r"CREATE TABLE IF NOT EXISTS (looks|look_matches|shares) \(.*?\);\n\n", "", SCHEMA_PATH.read_text(), flags=re.S)
     text = text.replace("    look_id INTEGER REFERENCES looks(id),\n", "")
     path = tmp_path / "schema_before_looks.sql"
     path.write_text(text)
@@ -712,3 +712,17 @@ def test_source_migration_backfills_own_outfits(tmp_path):
     init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
     with closing(sqlite3.connect(path)) as conn:
         assert [r[0] for r in conn.execute("SELECT source FROM outfits ORDER BY id")] == [r[3] for r in rows]
+
+
+def test_shares_migration_adds_an_empty_shares_table(tmp_path):
+    path = tmp_path / "old.db"
+    init_db(path, schema_before_looks(tmp_path), MIGRATIONS_DIR)
+    with closing(sqlite3.connect(path)) as conn:
+        with conn:
+            conn.executescript("PRAGMA user_version = 14;")
+            conn.executescript((MIGRATIONS_DIR / "014_add_looks.sql").read_text())
+            assert "shares" not in {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
+    with closing(sqlite3.connect(path)) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM shares").fetchone() == (0,)
+    assert user_version(path) == LATEST

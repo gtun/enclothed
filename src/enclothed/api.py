@@ -16,18 +16,18 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 
-from enclothed import db, demo, drafts, mend, mimic, photos, responses, weigh
+from enclothed import db, demo, drafts, mend, mimic, photos, responses, shares, weigh
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH,
-    MIMIC_LOG_PATH
+    MIMIC_LOG_PATH, SHARES_DIR
 )
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, WeighCreatedOut, WeighIn, WeighOut, blank_fields,
-    LookOut, MimicCreatedOut,
+    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn,
 )
 from enclothed.insights import answer_question
 from enclothed.llm import UnusableResponse, improve_preferences
@@ -44,6 +44,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Runs once when the server starts: create the DB if it's new, apply any pending migrations."""
     db.init_db(DB_PATH, SCHEMA_PATH, MIGRATIONS_DIR)
+    shares.purge_expired(DB_PATH, SHARES_DIR, datetime.now(timezone.utc))
+    shares.remove_orphaned_photos(DB_PATH, SHARES_DIR)
     yield
 
 
@@ -60,6 +62,9 @@ class RevalidatedStaticFiles(StaticFiles):
 
 GARMENTS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="static")  # the page's CSS
+# The same files for share links. Everything a shared page loads is under /s/, so Cloudflare Access needs
+# only one path open to everyone. Mounted before the routes, so /s/static/... never reaches /s/{token}/...
+app.mount("/s/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="share-static")
 
 
 def _anthropic_client() -> anthropic.Anthropic:
@@ -454,6 +459,18 @@ def remove_wear(outfit_id: int, wear_id: int, user: CurrentUser) -> OutfitOut:
     return responses.get_outfit(DB_PATH, user.id, outfit_id)
 
 
+# --- share links ---------------------
+@app.post("/api/shares", status_code=201)
+def create_share(body: ShareIn, user: CurrentUser) -> ShareCreatedOut:
+    """A new link to a frozen copy of one garment, or one outfit and its garments, for anyone to view for a few days."""
+    make = shares.share_garment if body.kind == "garment" else shares.share_outfit
+    made = make(DB_PATH, SHARES_DIR, user.id, body.id, user.language, datetime.now(timezone.utc))
+    if made is None:
+        raise HTTPException(status_code=404, detail=f"{body.kind.capitalize()} {body.id} not found")
+    token, expires_at = made
+    return ShareCreatedOut(path=f"/s/{token}", expires_at=expires_at)
+
+
 # --- preferences ---------------------
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -633,6 +650,53 @@ def get_look_thumbnail(look_id: int, filename: str, user: CurrentUser) -> FileRe
 def get_look_photo(look_id: int, filename: str, user: CurrentUser) -> FileResponse:
     _require_look(user, look_id)
     return _photo_response(photos.get_look_photo(look_id, filename))
+
+
+# --- shared pages: open to anyone with the link, so nothing here uses the sign-in ---------
+# Cloudflare Access lets /s/ through without signing in (see the deployment notes). These routes read only
+# the shares table and its photo copies, never the wardrobe. noindex keeps the pages out of search engines;
+# no-referrer keeps the link out of other sites' logs.
+SHARE_HEADERS = {"Cache-Control": "no-cache", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer"}
+SHARE_PHOTO_HEADERS = {**PHOTO_CACHING, "X-Robots-Tag": "noindex"}
+
+
+@app.get("/s/options/{language}", include_in_schema=False)
+def get_share_options(language: Language) -> OptionsOut:
+    """The fixed terms in any language, for a shared page's language menu. App constants, not anyone's data."""
+    return responses.get_options(language)
+
+
+@app.get("/s/{token}", include_in_schema=False)
+def share_page(token: str) -> FileResponse:
+    """The shared page. It loads its copy from /s/{token}/data, and says so itself when the link has expired."""
+    live = shares.load(DB_PATH, token, datetime.now(timezone.utc)) is not None
+    return FileResponse(PUBLIC_DIR / "share.html", status_code=200 if live else 404, headers=SHARE_HEADERS)
+
+
+@app.get("/s/{token}/data", include_in_schema=False)
+def share_data(token: str, response: Response) -> dict:
+    snapshot = shares.load(DB_PATH, token, datetime.now(timezone.utc))
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
+    response.headers.update(SHARE_HEADERS)
+    return snapshot
+
+
+def _share_photo(token: str, garment: int, filename: str, small: bool) -> FileResponse:
+    path = shares.photo(DB_PATH, SHARES_DIR, token, garment, filename, small, datetime.now(timezone.utc))
+    if path is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return FileResponse(path, headers=SHARE_PHOTO_HEADERS)
+
+
+@app.get("/s/{token}/photos/{garment}/{filename}", include_in_schema=False)
+def share_photo(token: str, garment: int, filename: str) -> FileResponse:
+    return _share_photo(token, garment, filename, small=False)
+
+
+@app.get("/s/{token}/thumbs/{garment}/{filename}", include_in_schema=False)
+def share_thumbnail(token: str, garment: int, filename: str) -> FileResponse:
+    return _share_photo(token, garment, filename, small=True)
 
 
 # --- front end -----------------------
