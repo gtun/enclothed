@@ -689,6 +689,15 @@ class ImprovedPreferences(BaseModel):
     """What the LLM returns when rewriting the user's preferences."""
     text: str = Field(description="The rewritten preferences, ready to send with outfit requests.")
 
+class ShareIn(BaseModel):
+    """Make a share link to one of your garments or outfits."""
+    kind: Literal["garment", "outfit"]
+    id: int
+
+class ShareCreatedOut(BaseModel):
+    path: str          # "/s/<token>": the page joins it to its own address
+    expires_at: str
+
 class OutfitLikedIn(BaseModel):
     liked: bool | None
 

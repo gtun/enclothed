@@ -632,3 +632,10 @@ body.with-builder .insights-open,body.with-builder .insights-panel{right:392px}
 @media (max-width:780px){   /* unlike weigh, the photos come first and the main one stays large: the matches are read against it */
   .ldetail .gallery{order:0} .ldetail .wphotos{grid-template-columns:repeat(3,1fr)} .ldetail .wphotos img:first-child{grid-column:1/-1;max-height:60vh} }
 @media (max-width:520px){ .lmatch{grid-template-columns:minmax(0,1fr)} .larrow{display:none} .lright{padding-left:31px} }
+
+/* ---- Share links (share.html) ---------------------------------------------- */
+.kv dd.ro{padding:6px 0}
+.kv dd.ro .cchip{margin-right:10px}
+.sharefoot{margin:12px 0 28px;font-size:.78rem;color:var(--muted);text-align:center}
+.sharelink{display:flex;gap:8px;align-items:center}
+.sharelink input{flex:1;min-width:0;font:400 .84rem var(--mono)}

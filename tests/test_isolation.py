@@ -138,7 +138,19 @@ COVERED_ELSEWHERE = {   # these don't answer 200, so they have their own tests b
     ("DELETE", "/api/outfits/{}/wears/{}"),   # needs a wear ID too
     ("POST", "/api/looks/{}/recreations"),    # 201, after an AI call
     ("DELETE", "/api/looks/{}"),              # 204
+    # Share links: open to anyone with the link by design, and they never read a wardrobe (test_shares.py)
+    ("GET", "/s/options/{}"),
+    ("GET", "/s/{}"),
+    ("GET", "/s/{}/data"),
+    ("GET", "/s/{}/photos/{}/{}"),
+    ("GET", "/s/{}/thumbs/{}/{}"),
 }
+
+
+def test_someone_elses_garment_or_outfit_cant_be_shared(bob, alice_data, bob_data):
+    for kind in ("garment", "outfit"):
+        assert bob.post("/api/shares", json={"kind": kind, "id": alice_data[kind]}).status_code == 404
+        assert bob.post("/api/shares", json={"kind": kind, "id": bob_data[kind]}).status_code == 201
 
 
 def test_someone_elses_look_cant_be_matched_or_deleted(bob, alice_data, bob_data, db_path, tmp_path):

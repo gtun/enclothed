@@ -547,3 +547,37 @@ def update_user(db_path: Path, user_id: int, username: str, email: str | None) -
                 "UPDATE users SET username = ?, email = ? WHERE id = ?",
                 (username, email.lower() if email else None, user_id),
             )
+
+
+# --- share links -------------
+# Times are UTC ISO strings in one format, so comparing them as text compares them as times.
+def insert_share(db_path: Path, token: str, user_id: int, kind: str, created_at: str, expires_at: str, snapshot: dict) -> None:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            conn.execute(
+                "INSERT INTO shares (token, user_id, kind, created_at, expires_at, snapshot) VALUES (?, ?, ?, ?, ?, ?)",
+                (token, user_id, kind, created_at, expires_at, json.dumps(snapshot, ensure_ascii=False)),
+            )
+
+
+def select_share(db_path: Path, token: str, now: str) -> dict | None:
+    """A share that hasn't expired: its kind, expiry and snapshot. Never who made it."""
+    with closing(_connect(db_path)) as conn:
+        row = conn.execute("SELECT kind, expires_at, snapshot FROM shares WHERE token = ? AND expires_at > ?", (token, now)).fetchone()
+    if row is None:
+        return None
+    return {"kind": row[0], "expires_at": row[1], "snapshot": json.loads(row[2])}
+
+
+def delete_expired_shares(db_path: Path, now: str) -> list[str]:
+    """Delete every expired share, and return their tokens."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            tokens = [r[0] for r in conn.execute("SELECT token FROM shares WHERE expires_at <= ?", (now,))]
+            conn.execute("DELETE FROM shares WHERE expires_at <= ?", (now,))
+    return tokens
+
+
+def select_share_tokens(db_path: Path) -> set[str]:
+    with closing(_connect(db_path)) as conn:
+        return {r[0] for r in conn.execute("SELECT token FROM shares")}

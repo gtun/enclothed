@@ -19,6 +19,7 @@ enclothed looks at each photo once, writes down what it sees (category, colors, 
 - **Fix and fill in details.** Click any field to correct it. **Mend** asks the AI to fill in only the blank fields from the saved photos, and never overwrites anything you've set.
 - **Describe your style once.** Write your tastes and needs (loose fits, never shorts, glasses with everything); the AI can tidy it into a clear brief, and it's sent with every outfit request.
 - **Group sets and retire garments.** Link a suit jacket and trousers as a set. Garments you no longer own are marked disowned rather than deleted, so your outfit history stays intact.
+- **Share a garment or an outfit.** A link anyone can open for 3 days, no account needed. It's a frozen copy of the photos and main details, with no names, notes, requests, ratings or wears, and no way to reach the wardrobe or the AI from it.
 - **See what it costs.** A usage page shows estimated AI spend over time, by type of call and model. Everyone sees their own; admins see everyone's.
 - **Multiple people, multiple languages.** Each person has their own wardrobe and chooses English, Traditional Chinese (Taiwan), or Japanese. Admins can switch into anyone's wardrobe to help or debug. A shared demo wardrobe resets daily so new people can try things without their own clothes in it.
 

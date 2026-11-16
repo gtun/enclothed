@@ -68,6 +68,8 @@ const tagsBlock = g => `<div data-field="style_tags">${evButton("style_tags", "s
 const notesBlock = g => `<div data-field="notes">${g.notes ? evText("notes", "your notes", `<p class="notes mine">${linkify(g.notes)}</p>`) : evButton("notes", "your notes", `<span class="addnote">+ Add your own notes</span>`, "block")}</div>`;
 const stylingNotesBlock = g => `<div data-field="styling_notes">${g.styling_notes ? evText("styling_notes", "styling notes", `<p class="notes">${linkify(g.styling_notes)}</p>`) : evButton("styling_notes", "styling notes", `<span class="addnote">+ Add styling notes</span>`, "block")}</div>`;
 const labelBlock = g => `<div data-field="label_text">${evButton("label_text", "label text", g.label_text ? `<div class="label">${esc(g.label_text)}</div>` : `<span class="addnote">+ Add label text</span>`, "block")}</div>`;
+/* Makes a share link (features/share.js). */
+const SHARE_BUTTON = `<button type="button" class="btn" data-share title="Make a link anyone can open for a few days">Share</button>`;
 const mendButton = g => g.blank_fields.length ? `<button type="button" class="btn llm-action" data-mend title="Fills blank details only. Uses AI (spends tokens)" ${mendingId === g.id ? "disabled" : ""}>${mendingId === g.id ? "Mending…" : "Mend blank details"}</button>` : "";
 
 function garmentPage(g){
@@ -102,9 +104,9 @@ function garmentPage(g){
     <div class="gallery">${gallery}</div>
     <div class="info">
       <div><span class="eyebrow">${esc(g.brand || "unknown brand")} · ${esc(categoryName(g.category))}${SHOW_IDS ? ` · #${g.id}` : ""}</span><h2>${esc(subcategoryName(g.subcategory))}</h2>
-        ${isCandidate(g) ? `<p class="gonenote">Not in your wardrobe · you're weighing whether to get it</p><div class="hero-actions"><a class="btn primary" href="#weigh-${g.id}" style="text-decoration:none">See the verdict</a></div>`
-          : isDisowned(g) ? `<p class="gonenote">No longer owned · since ${esc(whenDay(g.disowned_on))}</p><div class="hero-actions"><button type="button" class="btn primary" data-reown>Add this to my wardrobe again</button></div>`
-          : `<div class="hero-actions"><button type="button" class="btn${builder.pieces.includes(g.id) ? " primary" : ""}" data-pick="${g.id}" aria-pressed="${builder.pieces.includes(g.id)}">${builder.pieces.includes(g.id) ? "− Remove from outfit" : "+ Add to outfit"}</button>${mendButton(g)}<button type="button" class="btn quiet" data-disown>I no longer own this</button></div>`}</div>
+        ${isCandidate(g) ? `<p class="gonenote">Not in your wardrobe · you're weighing whether to get it</p><div class="hero-actions"><a class="btn primary" href="#weigh-${g.id}" style="text-decoration:none">See the verdict</a>${SHARE_BUTTON}</div>`
+          : isDisowned(g) ? `<p class="gonenote">No longer owned · since ${esc(whenDay(g.disowned_on))}</p><div class="hero-actions"><button type="button" class="btn primary" data-reown>Add this to my wardrobe again</button>${SHARE_BUTTON}</div>`
+          : `<div class="hero-actions"><button type="button" class="btn${builder.pieces.includes(g.id) ? " primary" : ""}" data-pick="${g.id}" aria-pressed="${builder.pieces.includes(g.id)}">${builder.pieces.includes(g.id) ? "− Remove from outfit" : "+ Add to outfit"}</button>${mendButton(g)}${SHARE_BUTTON}<button type="button" class="btn quiet" data-disown>I no longer own this</button></div>`}</div>
       ${setPanel}
       ${stylingNotes}
       ${notes}
