@@ -75,7 +75,7 @@ const HELP = {
   shared: {title: "Shared links", tips: [
     "Every share link you've made that still works, newest first. Anyone with a link can open it until it expires.",
     "Each link is a copy of the garment or outfit as it was when you shared it. Open one to see what others see.",
-    "Expired links disappear from this list, and their copies are deleted.",
+    "<b>Revoke</b> ends a link right away and deletes its copy. Expired links disappear from this list the same way.",
   ]},
 };
 
