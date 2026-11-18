@@ -469,11 +469,18 @@ def create_share(body: ShareIn, user: CurrentUser) -> ShareCreatedOut:
         made = make(DB_PATH, SHARES_DIR, user.id, body.id, user.language, datetime.now(timezone.utc), limit)
     except shares.ShareLimitReached:
         raise HTTPException(status_code=409, detail=f"The demo already has {DEMO_SHARE_LIMIT} live share links. "
-                                                    "Try again once one expires.")
+                                                    "Try again once one expires or is revoked.")
     if made is None:
         raise HTTPException(status_code=404, detail=f"{body.kind.capitalize()} {body.id} not found")
     token, expires_at = made
     return ShareCreatedOut(path=f"/s/{token}", expires_at=expires_at)
+
+
+@app.delete("/api/shares/{token}", status_code=204)
+def revoke_share(token: str, user: CurrentUser) -> None:
+    """End one of your live links now. Someone else's, or one that has expired, is a 404 like a wrong token."""
+    if not shares.revoke(DB_PATH, SHARES_DIR, user.id, token, datetime.now(timezone.utc)):
+        raise HTTPException(status_code=404, detail="That link has expired or doesn't exist.")
 
 
 @app.get("/api/shares")
