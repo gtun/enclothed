@@ -1,4 +1,4 @@
-/* Page routing (#wardrobe, #outfits, #garment-N, #outfit-N, #results, #usage, #weighed, #weigh-N, #looks, #look-N), click handling, Day/Evening, and start-up. Loaded last. */
+/* Page routing (#wardrobe, #outfits, #garment-N, #outfit-N, #results, #usage, #shared, #weighed, #weigh-N, #looks, #look-N), click handling, Day/Evening, and start-up. Loaded last. */
 "use strict";
 
 const app = document.getElementById("app");
@@ -40,10 +40,11 @@ function render(){
   else if (h === "disowned-outfits"){ view = "disowned-outfits"; html = disownedOutfits(); document.title = "Disowned outfits · enclothed"; }
   else if (h === "style"){ view = "style"; html = stylePage(); document.title = "Your style · enclothed"; }
   else if (h === "usage"){ view = "usage"; html = usagePage(); document.title = "Usage · enclothed"; }
+  else if (h === "shared"){ view = "shared"; html = sharedLinksPage(); document.title = "Shared links · enclothed"; }
   else { html = wardrobe(); document.title = "enclothed"; }
   app.innerHTML = html;
-  const section = (view === "outfit" || view === "outfits" || view === "results" || view === "disowned-outfits" || view === "look" || view === "looks") ? "outfits" : view === "style" || view === "usage" ? view : "wardrobe";
-  for (const k of ["wardrobe", "outfits", "style", "usage"]){ const n = document.getElementById("nav-" + k);
+  const section = (view === "outfit" || view === "outfits" || view === "results" || view === "disowned-outfits" || view === "look" || view === "looks") ? "outfits" : view === "style" || view === "usage" || view === "shared" ? view : "wardrobe";
+  for (const k of ["wardrobe", "outfits", "style", "usage", "shared"]){ const n = document.getElementById("nav-" + k);
     if (k === section) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current"); }
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;
   const bk = app.querySelector("[data-back]");
@@ -59,6 +60,7 @@ function route(){
   current = view;
   if (view === "garment") wireGallery();
   if (view === "usage") loadUsage();
+  if (view === "shared") loadSharedLinks();
   scrollTo(0, (view === "wardrobe" || view === "outfits") ? (scrollMem[view] || 0) : 0);
   if (pageFound) showHelpOnce(view);
 }
@@ -90,6 +92,7 @@ app.addEventListener("click", e => {
   if (wv){ wview = wv.dataset.wview; store.set("enclothed-wardrobe-view", wview); refresh(); return; }
   if (handleStyleClick(e)) return;
   if (handleUsageClick(e)) return;
+  if (handleSharedLinksClick(e)) return;
   const of = e.target.closest("[data-ofilt-f],[data-ofilt-w],[data-ofilt-clear]");
   if (of){
     const toggle = (list, v) => list.includes(v) ? list.filter(x => x !== v) : [...list, v];
@@ -166,6 +169,7 @@ paintTheme();
     renderActAs(profile);
     startHelp(profile.signed_in_as || profile.name);
     usage.admin = profile.is_admin;
+    sharedLinks.demo = profile.is_demo;
     reindex();
     builder.pieces = builder.pieces.filter(id => byId[id] && !isDisowned(byId[id]) && !isCandidate(byId[id]));
     if (builder.session) builder.session.ids = builder.session.ids.filter(id => outById[id]);
