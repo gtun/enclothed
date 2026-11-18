@@ -35,6 +35,10 @@ def _iso(moment: datetime) -> str:
     return moment.isoformat(timespec="seconds")
 
 
+class ShareLimitReached(Exception):
+    """This user already has as many live share links as they're allowed."""
+
+
 def new_token() -> str:
     """128 random bits, URL-safe: nobody finds a share by guessing."""
     return secrets.token_urlsafe(16)
@@ -60,9 +64,12 @@ def _garment_snapshot(garment: Garment, folder: Path) -> dict:
 
 
 def _save(db_path: Path, shares_dir: Path, user_id: int, kind: ShareKind, language: Language, now: datetime,
-          build) -> tuple[str, str]:
-    """Copy the photos and store the snapshot that build(folder) makes. If anything fails, nothing is left behind."""
+          build, limit: int | None) -> tuple[str, str]:
+    """Copy the photos and store the snapshot that build(folder) makes. If anything fails, nothing is left behind.
+    With a limit, raises ShareLimitReached before copying anything if the user already has that many live links."""
     purge_expired(db_path, shares_dir, now)
+    if limit is not None and len(db.select_user_shares(db_path, user_id, _iso(now))) >= limit:
+        raise ShareLimitReached
     token = new_token()
     folder = shares_dir / token
     try:
@@ -77,17 +84,17 @@ def _save(db_path: Path, shares_dir: Path, user_id: int, kind: ShareKind, langua
 
 
 def share_garment(db_path: Path, shares_dir: Path, user_id: int, garment_id: int, language: Language,
-                  now: datetime) -> tuple[str, str] | None:
+                  now: datetime, limit: int | None = None) -> tuple[str, str] | None:
     """A new link to a copy of this garment: (token, expires_at), or None if it isn't this user's."""
     garment = db.select_garment(db_path, user_id, garment_id)
     if garment is None:
         return None
     return _save(db_path, shares_dir, user_id, "garment", language, now,
-                 lambda folder: {"garment": _garment_snapshot(garment, folder / "0")})
+                 lambda folder: {"garment": _garment_snapshot(garment, folder / "0")}, limit)
 
 
 def share_outfit(db_path: Path, shares_dir: Path, user_id: int, outfit_id: int, language: Language,
-                 now: datetime) -> tuple[str, str] | None:
+                 now: datetime, limit: int | None = None) -> tuple[str, str] | None:
     """A new link to a copy of this outfit and each of its garments: (token, expires_at), or None if it isn't this user's.
     Garments are numbered from 0 in the outfit's order; a piece names its garment by that number."""
     outfit = responses.get_outfit(db_path, user_id, outfit_id)
@@ -104,7 +111,7 @@ def share_outfit(db_path: Path, shares_dir: Path, user_id: int, outfit_id: int, 
                            "in_set": g.set_id is not None, "set_name": sets.get(g.set_id) if g.set_id else None})
         return {"outfit": {**outfit.model_dump(mode="json", include=set(OUTFIT_FIELDS)), "pieces": pieces}, "garments": garments}
 
-    return _save(db_path, shares_dir, user_id, "outfit", language, now, build)
+    return _save(db_path, shares_dir, user_id, "outfit", language, now, build, limit)
 
 
 def load(db_path: Path, token: str, now: datetime) -> dict | None:

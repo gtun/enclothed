@@ -11,7 +11,8 @@ from PIL import Image
 from enclothed import api, photos, shares
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, PUBLIC_DIR, SCHEMA_PATH
-from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, insert_user, insert_wear, select_garment, update_garment
+from enclothed.config import DEMO_SHARE_LIMIT
+from enclothed.db import init_db, insert_demo_user, insert_garment, insert_outfits, insert_set, insert_share, insert_user, insert_wear, select_garment, update_garment
 from enclothed.intake import TEST_GARMENT
 from enclothed.models import Outfit, User
 
@@ -31,12 +32,13 @@ def db_path(tmp_path, monkeypatch):
 
 
 class Owner:
-    """Signed in as the owner for each of its own requests only, so a stranger's requests never are."""
-    def __init__(self):
+    """Signed in as the owner (or another user) for each of its own requests only, so a stranger's requests never are."""
+    def __init__(self, user=OWNER):
         self.client = TestClient(api.app)
+        self.user = user
 
     def post(self, *args, **kwargs):
-        api.app.dependency_overrides[signed_in_user] = lambda: OWNER
+        api.app.dependency_overrides[signed_in_user] = lambda: self.user
         try:
             return self.client.post(*args, **kwargs)
         finally:
@@ -256,3 +258,44 @@ def test_the_shared_page_has_no_wardrobe_account_ai_or_help_controls():
     for src in scripts:
         code = (PUBLIC_DIR / src.removeprefix("/s/static/")).read_text()
         assert not re.search(r"[\"'`]/api/", code), f"{src} calls the signed-in API"
+
+
+# --- the demo's limit ------------------------------------------------------------------
+def fill(db_path, user_id, count, expires_at="2099-01-01T00:00:00+00:00"):
+    """count share rows for user_id, without photos: enough for counting."""
+    for n in range(count):
+        insert_share(db_path, f"filler-{user_id}-{n}", user_id, "garment", "2026-11-18T00:00:00+00:00", expires_at, {})
+
+
+def test_a_limit_refuses_a_new_share_before_copying_anything(db_path, garment_id, tmp_path):
+    folder = tmp_path / "shares"
+    now = datetime(2026, 11, 18, 12, tzinfo=timezone.utc)
+    shares.share_garment(db_path, folder, 1, garment_id, "en-US", now, limit=2)
+    shares.share_garment(db_path, folder, 1, garment_id, "en-US", now, limit=2)
+
+    with pytest.raises(shares.ShareLimitReached):
+        shares.share_garment(db_path, folder, 1, garment_id, "en-US", now, limit=2)
+    assert len(list(folder.iterdir())) == 2
+
+
+def test_expired_shares_dont_count_toward_a_limit(db_path, garment_id, tmp_path):
+    fill(db_path, 1, 2, expires_at="2026-11-18T00:00:00+00:00")
+    now = datetime(2026, 11, 18, 12, tzinfo=timezone.utc)
+    assert shares.share_garment(db_path, tmp_path / "shares", 1, garment_id, "en-US", now, limit=2) is not None
+
+
+def test_the_demo_cant_have_more_than_its_limit_of_live_links(db_path):
+    demo_id = insert_demo_user(db_path, "demo")
+    shirt = insert_garment(db_path, demo_id, TEST_GARMENT)
+    demo = Owner(User(id=demo_id, username="demo", is_demo=True))
+    fill(db_path, demo_id, DEMO_SHARE_LIMIT - 1)
+    make(demo, "garment", shirt)
+
+    response = demo.post("/api/shares", json={"kind": "garment", "id": shirt})
+    assert response.status_code == 409
+    assert str(DEMO_SHARE_LIMIT) in response.json()["detail"]
+
+
+def test_other_users_have_no_limit(owner, db_path, garment_id):
+    fill(db_path, 1, DEMO_SHARE_LIMIT)
+    make(owner, "garment", garment_id)
