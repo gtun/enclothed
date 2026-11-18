@@ -21,13 +21,13 @@ from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH,
-    MIMIC_LOG_PATH, SHARES_DIR
+    MIMIC_LOG_PATH, SHARES_DIR, DEMO_SHARE_LIMIT
 )
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, WeighCreatedOut, WeighIn, WeighOut, blank_fields,
-    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn,
+    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut,
 )
 from enclothed.insights import answer_question
 from enclothed.llm import UnusableResponse, improve_preferences
@@ -464,11 +464,22 @@ def remove_wear(outfit_id: int, wear_id: int, user: CurrentUser) -> OutfitOut:
 def create_share(body: ShareIn, user: CurrentUser) -> ShareCreatedOut:
     """A new link to a frozen copy of one garment, or one outfit and its garments, for anyone to view for a few days."""
     make = shares.share_garment if body.kind == "garment" else shares.share_outfit
-    made = make(DB_PATH, SHARES_DIR, user.id, body.id, user.language, datetime.now(timezone.utc))
+    limit = DEMO_SHARE_LIMIT if user.is_demo else None
+    try:
+        made = make(DB_PATH, SHARES_DIR, user.id, body.id, user.language, datetime.now(timezone.utc), limit)
+    except shares.ShareLimitReached:
+        raise HTTPException(status_code=409, detail=f"The demo already has {DEMO_SHARE_LIMIT} live share links. "
+                                                    "Try again once one expires.")
     if made is None:
         raise HTTPException(status_code=404, detail=f"{body.kind.capitalize()} {body.id} not found")
     token, expires_at = made
     return ShareCreatedOut(path=f"/s/{token}", expires_at=expires_at)
+
+
+@app.get("/api/shares")
+def list_shares(user: CurrentUser) -> list[ShareOut]:
+    """Your live share links, newest first. In the demo, every visitor's links."""
+    return responses.list_shares(DB_PATH, user.id, _now())
 
 
 # --- preferences ---------------------

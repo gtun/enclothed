@@ -6,7 +6,7 @@ from enclothed.models import (
     CATEGORY_ORDER, Category, Color, FIELD_CATEGORIES, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, RiskTier, Recommendation, Closeness, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
     FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, RISK_TIER_LABELS, RECOMMENDATION_LABELS, CLOSENESS_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
     ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, LookOut, OptionsOut,
-    OutfitGarmentOut, OutfitOut, SetOut, blank_fields,
+    OutfitGarmentOut, OutfitOut, SetOut, ShareOut, blank_fields,
 )
 from enclothed.fabrics import FABRIC_TYPES
 from enclothed.photos import get_garment_photos, get_look_photos
@@ -63,6 +63,18 @@ def list_looks(db_path: Path, user_id: int) -> list[LookOut]:
 
 def list_sets(db_path: Path, user_id: int) -> list[SetOut]:
     return [SetOut(id=set_id, name=name) for set_id, name in db.select_all_sets(db_path, user_id).items()]
+
+def list_shares(db_path: Path, user_id: int, now: str) -> list[ShareOut]:
+    """This user's live share links, newest first, with only what the list shows from each snapshot."""
+    rows = []
+    for share in db.select_user_shares(db_path, user_id, now):
+        snapshot = share["snapshot"]
+        outfit, garment = snapshot.get("outfit") or {}, snapshot.get("garment") or {}
+        rows.append(ShareOut(token=share["token"], path=f"/s/{share['token']}", kind=share["kind"],
+                             created_at=share["created_at"], expires_at=share["expires_at"],
+                             aesthetic=outfit.get("aesthetic"), brand=garment.get("brand"),
+                             subcategory=garment.get("subcategory")))
+    return rows
 
 def _sorted_other_last(values: set[str]) -> list[str]:
     return sorted(values, key=lambda value: (value == "other", value))

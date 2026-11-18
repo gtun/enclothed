@@ -67,6 +67,7 @@ UPLOAD_MAX_BYTES = 40 * 1024 * 1024
 MANUAL_OUTFIT_REQUEST = "Put together myself"
 SHARE_LIFETIME_DAYS = 3          # a share link works for this long, then its copy is deleted
 SHARE_PHOTO_SIDE = 1600          # longest side of a shared photo; its thumbnail uses THUMB_SIZE
+DEMO_SHARE_LIMIT = 15            # most live share links the shared demo can have at once
 PREFERENCES_MAX_CHARS = 4000
 PREFERENCES_TOKEN_CAP = 1024
 

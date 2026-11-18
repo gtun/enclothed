@@ -72,6 +72,11 @@ const HELP = {
     "These are estimates from token counts, not a bill.",
     "Only you and the site's admin can see your usage. The admin sees totals and costs, not your prompts.",
   ]},
+  shared: {title: "Shared links", tips: [
+    "Every share link you've made that still works, newest first. Anyone with a link can open it until it expires.",
+    "Each link is a copy of the garment or outfit as it was when you shared it. Open one to see what others see.",
+    "Expired links disappear from this list, and their copies are deleted.",
+  ]},
 };
 
 function helpDialog(topic, firstVisit){

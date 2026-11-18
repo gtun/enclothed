@@ -6,7 +6,7 @@ from contextlib import closing
 import pytest
 from pydantic import ValidationError
 
-from enclothed.db import insert_user, select_user, update_user, select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked, select_owned_garments, select_all_garments, select_outfit, select_all_outfits
+from enclothed.db import insert_user, select_user, update_user, select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked, select_owned_garments, select_all_garments, select_outfit, select_all_outfits, insert_share, select_user_shares
 from enclothed.models import Garment, Outfit
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -726,3 +726,30 @@ def test_shares_migration_adds_an_empty_shares_table(tmp_path):
     with closing(sqlite3.connect(path)) as conn:
         assert conn.execute("SELECT COUNT(*) FROM shares").fetchone() == (0,)
     assert user_version(path) == LATEST
+
+
+# --- share links -------------
+NOW = "2026-11-18T12:00:00+00:00"
+
+def _share(db_path, token, user_id, created_at, expires_at):
+    insert_share(db_path, token, user_id, "garment", created_at, expires_at, {"brand": token})
+
+def test_user_shares_lists_only_live_shares_newest_first(db_path):
+    _share(db_path, "older", 1, "2026-11-17T09:00:00+00:00", "2026-11-20T09:00:00+00:00")
+    _share(db_path, "newer", 1, "2026-11-18T09:00:00+00:00", "2026-11-21T09:00:00+00:00")
+    shares = select_user_shares(db_path, 1, NOW)
+    assert [s["token"] for s in shares] == ["newer", "older"]
+    assert shares[0] == {"token": "newer", "kind": "garment", "created_at": "2026-11-18T09:00:00+00:00",
+                         "expires_at": "2026-11-21T09:00:00+00:00", "snapshot": {"brand": "newer"}}
+
+def test_user_shares_leaves_out_expired_shares_not_yet_purged(db_path):
+    _share(db_path, "expired", 1, "2026-11-14T09:00:00+00:00", "2026-11-17T09:00:00+00:00")
+    _share(db_path, "ends-now", 1, "2026-11-15T12:00:00+00:00", NOW)
+    assert select_user_shares(db_path, 1, NOW) == []
+
+def test_user_shares_leaves_out_other_users_shares(db_path):
+    kim = insert_user(db_path, "kim", "kim@example.com")
+    _share(db_path, "mine", 1, "2026-11-18T09:00:00+00:00", "2026-11-21T09:00:00+00:00")
+    _share(db_path, "kims", kim, "2026-11-18T10:00:00+00:00", "2026-11-21T10:00:00+00:00")
+    assert [s["token"] for s in select_user_shares(db_path, 1, NOW)] == ["mine"]
+    assert [s["token"] for s in select_user_shares(db_path, kim, NOW)] == ["kims"]

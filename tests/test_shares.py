@@ -8,10 +8,11 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from enclothed import api, photos, shares
+from enclothed import api, config, photos, shares
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, PUBLIC_DIR, SCHEMA_PATH
-from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, insert_user, insert_wear, select_garment, update_garment
+from enclothed.config import DEMO_SHARE_LIMIT
+from enclothed.db import init_db, insert_demo_user, insert_garment, insert_outfits, insert_set, insert_share, insert_user, insert_wear, select_garment, update_garment
 from enclothed.intake import TEST_GARMENT
 from enclothed.models import Outfit, User
 
@@ -25,22 +26,33 @@ def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
     init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
     monkeypatch.setattr(api, "DB_PATH", path)
+    monkeypatch.setattr(config, "DB_PATH", path)          # auth.current_user reads it, for acting as someone
     monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
     monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
     return path
 
 
 class Owner:
-    """Signed in as the owner for each of its own requests only, so a stranger's requests never are."""
-    def __init__(self):
+    """Signed in as the owner (or another user) for each of its own requests only, so a stranger's requests never are."""
+    def __init__(self, user=OWNER):
         self.client = TestClient(api.app)
+        self.user = user
 
-    def post(self, *args, **kwargs):
-        api.app.dependency_overrides[signed_in_user] = lambda: OWNER
+    def _send(self, method, *args, **kwargs):
+        api.app.dependency_overrides[signed_in_user] = lambda: self.user
         try:
-            return self.client.post(*args, **kwargs)
+            return getattr(self.client, method)(*args, **kwargs)
         finally:
             api.app.dependency_overrides.clear()
+
+    def post(self, *args, **kwargs):
+        return self._send("post", *args, **kwargs)
+
+    def get(self, *args, **kwargs):
+        return self._send("get", *args, **kwargs)
+
+    def put(self, *args, **kwargs):
+        return self._send("put", *args, **kwargs)
 
 
 @pytest.fixture
@@ -256,3 +268,87 @@ def test_the_shared_page_has_no_wardrobe_account_ai_or_help_controls():
     for src in scripts:
         code = (PUBLIC_DIR / src.removeprefix("/s/static/")).read_text()
         assert not re.search(r"[\"'`]/api/", code), f"{src} calls the signed-in API"
+
+
+# --- the demo's limit ------------------------------------------------------------------
+def fill(db_path, user_id, count, expires_at="2099-01-01T00:00:00+00:00"):
+    """count share rows for user_id, without photos: enough for counting."""
+    for n in range(count):
+        insert_share(db_path, f"filler-{user_id}-{n}", user_id, "garment", "2026-11-18T00:00:00+00:00", expires_at, {})
+
+
+def test_a_limit_refuses_a_new_share_before_copying_anything(db_path, garment_id, tmp_path):
+    folder = tmp_path / "shares"
+    now = datetime(2026, 11, 18, 12, tzinfo=timezone.utc)
+    shares.share_garment(db_path, folder, 1, garment_id, "en-US", now, limit=2)
+    shares.share_garment(db_path, folder, 1, garment_id, "en-US", now, limit=2)
+
+    with pytest.raises(shares.ShareLimitReached):
+        shares.share_garment(db_path, folder, 1, garment_id, "en-US", now, limit=2)
+    assert len(list(folder.iterdir())) == 2
+
+
+def test_expired_shares_dont_count_toward_a_limit(db_path, garment_id, tmp_path):
+    fill(db_path, 1, 2, expires_at="2026-11-18T00:00:00+00:00")
+    now = datetime(2026, 11, 18, 12, tzinfo=timezone.utc)
+    assert shares.share_garment(db_path, tmp_path / "shares", 1, garment_id, "en-US", now, limit=2) is not None
+
+
+def test_the_demo_cant_have_more_than_its_limit_of_live_links(db_path):
+    demo_id = insert_demo_user(db_path, "demo")
+    shirt = insert_garment(db_path, demo_id, TEST_GARMENT)
+    demo = Owner(User(id=demo_id, username="demo", is_demo=True))
+    fill(db_path, demo_id, DEMO_SHARE_LIMIT - 1)
+    make(demo, "garment", shirt)
+
+    response = demo.post("/api/shares", json={"kind": "garment", "id": shirt})
+    assert response.status_code == 409
+    assert str(DEMO_SHARE_LIMIT) in response.json()["detail"]
+
+
+def test_other_users_have_no_limit(owner, db_path, garment_id):
+    fill(db_path, 1, DEMO_SHARE_LIMIT)
+    make(owner, "garment", garment_id)
+
+
+# --- the list of your links ------------------------------------------------------------
+LIVE = "2099-01-01T00:00:00+00:00"
+SHARE_OUT_KEYS = {"token", "path", "kind", "created_at", "expires_at", "aesthetic", "brand", "subcategory"}
+
+
+def test_the_list_shows_what_each_link_is_and_nothing_else_from_it(owner, garment_id, outfit_id):
+    garment_link, outfit_link = make(owner, "garment", garment_id), make(owner, "outfit", outfit_id)
+    rows = {row["path"]: row for row in owner.get("/api/shares").json()}
+
+    assert set(rows) == {garment_link["path"], outfit_link["path"]}
+    for row in rows.values():
+        assert set(row) == SHARE_OUT_KEYS
+        assert row["path"] == f"/s/{row['token']}"
+    garment_row, outfit_row = rows[garment_link["path"]], rows[outfit_link["path"]]
+    assert (garment_row["kind"], garment_row["brand"], garment_row["subcategory"], garment_row["aesthetic"]) == \
+           ("garment", "Kapital", TEST_GARMENT.subcategory, None)
+    assert (outfit_row["kind"], outfit_row["aesthetic"], outfit_row["brand"]) == ("outfit", "Workwear Americana", None)
+    assert garment_row["expires_at"] == garment_link["expires_at"]
+
+
+def test_the_list_has_only_your_live_links_newest_first(owner, db_path):
+    kim = insert_user(db_path, "kim", "kim@example.com")
+    insert_share(db_path, "older", 1, "garment", "2026-11-17T09:00:00+00:00", LIVE, {"garment": {}})
+    insert_share(db_path, "newer", 1, "garment", "2026-11-18T09:00:00+00:00", LIVE, {"garment": {}})
+    insert_share(db_path, "expired", 1, "garment", "2026-11-01T09:00:00+00:00", "2026-11-04T09:00:00+00:00", {"garment": {}})
+    insert_share(db_path, "kims", kim, "garment", "2026-11-18T10:00:00+00:00", LIVE, {"garment": {}})
+
+    assert [row["token"] for row in owner.get("/api/shares").json()] == ["newer", "older"]
+
+
+def test_an_admin_acting_as_someone_sees_their_links(owner, db_path):
+    kim = insert_user(db_path, "kim", "kim@example.com")
+    insert_share(db_path, "mine", 1, "garment", "2026-11-18T09:00:00+00:00", LIVE, {"garment": {}})
+    insert_share(db_path, "kims", kim, "garment", "2026-11-18T10:00:00+00:00", LIVE, {"garment": {}})
+
+    assert owner.put("/api/act-as", json={"user_id": kim}).status_code == 204
+    assert [row["token"] for row in owner.get("/api/shares").json()] == ["kims"]
+
+
+def test_listing_links_needs_a_sign_in(stranger):
+    assert stranger.get("/api/shares").status_code in (401, 503)
