@@ -698,6 +698,18 @@ class ShareCreatedOut(BaseModel):
     path: str          # "/s/<token>": the page joins it to its own address
     expires_at: str
 
+class ShareOut(BaseModel):
+    """One of your live share links, as the Shared links page lists it. The page builds the label:
+    an outfit's aesthetic, or a garment's brand and (translated) subcategory."""
+    token: str
+    path: str          # "/s/<token>", like ShareCreatedOut
+    kind: Literal["garment", "outfit"]
+    created_at: str
+    expires_at: str
+    aesthetic: str | None = None     # outfits
+    brand: str | None = None         # garments
+    subcategory: str | None = None   # garments, in English like everywhere else
+
 class OutfitLikedIn(BaseModel):
     liked: bool | None
 

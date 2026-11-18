@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from enclothed import api, photos, shares
+from enclothed import api, config, photos, shares
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, PUBLIC_DIR, SCHEMA_PATH
 from enclothed.config import DEMO_SHARE_LIMIT
@@ -26,6 +26,7 @@ def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
     init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
     monkeypatch.setattr(api, "DB_PATH", path)
+    monkeypatch.setattr(config, "DB_PATH", path)          # auth.current_user reads it, for acting as someone
     monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
     monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
     return path
@@ -37,12 +38,21 @@ class Owner:
         self.client = TestClient(api.app)
         self.user = user
 
-    def post(self, *args, **kwargs):
+    def _send(self, method, *args, **kwargs):
         api.app.dependency_overrides[signed_in_user] = lambda: self.user
         try:
-            return self.client.post(*args, **kwargs)
+            return getattr(self.client, method)(*args, **kwargs)
         finally:
             api.app.dependency_overrides.clear()
+
+    def post(self, *args, **kwargs):
+        return self._send("post", *args, **kwargs)
+
+    def get(self, *args, **kwargs):
+        return self._send("get", *args, **kwargs)
+
+    def put(self, *args, **kwargs):
+        return self._send("put", *args, **kwargs)
 
 
 @pytest.fixture
@@ -299,3 +309,46 @@ def test_the_demo_cant_have_more_than_its_limit_of_live_links(db_path):
 def test_other_users_have_no_limit(owner, db_path, garment_id):
     fill(db_path, 1, DEMO_SHARE_LIMIT)
     make(owner, "garment", garment_id)
+
+
+# --- the list of your links ------------------------------------------------------------
+LIVE = "2099-01-01T00:00:00+00:00"
+SHARE_OUT_KEYS = {"token", "path", "kind", "created_at", "expires_at", "aesthetic", "brand", "subcategory"}
+
+
+def test_the_list_shows_what_each_link_is_and_nothing_else_from_it(owner, garment_id, outfit_id):
+    garment_link, outfit_link = make(owner, "garment", garment_id), make(owner, "outfit", outfit_id)
+    rows = {row["path"]: row for row in owner.get("/api/shares").json()}
+
+    assert set(rows) == {garment_link["path"], outfit_link["path"]}
+    for row in rows.values():
+        assert set(row) == SHARE_OUT_KEYS
+        assert row["path"] == f"/s/{row['token']}"
+    garment_row, outfit_row = rows[garment_link["path"]], rows[outfit_link["path"]]
+    assert (garment_row["kind"], garment_row["brand"], garment_row["subcategory"], garment_row["aesthetic"]) == \
+           ("garment", "Kapital", TEST_GARMENT.subcategory, None)
+    assert (outfit_row["kind"], outfit_row["aesthetic"], outfit_row["brand"]) == ("outfit", "Workwear Americana", None)
+    assert garment_row["expires_at"] == garment_link["expires_at"]
+
+
+def test_the_list_has_only_your_live_links_newest_first(owner, db_path):
+    kim = insert_user(db_path, "kim", "kim@example.com")
+    insert_share(db_path, "older", 1, "garment", "2026-11-17T09:00:00+00:00", LIVE, {"garment": {}})
+    insert_share(db_path, "newer", 1, "garment", "2026-11-18T09:00:00+00:00", LIVE, {"garment": {}})
+    insert_share(db_path, "expired", 1, "garment", "2026-11-01T09:00:00+00:00", "2026-11-04T09:00:00+00:00", {"garment": {}})
+    insert_share(db_path, "kims", kim, "garment", "2026-11-18T10:00:00+00:00", LIVE, {"garment": {}})
+
+    assert [row["token"] for row in owner.get("/api/shares").json()] == ["newer", "older"]
+
+
+def test_an_admin_acting_as_someone_sees_their_links(owner, db_path):
+    kim = insert_user(db_path, "kim", "kim@example.com")
+    insert_share(db_path, "mine", 1, "garment", "2026-11-18T09:00:00+00:00", LIVE, {"garment": {}})
+    insert_share(db_path, "kims", kim, "garment", "2026-11-18T10:00:00+00:00", LIVE, {"garment": {}})
+
+    assert owner.put("/api/act-as", json={"user_id": kim}).status_code == 204
+    assert [row["token"] for row in owner.get("/api/shares").json()] == ["kims"]
+
+
+def test_listing_links_needs_a_sign_in(stranger):
+    assert stranger.get("/api/shares").status_code in (401, 503)

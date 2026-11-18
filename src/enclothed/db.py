@@ -570,12 +570,12 @@ def select_share(db_path: Path, token: str, now: str) -> dict | None:
 
 
 def select_user_shares(db_path: Path, user_id: int, now: str) -> list[dict]:
-    """One user's shares that haven't expired, newest first. Expired ones can still be in the table until
+    """One user's shares that haven't expired, newest first (ties: last inserted first). Expired ones can still be in the table until
     the next purge, so the expiry check is what keeps them out."""
     with closing(_connect(db_path)) as conn:
         rows = conn.execute(
             "SELECT token, kind, created_at, expires_at, snapshot FROM shares "
-            "WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC",
+            "WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC, rowid DESC",
             (user_id, now),
         ).fetchall()
     return [{"token": r[0], "kind": r[1], "created_at": r[2], "expires_at": r[3], "snapshot": json.loads(r[4])} for r in rows]

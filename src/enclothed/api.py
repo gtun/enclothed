@@ -27,7 +27,7 @@ from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, WeighCreatedOut, WeighIn, WeighOut, blank_fields,
-    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn,
+    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut,
 )
 from enclothed.insights import answer_question
 from enclothed.llm import UnusableResponse, improve_preferences
@@ -474,6 +474,12 @@ def create_share(body: ShareIn, user: CurrentUser) -> ShareCreatedOut:
         raise HTTPException(status_code=404, detail=f"{body.kind.capitalize()} {body.id} not found")
     token, expires_at = made
     return ShareCreatedOut(path=f"/s/{token}", expires_at=expires_at)
+
+
+@app.get("/api/shares")
+def list_shares(user: CurrentUser) -> list[ShareOut]:
+    """Your live share links, newest first. In the demo, every visitor's links."""
+    return responses.list_shares(DB_PATH, user.id, _now())
 
 
 # --- preferences ---------------------
