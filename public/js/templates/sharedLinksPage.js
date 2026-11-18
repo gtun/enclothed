@@ -10,20 +10,29 @@ function relativeTime(ts){
     : Math.abs(seconds) >= 3600 ? [seconds / 3600, "hour"] : [seconds / 60, "minute"];
   return new Intl.RelativeTimeFormat(SETTINGS.locale, {numeric: "auto"}).format(Math.round(value), unit);
 }
-const bothTimes = (label, ts) => `<div class="slwhen"><small>${esc(label)}</small><b>${esc(relativeTime(ts))}</b><small>${esc(whenLong(ts))}</small></div>`;
+const bothTimes = (label, ts, note = "") => `<div class="slwhen"><small>${esc(label)}</small><b>${esc(relativeTime(ts))}</b><small>${esc(whenLong(ts))}</small>${note}</div>`;
+/* A link can be extended until it expires at max_expires_at: a fixed number of days after it was made. */
+const atLimit = row => row.expires_at >= row.max_expires_at;
+const maxDays = row => Math.round((new Date(row.max_expires_at) - new Date(row.created_at)) / 86400000);
 /* The page builds the label so fixed terms are translated: an outfit's name, or a garment's brand and subcategory. */
 const shareLabel = row => row.kind === "outfit" ? row.aesthetic || "Outfit" : title(row) || "Garment";
 
+function extendButton(row){
+  if (atLimit(row)) return `<button type="button" class="btn" disabled title="Links last at most ${maxDays(row)} days from when they're made">Extend</button>`;
+  const busy = sharedLinks.busy === row.token;
+  return `<button type="button" class="btn" data-extend="${esc(row.token)}" ${busy ? "disabled" : ""} title="Make it last 72 hours from now. It can be extended until ${esc(whenLong(row.max_expires_at))}.">Extend</button>`;
+}
 function sharedLinkRow(row){
   const confirming = sharedLinks.confirm === row.token, busy = sharedLinks.busy === row.token;
   const t = esc(row.token);
   const actions = confirming
     ? `<div class="slconfirm"><p class="dnote">Revoke this link? It stops working right away for everyone who has it.</p>
          <div class="hero-actions"><button type="button" class="btn primary" data-revoke-yes="${t}" ${busy ? "disabled" : ""}>Yes, revoke it</button><button type="button" class="btn" data-revoke-no ${busy ? "disabled" : ""}>Keep it</button></div></div>`
-    : `<div class="slbtns"><button type="button" class="btn" data-copy-share="${esc(row.path)}">Copy link</button><button type="button" class="btn quiet" data-revoke="${t}">Revoke</button></div>`;
+    : `<div class="slbtns"><button type="button" class="btn" data-copy-share="${esc(row.path)}">Copy link</button>${extendButton(row)}<button type="button" class="btn quiet" data-revoke="${t}">Revoke</button></div>`;
+  const limitNote = atLimit(row) ? `<small class="sllimit">At the ${maxDays(row)}-day limit</small>` : "";
   return `<li class="slrow">
     <div class="slwhat"><a href="${esc(row.path)}" target="_blank" rel="noopener">${esc(shareLabel(row))}</a><small>${esc(SHARE_KIND_LABEL[row.kind])}</small></div>
-    ${bothTimes("Created", row.created_at)}${bothTimes("Expires", row.expires_at)}
+    ${bothTimes("Created", row.created_at)}${bothTimes("Expires", row.expires_at, limitNote)}
     ${actions}</li>`;
 }
 
@@ -35,5 +44,5 @@ function sharedLinksPage(){
   if (sharedLinks.error) return hero + `<p class="empty">${esc(sharedLinks.error)}</p>`;
   if (!sharedLinks.rows) return hero + `<div class="busy" role="status"><span class="spin" aria-hidden="true"></span>Loading…</div>`;
   if (!sharedLinks.rows.length) return hero + `<p class="empty">No live links. Use <b>Share</b> on a garment or outfit page to make one.</p>`;
-  return `${hero}<main class="usage"><section class="panel"><ul class="sllist" aria-label="Shared links">${sharedLinks.rows.map(sharedLinkRow).join("")}</ul></section></main>`;
+  return `${hero}<main class="usage slpage"><section class="panel"><ul class="sllist" aria-label="Shared links">${sharedLinks.rows.map(sharedLinkRow).join("")}</ul></section></main>`;
 }

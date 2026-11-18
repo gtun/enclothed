@@ -6,7 +6,7 @@ from contextlib import closing
 import pytest
 from pydantic import ValidationError
 
-from enclothed.db import insert_user, select_user, update_user, select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked, select_owned_garments, select_all_garments, select_outfit, select_all_outfits, insert_share, select_user_shares, delete_share
+from enclothed.db import insert_user, select_user, update_user, select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked, select_owned_garments, select_all_garments, select_outfit, select_all_outfits, insert_share, select_user_shares, delete_share, update_share_expiry
 from enclothed.models import Garment, Outfit
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
@@ -764,3 +764,14 @@ def test_delete_share_deletes_only_your_own_live_share(db_path):
     assert not delete_share(db_path, "missing", 1, NOW)
     assert delete_share(db_path, "mine", 1, NOW)
     assert select_user_shares(db_path, 1, NOW) == []
+
+def test_update_share_expiry_changes_only_your_own_live_share(db_path):
+    kim = insert_user(db_path, "kim", "kim@example.com")
+    _share(db_path, "mine", 1, "2026-11-18T09:00:00+00:00", "2026-11-21T09:00:00+00:00")
+    _share(db_path, "expired", 1, "2026-11-14T09:00:00+00:00", "2026-11-17T09:00:00+00:00")
+    later = "2026-11-22T09:00:00+00:00"
+
+    assert not update_share_expiry(db_path, "mine", kim, later, NOW)
+    assert not update_share_expiry(db_path, "expired", 1, later, NOW)
+    assert update_share_expiry(db_path, "mine", 1, later, NOW)
+    assert [s["expires_at"] for s in select_user_shares(db_path, 1, NOW)] == [later]

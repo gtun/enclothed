@@ -21,7 +21,7 @@ from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH,
-    MIMIC_LOG_PATH, SHARES_DIR, DEMO_SHARE_LIMIT
+    MIMIC_LOG_PATH, SHARES_DIR, DEMO_SHARE_LIMIT, SHARE_MAX_LIFETIME_DAYS
 )
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
@@ -481,6 +481,21 @@ def revoke_share(token: str, user: CurrentUser) -> None:
     """End one of your live links now. Someone else's, or one that has expired, is a 404 like a wrong token."""
     if not shares.revoke(DB_PATH, SHARES_DIR, user.id, token, datetime.now(timezone.utc)):
         raise HTTPException(status_code=404, detail="That link has expired or doesn't exist.")
+
+
+@app.post("/api/shares/{token}/extend")
+def extend_share(token: str, user: CurrentUser) -> ShareOut:
+    """Make one of your live links last 72 hours from now, up to 12 days after it was made."""
+    now = datetime.now(timezone.utc)
+    try:
+        extended = shares.extend(DB_PATH, user.id, token, now)
+    except shares.ShareAtMaxLifetime:
+        raise HTTPException(status_code=409, detail=f"This link already lasts the longest a link can: "
+                                                    f"{SHARE_MAX_LIFETIME_DAYS} days from when it was made.")
+    share = responses.get_share(DB_PATH, user.id, token, now.isoformat(timespec="seconds")) if extended else None
+    if share is None:
+        raise HTTPException(status_code=404, detail="That link has expired or doesn't exist.")
+    return share
 
 
 @app.get("/api/shares")

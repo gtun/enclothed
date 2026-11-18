@@ -1,4 +1,4 @@
-/* The Shared links page: loads your live share links and handles copying and revoking. Its markup is in templates/sharedLinksPage.js.
+/* The Shared links page: loads your live share links and handles copying, extending and revoking. Its markup is in templates/sharedLinksPage.js.
    Revoke asks first, in the row itself (like deleting a look): sharedLinks.confirm is the token waiting for "Yes". */
 "use strict";
 
@@ -34,14 +34,30 @@ async function revokeLink(token){
     if (current === "shared") refresh();
   }
 }
+async function extendLink(token){
+  if (sharedLinks.busy) return;
+  sharedLinks.busy = token; refresh();
+  try {
+    const row = await api(`/api/shares/${encodeURIComponent(token)}/extend`, {method: "POST"});
+    sharedLinks.rows = sharedLinks.rows.map(r => r.token === token ? row : r);
+    toast(`Extended. It now expires ${relativeTime(row.expires_at)}${atLimit(row) ? ", the longest it can last" : ""}.`);
+  } catch (e) {
+    toast(e.message, true);
+    loadSharedLinks();   // it may have expired or been revoked meanwhile
+  } finally {
+    sharedLinks.busy = null;
+    if (current === "shared") refresh();
+  }
+}
 function handleSharedLinksClick(e){
-  const t = e.target.closest("[data-copy-share],[data-revoke],[data-revoke-yes],[data-revoke-no]");
+  const t = e.target.closest("[data-copy-share],[data-extend],[data-revoke],[data-revoke-yes],[data-revoke-no]");
   if (!t) return false;
   if (t.hasAttribute("data-copy-share")){
     const url = location.origin + t.dataset.copyShare;
     navigator.clipboard.writeText(url).then(() => toast("Link copied"),
       () => toast(`Couldn't copy. The link is ${url}`, true));
   }
+  else if (t.hasAttribute("data-extend")) extendLink(t.dataset.extend);
   else if (t.hasAttribute("data-revoke")){ sharedLinks.confirm = t.dataset.revoke; refresh(); }
   else if (t.hasAttribute("data-revoke-no")){ sharedLinks.confirm = null; refresh(); }
   else if (t.hasAttribute("data-revoke-yes")) revokeLink(t.dataset.revokeYes);

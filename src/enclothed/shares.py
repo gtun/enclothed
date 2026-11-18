@@ -39,6 +39,10 @@ class ShareLimitReached(Exception):
     """This user already has as many live share links as they're allowed."""
 
 
+class ShareAtMaxLifetime(Exception):
+    """This link already expires SHARE_MAX_LIFETIME_DAYS after it was made, so it can't be extended."""
+
+
 def new_token() -> str:
     """128 random bits, URL-safe: nobody finds a share by guessing."""
     return secrets.token_urlsafe(16)
@@ -138,6 +142,23 @@ def revoke(db_path: Path, shares_dir: Path, user_id: int, token: str, now: datet
     shutil.rmtree(shares_dir / token, ignore_errors=True)   # if this fails, start-up removes the orphaned folder
     logger.info("Revoked a share")
     return True
+
+
+def extend(db_path: Path, user_id: int, token: str, now: datetime) -> str | None:
+    """Make one of this user's live links last SHARE_LIFETIME_DAYS from now, but never past its maximum lifetime,
+    and never shorter than it already is. Returns the new expiry, or None if it isn't theirs or isn't live.
+    Raises ShareAtMaxLifetime if it already expires at its maximum."""
+    share = db.select_user_share(db_path, token, user_id, _iso(now))
+    if share is None:
+        return None
+    limit = responses.max_share_expiry(share["created_at"])
+    if share["expires_at"] >= limit:
+        raise ShareAtMaxLifetime
+    expires_at = max(share["expires_at"], min(_iso(now + timedelta(days=SHARE_LIFETIME_DAYS)), limit))
+    if not db.update_share_expiry(db_path, token, user_id, expires_at, _iso(now)):
+        return None   # it expired or was revoked in between
+    logger.info("Extended a share, link expires %s", expires_at)
+    return expires_at
 
 
 def purge_expired(db_path: Path, shares_dir: Path, now: datetime) -> None:

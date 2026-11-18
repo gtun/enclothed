@@ -3,7 +3,7 @@ import json
 import re
 import sqlite3
 from contextlib import closing
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -139,6 +139,7 @@ COVERED_ELSEWHERE = {   # these don't answer 200, so they have their own tests b
     ("POST", "/api/looks/{}/recreations"),    # 201, after an AI call
     ("DELETE", "/api/looks/{}"),              # 204
     ("DELETE", "/api/shares/{}"),             # 204
+    ("POST", "/api/shares/{}/extend"),        # needs a share token, not a wardrobe id
     # Share links: open to anyone with the link by design, and they never read a wardrobe (test_shares.py)
     ("GET", "/s/options/{}"),
     ("GET", "/s/{}"),
@@ -154,13 +155,19 @@ def test_someone_elses_garment_or_outfit_cant_be_shared(bob, alice_data, bob_dat
         assert bob.post("/api/shares", json={"kind": kind, "id": bob_data[kind]}).status_code == 201
 
 
-def test_someone_elses_share_link_cant_be_listed_or_revoked(bob, db_path):
+def test_someone_elses_share_link_cant_be_listed_extended_or_revoked(bob, db_path):
+    made = datetime.now(timezone.utc) - timedelta(days=1)   # live, and extendable: it hasn't reached its 12 days
+    expires = (made + timedelta(days=3)).isoformat(timespec="seconds")
     for token, user_id in (("alices-link", 1), ("bobs-link", 2)):
-        insert_share(db_path, token, user_id, "garment", TIMESTAMP, "2099-01-01T00:00:00+00:00", {"garment": {}})
+        insert_share(db_path, token, user_id, "garment", made.isoformat(timespec="seconds"), expires, {"garment": {}})
     assert [row["token"] for row in bob.get("/api/shares").json()] == ["bobs-link"]
     assert bob.delete("/api/shares/alices-link").status_code == 404
     with closing(sqlite3.connect(db_path)) as conn:
         assert conn.execute("SELECT token FROM shares WHERE user_id = 1").fetchall() == [("alices-link",)]
+    assert bob.post("/api/shares/alices-link/extend").status_code == 404
+    with closing(sqlite3.connect(db_path)) as conn:
+        assert conn.execute("SELECT expires_at FROM shares WHERE token = 'alices-link'").fetchone() == (expires,)
+    assert bob.post("/api/shares/bobs-link/extend").status_code == 200
     assert bob.delete("/api/shares/bobs-link").status_code == 204
 
 
