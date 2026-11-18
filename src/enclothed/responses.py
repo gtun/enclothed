@@ -1,4 +1,5 @@
 """Builds the *Out models the API sends, from database records and photo folders."""
+from datetime import datetime, timedelta
 from pathlib import Path
 from enclothed import db, i18n
 from typing import get_args
@@ -8,6 +9,7 @@ from enclothed.models import (
     ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, LookOut, OptionsOut,
     OutfitGarmentOut, OutfitOut, SetOut, ShareOut, blank_fields,
 )
+from enclothed.config import SHARE_MAX_LIFETIME_DAYS
 from enclothed.fabrics import FABRIC_TYPES
 from enclothed.photos import get_garment_photos, get_look_photos
 
@@ -64,17 +66,27 @@ def list_looks(db_path: Path, user_id: int) -> list[LookOut]:
 def list_sets(db_path: Path, user_id: int) -> list[SetOut]:
     return [SetOut(id=set_id, name=name) for set_id, name in db.select_all_sets(db_path, user_id).items()]
 
+def max_share_expiry(created_at: str) -> str:
+    """The latest a link made at created_at can expire, however often it's extended. Here rather than in
+    shares.py, which imports this module, so the list and extend share one definition."""
+    return (datetime.fromisoformat(created_at) + timedelta(days=SHARE_MAX_LIFETIME_DAYS)).isoformat(timespec="seconds")
+
+def _to_share_out(share: dict) -> ShareOut:
+    """Only what the list shows from a snapshot: enough for a label."""
+    snapshot = share["snapshot"]
+    outfit, garment = snapshot.get("outfit") or {}, snapshot.get("garment") or {}
+    return ShareOut(token=share["token"], path=f"/s/{share['token']}", kind=share["kind"],
+                    created_at=share["created_at"], expires_at=share["expires_at"],
+                    max_expires_at=max_share_expiry(share["created_at"]),
+                    aesthetic=outfit.get("aesthetic"), brand=garment.get("brand"), subcategory=garment.get("subcategory"))
+
 def list_shares(db_path: Path, user_id: int, now: str) -> list[ShareOut]:
-    """This user's live share links, newest first, with only what the list shows from each snapshot."""
-    rows = []
-    for share in db.select_user_shares(db_path, user_id, now):
-        snapshot = share["snapshot"]
-        outfit, garment = snapshot.get("outfit") or {}, snapshot.get("garment") or {}
-        rows.append(ShareOut(token=share["token"], path=f"/s/{share['token']}", kind=share["kind"],
-                             created_at=share["created_at"], expires_at=share["expires_at"],
-                             aesthetic=outfit.get("aesthetic"), brand=garment.get("brand"),
-                             subcategory=garment.get("subcategory")))
-    return rows
+    """This user's live share links, newest first."""
+    return [_to_share_out(share) for share in db.select_user_shares(db_path, user_id, now)]
+
+def get_share(db_path: Path, user_id: int, token: str, now: str) -> ShareOut | None:
+    share = db.select_user_share(db_path, token, user_id, now)
+    return _to_share_out(share) if share else None
 
 def _sorted_other_last(values: set[str]) -> list[str]:
     return sorted(values, key=lambda value: (value == "other", value))

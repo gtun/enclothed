@@ -709,6 +709,7 @@ class ShareOut(BaseModel):
     aesthetic: str | None = None     # outfits
     brand: str | None = None         # garments
     subcategory: str | None = None   # garments, in English like everywhere else
+    max_expires_at: str               # the latest it can expire, however often it's extended
 
 class OutfitLikedIn(BaseModel):
     liked: bool | None

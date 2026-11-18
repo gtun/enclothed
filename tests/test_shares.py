@@ -316,7 +316,7 @@ def test_other_users_have_no_limit(owner, db_path, garment_id):
 
 # --- the list of your links ------------------------------------------------------------
 LIVE = "2099-01-01T00:00:00+00:00"
-SHARE_OUT_KEYS = {"token", "path", "kind", "created_at", "expires_at", "aesthetic", "brand", "subcategory"}
+SHARE_OUT_KEYS = {"token", "path", "kind", "created_at", "expires_at", "max_expires_at", "aesthetic", "brand", "subcategory"}
 
 
 def test_the_list_shows_what_each_link_is_and_nothing_else_from_it(owner, garment_id, outfit_id):
@@ -415,3 +415,94 @@ def test_revoking_needs_a_sign_in(stranger, owner, garment_id):
     link = make(owner, "garment", garment_id)
     assert stranger.delete(f"/api/shares/{token_of(link)}").status_code in (401, 503)
     assert opens(stranger, link["path"])
+
+
+# --- extending a link ------------------------------------------------------------------
+MADE = datetime(2026, 11, 1, 12, tzinfo=timezone.utc)   # every share below is made at this moment
+LIMIT = "2026-11-13T12:00:00+00:00"                      # 12 days later
+
+
+def iso(moment):
+    return moment.isoformat(timespec="seconds")
+
+
+@pytest.fixture
+def made(db_path, garment_id, tmp_path):
+    """A garment link made at MADE: its token."""
+    token, _ = shares.share_garment(db_path, tmp_path / "shares", 1, garment_id, "en-US", MADE)
+    return token
+
+
+def test_extending_makes_a_link_last_72_hours_from_now(db_path, made):
+    now = MADE + timedelta(days=2, hours=5)
+    assert shares.extend(db_path, 1, made, now) == iso(now + timedelta(hours=72))
+
+
+def test_extending_stops_at_12_days_after_the_link_was_made(db_path, made):
+    now = MADE + timedelta(days=2)
+    for _ in range(3):   # each extension moves "now" on 2.9 days, keeping the link live
+        shares.extend(db_path, 1, made, now)
+        now += timedelta(days=2, hours=22)
+    assert now + timedelta(hours=72) > datetime.fromisoformat(LIMIT)   # 72 hours from now would pass the limit
+    assert shares.extend(db_path, 1, made, now) == LIMIT
+
+
+def test_a_link_at_its_limit_cant_be_extended(db_path, made):
+    with closing(sqlite3.connect(db_path)) as conn, conn:
+        conn.execute("UPDATE shares SET expires_at = ? WHERE token = ?", (LIMIT, made))
+    with pytest.raises(shares.ShareAtMaxLifetime):
+        shares.extend(db_path, 1, made, MADE + timedelta(days=11))
+
+
+def test_extending_never_makes_a_link_shorter(db_path, made, monkeypatch):
+    """Say the lifetime is cut to 1 day later on: extending a link made under 3 days mustn't shorten it."""
+    monkeypatch.setattr(shares, "SHARE_LIFETIME_DAYS", 1)
+    assert shares.extend(db_path, 1, made, MADE + timedelta(hours=1)) == iso(MADE + timedelta(hours=72))
+
+
+def test_an_expired_link_cant_be_extended_back_to_life(db_path, made):
+    expired = MADE + timedelta(hours=72)
+    assert shares.extend(db_path, 1, made, expired) is None
+    assert shares.load(db_path, made, expired) is None
+
+
+def test_an_extended_link_works_past_its_old_expiry(db_path, made):
+    old_expiry = MADE + timedelta(hours=72)
+    shares.extend(db_path, 1, made, MADE + timedelta(days=2))
+    assert shares.load(db_path, made, old_expiry + timedelta(hours=1)) is not None
+
+
+def test_the_extend_endpoint_returns_the_updated_row(owner, garment_id):
+    link = make(owner, "garment", garment_id)
+    response = owner.post(f"/api/shares/{token_of(link)}/extend")
+    assert response.status_code == 200
+    row = response.json()
+    assert set(row) == SHARE_OUT_KEYS
+    assert row["expires_at"] >= link["expires_at"]
+    created = datetime.fromisoformat(row["created_at"])
+    assert row["max_expires_at"] == iso(created + timedelta(days=12))
+
+
+def test_extending_a_link_that_doesnt_exist_is_a_404(owner):
+    assert owner.post("/api/shares/no-such-token/extend").status_code == 404
+
+
+def test_extending_a_link_at_its_limit_is_a_409(owner, db_path):
+    now = datetime.now(timezone.utc)
+    created = now - timedelta(days=11)
+    insert_share(db_path, "old-link", 1, "garment", iso(created), iso(created + timedelta(days=12)), {"garment": {}})
+    response = owner.post("/api/shares/old-link/extend")
+    assert response.status_code == 409
+    assert "12 days" in response.json()["detail"]
+
+
+def test_you_cant_extend_someone_elses_link(owner, db_path, garment_id):
+    link = make(owner, "garment", garment_id)
+    kim = Owner(User(id=insert_user(db_path, "kim", "kim@example.com"), username="kim"))
+    assert kim.post(f"/api/shares/{token_of(link)}/extend").status_code == 404
+    assert owner.get("/api/shares").json()[0]["expires_at"] == link["expires_at"]
+
+
+def test_extending_needs_a_sign_in(stranger, owner, garment_id):
+    link = make(owner, "garment", garment_id)
+    assert stranger.post(f"/api/shares/{token_of(link)}/extend").status_code in (401, 503)
