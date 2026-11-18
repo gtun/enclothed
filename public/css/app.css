@@ -468,13 +468,15 @@ body.with-builder .wrap{margin-right:max(392px,calc((100% - 1180px)/2))}
 .iconbtn.helpbtn[hidden]{display:none}
 
 /* shared links */
+.slpage{padding-bottom:64px}   /* room to scroll the last row clear of "Ask your wardrobe" */
 .sllist{list-style:none;margin:0;padding:0}
-.slrow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 11.5rem;gap:6px 16px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:.86rem}
+.slrow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 16rem;gap:6px 16px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:.86rem}
 .slrow:first-child{padding-top:0}
 .slrow:last-child{border-bottom:0;padding-bottom:0}
 .slwhat a{font-weight:500;overflow-wrap:anywhere}
 .slwhat small,.slwhen small{display:block;color:var(--muted);font-size:.76rem}
 .slwhen b{display:block;font-weight:500}
+.slwhen .sllimit{color:var(--ink);font-weight:500}
 .slbtns{display:flex;gap:6px;justify-content:flex-end}
 .slconfirm{grid-column:1/-1}
 .slconfirm .dnote{margin:0}
