@@ -15,7 +15,7 @@ from enclothed import config
 from enclothed import api, photos
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
-from enclothed.db import init_db, insert_garment, insert_look, insert_outfits, insert_set, insert_wear, insert_weigh, save_preferences, select_garment
+from enclothed.db import init_db, insert_garment, insert_look, insert_outfits, insert_set, insert_share, insert_wear, insert_weigh, save_preferences, select_garment
 from enclothed.intake import TEST_GARMENT
 from enclothed.models import Draft, LookPiece, LookTags, Outfit, OutfitGarment, User, WeighVerdict
 
@@ -138,6 +138,7 @@ COVERED_ELSEWHERE = {   # these don't answer 200, so they have their own tests b
     ("DELETE", "/api/outfits/{}/wears/{}"),   # needs a wear ID too
     ("POST", "/api/looks/{}/recreations"),    # 201, after an AI call
     ("DELETE", "/api/looks/{}"),              # 204
+    ("DELETE", "/api/shares/{}"),             # 204
     # Share links: open to anyone with the link by design, and they never read a wardrobe (test_shares.py)
     ("GET", "/s/options/{}"),
     ("GET", "/s/{}"),
@@ -151,6 +152,16 @@ def test_someone_elses_garment_or_outfit_cant_be_shared(bob, alice_data, bob_dat
     for kind in ("garment", "outfit"):
         assert bob.post("/api/shares", json={"kind": kind, "id": alice_data[kind]}).status_code == 404
         assert bob.post("/api/shares", json={"kind": kind, "id": bob_data[kind]}).status_code == 201
+
+
+def test_someone_elses_share_link_cant_be_listed_or_revoked(bob, db_path):
+    for token, user_id in (("alices-link", 1), ("bobs-link", 2)):
+        insert_share(db_path, token, user_id, "garment", TIMESTAMP, "2099-01-01T00:00:00+00:00", {"garment": {}})
+    assert [row["token"] for row in bob.get("/api/shares").json()] == ["bobs-link"]
+    assert bob.delete("/api/shares/alices-link").status_code == 404
+    with closing(sqlite3.connect(db_path)) as conn:
+        assert conn.execute("SELECT token FROM shares WHERE user_id = 1").fetchall() == [("alices-link",)]
+    assert bob.delete("/api/shares/bobs-link").status_code == 204
 
 
 def test_someone_elses_look_cant_be_matched_or_deleted(bob, alice_data, bob_data, db_path, tmp_path):

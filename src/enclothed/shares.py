@@ -130,6 +130,16 @@ def photo(db_path: Path, shares_dir: Path, token: str, garment: int, filename: s
     return path if path.is_file() else None
 
 
+def revoke(db_path: Path, shares_dir: Path, user_id: int, token: str, now: datetime) -> bool:
+    """End one of this user's live links now: its row, then its photo copies. False if it isn't theirs or
+    isn't live. The token reaches the file system only after the database has matched it to a real share."""
+    if not db.delete_share(db_path, token, user_id, _iso(now)):
+        return False
+    shutil.rmtree(shares_dir / token, ignore_errors=True)   # if this fails, start-up removes the orphaned folder
+    logger.info("Revoked a share")
+    return True
+
+
 def purge_expired(db_path: Path, shares_dir: Path, now: datetime) -> None:
     """Delete expired shares and their photos."""
     for token in db.delete_expired_shares(db_path, _iso(now)):

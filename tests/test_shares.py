@@ -54,6 +54,9 @@ class Owner:
     def put(self, *args, **kwargs):
         return self._send("put", *args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        return self._send("delete", *args, **kwargs)
+
 
 @pytest.fixture
 def owner(db_path):
@@ -352,3 +355,63 @@ def test_an_admin_acting_as_someone_sees_their_links(owner, db_path):
 
 def test_listing_links_needs_a_sign_in(stranger):
     assert stranger.get("/api/shares").status_code in (401, 503)
+
+
+# --- revoking a link -------------------------------------------------------------------
+def token_of(link):
+    return link["path"].removeprefix("/s/")
+
+
+def opens(client, path):
+    """Whether everything on a shared page still loads: the page, its data and its first photo."""
+    data = client.get(f"{path}/data")
+    if data.status_code != 200:
+        return False
+    first = data.json()["garment"]["photos"][0]["file"]
+    return all(client.get(url).status_code == 200 for url in (path, f"{path}/photos/0/{first}", f"{path}/thumbs/0/{first}"))
+
+
+def test_a_revoked_link_stops_working_and_its_photos_are_deleted(owner, stranger, garment_id):
+    link = make(owner, "garment", garment_id)
+    data = stranger.get(f"{link['path']}/data").json()
+    photo = f"{link['path']}/photos/0/{data['garment']['photos'][0]['file']}"
+    assert opens(stranger, link["path"])
+
+    assert owner.delete(f"/api/shares/{token_of(link)}").status_code == 204
+
+    for url in (link["path"], f"{link['path']}/data", photo):
+        assert stranger.get(url).status_code == 404, url
+    assert not (api.SHARES_DIR / token_of(link)).exists()
+    assert owner.get("/api/shares").json() == []
+
+
+def test_revoking_a_link_that_doesnt_exist_is_a_404(owner):
+    assert owner.delete("/api/shares/no-such-token").status_code == 404
+
+
+def test_you_cant_revoke_someone_elses_link(owner, stranger, db_path, garment_id):
+    link = make(owner, "garment", garment_id)
+    kim = Owner(User(id=insert_user(db_path, "kim", "kim@example.com"), username="kim"))
+
+    assert kim.delete(f"/api/shares/{token_of(link)}").status_code == 404
+    assert opens(stranger, link["path"])
+
+
+def test_revoking_one_link_leaves_the_others_working(owner, stranger, garment_id):
+    first, second = make(owner, "garment", garment_id), make(owner, "garment", garment_id)
+
+    assert owner.delete(f"/api/shares/{token_of(first)}").status_code == 204
+    assert opens(stranger, second["path"])
+    assert [row["path"] for row in owner.get("/api/shares").json()] == [second["path"]]
+
+
+def test_an_expired_link_cant_be_revoked(db_path, garment_id, tmp_path):
+    now = datetime(2026, 11, 16, tzinfo=timezone.utc)
+    token, _ = shares.share_garment(db_path, tmp_path / "shares", 1, garment_id, "en-US", now)
+    assert not shares.revoke(db_path, tmp_path / "shares", 1, token, now + timedelta(days=3))
+
+
+def test_revoking_needs_a_sign_in(stranger, owner, garment_id):
+    link = make(owner, "garment", garment_id)
+    assert stranger.delete(f"/api/shares/{token_of(link)}").status_code in (401, 503)
+    assert opens(stranger, link["path"])

@@ -581,6 +581,15 @@ def select_user_shares(db_path: Path, user_id: int, now: str) -> list[dict]:
     return [{"token": r[0], "kind": r[1], "created_at": r[2], "expires_at": r[3], "snapshot": json.loads(r[4])} for r in rows]
 
 
+def delete_share(db_path: Path, token: str, user_id: int, now: str) -> bool:
+    """Delete one of this user's live shares. False if there's no such share: wrong token, someone else's,
+    or already expired."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute("DELETE FROM shares WHERE token = ? AND user_id = ? AND expires_at > ?", (token, user_id, now))
+    return cursor.rowcount == 1
+
+
 def delete_expired_shares(db_path: Path, now: str) -> list[str]:
     """Delete every expired share, and return their tokens."""
     with closing(_connect(db_path)) as conn:
