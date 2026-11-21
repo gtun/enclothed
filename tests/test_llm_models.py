@@ -89,7 +89,7 @@ class OpenAIRecorder(llm.Client):
         self.responses = Responses()
 
 
-@pytest.mark.parametrize("feature", [feature for feature in CALLS if feature != "insights"])
+@pytest.mark.parametrize("feature", CALLS)
 def test_each_feature_uses_its_configured_openai_model(feature, photo, monkeypatch):
     monkeypatch.setitem(config.MODELS_BY_PROVIDER["openai"], feature, f"model-for-{feature}")
     client = OpenAIRecorder()
@@ -97,8 +97,3 @@ def test_each_feature_uses_its_configured_openai_model(feature, photo, monkeypat
         CALLS[feature](client, photo)
     assert client.models == [f"model-for-{feature}"]
 
-
-def test_insights_says_it_doesnt_run_on_openai_yet():
-    with pytest.raises(llm.ServiceError) as raised:
-        CALLS["insights"](OpenAIRecorder(), None)
-    assert raised.value.kind == "NotSupported"

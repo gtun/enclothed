@@ -1,3 +1,4 @@
+import copy
 import json
 import sqlite3
 from contextlib import closing
@@ -6,6 +7,7 @@ from types import SimpleNamespace
 
 import anthropic
 import httpx2
+import openai
 import pytest
 
 from enclothed import config, db, insights, llm
@@ -337,10 +339,159 @@ def test_a_turn_sends_the_tool_prompt_and_cache_setting():
     assert "Loose fits" in call["system"]
 
 
-def test_on_openai_the_question_fails_and_is_logged(db_path, tmp_path):
+
+# --- On OpenAI ------------------------------------------------------------------------------
+
+def openai_turn(*output, status="completed", reason=None):
+    usage = SimpleNamespace(input_tokens=100, output_tokens=20,
+                            input_tokens_details=SimpleNamespace(cached_tokens=60, cache_write_tokens=30),
+                            output_tokens_details=SimpleNamespace(reasoning_tokens=10))
+    return SimpleNamespace(output=list(output), status=status, usage=usage,
+                           incomplete_details=SimpleNamespace(reason=reason) if reason else None)
+
+
+def call(call_id, sql, name="run_select"):
+    return SimpleNamespace(type="function_call", call_id=call_id, name=name, arguments=json.dumps({"sql": sql}))
+
+
+def answer(content):
+    return SimpleNamespace(type="message", phase="final_answer", content=[SimpleNamespace(type="output_text", text=content)])
+
+
+REASONING = SimpleNamespace(type="reasoning", encrypted_content="opaque")
+
+
+class FakeOpenAI(llm.Client):
+    """responses.create that plays back scripted responses and keeps a deep copy of each call's input, since
+    the chat moves its cache breakpoint by editing parts it already sent."""
+
+    def __init__(self, *responses):
+        super().__init__("openai", self)
+        self.responses = self
+        self.scripted = list(responses)
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(copy.deepcopy(kwargs))
+        return self.scripted.pop(0)
+
+
+def outputs(client, call_number):
+    return [item for item in client.calls[call_number]["input"] if isinstance(item, dict) and item.get("type") == "function_call_output"]
+
+
+def test_on_openai_a_query_runs_and_its_result_goes_back(db_path):
+    client = FakeOpenAI(openai_turn(REASONING, call("c1", "SELECT brand FROM garments")), openai_turn(answer("One piece")))
+    result = ask(client, db_path)
+    assert result.answer == "One piece"
+    assert result.queries == ["SELECT brand FROM garments"]
+    [sent] = outputs(client, 1)
+    assert sent["call_id"] == "c1"
+    assert json.loads(sent["output"][0]["text"])["rows"] == [["Mine"]]
+
+
+def test_on_openai_every_output_item_goes_back_before_the_results(db_path):
+    """With store=False the server keeps nothing, so the reasoning and the call itself are sent back."""
+    first = openai_turn(REASONING, call("c1", "SELECT 1"))
+    client = FakeOpenAI(first, openai_turn(answer("Done")))
+    ask(client, db_path, question="How many?")
+    question, reasoning, function_call, output = client.calls[1]["input"]
+    assert question["content"][0]["text"] == "How many?"
+    assert (reasoning, function_call) == tuple(first.output)
+    assert output["type"] == "function_call_output"
+
+
+def test_on_openai_the_settings_decided_for_it_are_sent(db_path):
+    client = FakeOpenAI(openai_turn(answer("Hi")))
+    answer_question(client, db_path, OWNER, "Q", [], "ja-JP", "Loose fits")
+    sent = client.calls[0]
+    assert sent["store"] is False
+    assert sent["prompt_cache_options"] == {"mode": "explicit"}
+    assert sent["reasoning"] == {"effort": config.OPENAI_REASONING_EFFORT}
+    assert sent["max_output_tokens"] == config.INSIGHTS_TOKEN_CAP + config.OPENAI_REASONING_ALLOWANCE
+    assert sent["tools"] == [llm.OPENAI_RUN_SELECT_TOOL]
+    assert sent["tools"][0]["strict"] is True and sent["tools"][0]["parameters"]["additionalProperties"] is False
+    assert "Loose fits" in sent["instructions"]
+
+
+def test_on_openai_history_comes_first_as_plain_messages(db_path):
+    history = [{"role": "user", "content": "Coats?"}, {"role": "assistant", "content": "Two."}]
+    client = FakeOpenAI(openai_turn(answer("Done")))
+    ask(client, db_path, history, "And now?")
+    assert client.calls[0]["input"][:2] == history
+    assert client.calls[0]["input"][2]["content"][0]["text"] == "And now?"
+
+
+def test_on_openai_each_turn_adds_a_cache_breakpoint_and_keeps_the_earlier_ones(db_path):
+    """2026-11-21: moving one breakpoint to the newest content left nothing for the next turn to match, so every
+    turn of a 10-query question wrote its whole prompt and read none back. The cache matches only at breakpoints
+    in the request, so the last turn's has to stay."""
+    client = FakeOpenAI(openai_turn(call("a", "SELECT 1")), openai_turn(call("b", "SELECT 2")), openai_turn(answer("Done")))
+    ask(client, db_path)
+    marked = [[str(item) for item in c["input"] if "prompt_cache_breakpoint" in str(item)] for c in client.calls]
+    assert [len(m) for m in marked] == [1, 2, 3]
+    assert "user" in marked[2][0]
+    assert "'call_id': 'a'" in marked[2][1]
+    assert "'call_id': 'b'" in marked[2][2]
+
+
+def test_on_openai_parallel_calls_get_one_breakpoint_after_the_last_result(db_path):
+    client = FakeOpenAI(openai_turn(call("a", "SELECT 1"), call("b", "SELECT 2")), openai_turn(answer("Done")))
+    ask(client, db_path)
+    first, second = outputs(client, 1)
+    assert "prompt_cache_breakpoint" not in first["output"][0]
+    assert second["output"][0]["prompt_cache_breakpoint"] == {"mode": "explicit"}
+
+
+def test_on_openai_a_failed_query_says_its_an_error(db_path):
+    client = FakeOpenAI(openai_turn(call("a", "SELECT nope FROM garments")), openai_turn(answer("Done")))
+    result = ask(client, db_path)
+    assert result.queries == []
+    assert outputs(client, 1)[0]["output"][0]["text"].startswith("Error: ")
+
+
+def test_on_openai_arguments_that_arent_json_are_reported_not_raised(db_path):
+    broken = SimpleNamespace(type="function_call", call_id="a", name="run_select", arguments="{not json")
+    client = FakeOpenAI(openai_turn(broken), openai_turn(answer("Done")))
+    assert ask(client, db_path).answer == "Done"
+    assert outputs(client, 1)[0]["output"][0]["text"].startswith("Error: ")
+
+
+def test_on_openai_a_reply_cut_off_mid_call_is_the_answer(db_path):
+    """As on Anthropic: a half-written call isn't run."""
+    client = FakeOpenAI(openai_turn(answer("Partly"), call("a", "SELECT 1"), status="incomplete", reason="max_output_tokens"))
+    assert ask(client, db_path).answer == "Partly"
+    assert len(client.calls) == 1
+
+
+def test_on_openai_commentary_is_not_the_answer(db_path):
+    commentary = SimpleNamespace(type="message", phase="commentary", content=[SimpleNamespace(type="output_text", text="Let me check")])
+    client = FakeOpenAI(openai_turn(commentary, call("a", "SELECT 1")), openai_turn(answer("Done")))
+    assert ask(client, db_path).answer == "Done"
+
+
+def test_on_openai_a_refusal_is_unusable_with_its_tokens(db_path, tmp_path):
+    refusal = SimpleNamespace(type="message", phase=None, content=[SimpleNamespace(type="refusal", refusal="No.")])
+    log = tmp_path / "insights.jsonl"
+    with pytest.raises(UnusableResponse, match="refusal"):
+        answer_question(FakeOpenAI(openai_turn(refusal)), db_path, OWNER, "Q", [], log_path=log)
+    [entry] = log_lines(log)
+    assert entry["usage"]["model"] == config.MODELS_BY_PROVIDER["openai"]["insights"]
+
+
+def test_on_openai_usage_is_added_up_with_each_input_token_counted_once(db_path):
+    client = FakeOpenAI(openai_turn(call("a", "SELECT 1")), openai_turn(answer("Done")))
+    usage = ask(client, db_path).usage
+    # Each turn reports 100 input: 60 cached, 30 written, so 10 uncached.
+    assert (usage.input_tokens, usage.cache_read_input_tokens, usage.cache_creation_input_tokens) == (20, 120, 60)
+    assert usage.output_tokens == 40
+
+
+def test_on_openai_an_api_error_is_a_service_error_and_logged(db_path, tmp_path):
+    class Fails(FakeOpenAI):
+        def create(self, **kwargs):
+            raise openai.APIConnectionError(request=httpx2.Request("POST", "http://test"))
     log = tmp_path / "insights.jsonl"
     with pytest.raises(ServiceError):
-        answer_question(llm.Client("openai", None), db_path, OWNER, "Q", [], log_path=log)
-    [entry] = log_lines(log)
-    assert entry["error"] == "NotSupported"
-    assert entry["usage"]["model"] == config.MODELS_BY_PROVIDER["openai"]["insights"]
+        answer_question(Fails(), db_path, OWNER, "Q", [], log_path=log)
+    assert log_lines(log)[0]["error"] == "APIConnectionError"

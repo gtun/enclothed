@@ -42,8 +42,7 @@ ANTHROPIC_MODELS: dict[str, str] = {
     "preferences": "claude-haiku-5-5",   # tidying your style notes
     "insights": "claude-sonnet-5-5",     # "Ask your wardrobe": writes SQL over several steps, so accuracy matters
 }
-# GPT-6.1 Terra is OpenAI's recommended model for visual work, and tagging matters most here. Insights doesn't run on
-# OpenAI yet; its entry is ready for when it does.
+# GPT-6.1 Terra is OpenAI's recommended model for visual work, and tagging matters most here.
 OPENAI_MODELS: dict[str, str] = {
     "tag": "gpt-6.1-terra",
     "mend": "gpt-6.1-terra",
