@@ -83,7 +83,7 @@ async function uploadClick(e){
     if (upload.notes.trim() && !mimicking) form.append("notes", upload.notes);
     try {
       let res;
-      try { res = await fetch(mimicking ? "/api/looks" : "/api/garments/drafts", {method: "POST", body: form}); }
+      try { res = await fetch(mimicking ? "/api/looks" : "/api/garments/drafts", {method: "POST", body: form, headers: llmHeaders()}); }
       catch (err) { throw new Error("Couldn't reach the server. Is it still running?"); }
       let data = null; try { data = await res.json(); } catch (err) {}
       if (!res.ok) throw new Error(errorText(data, res.status));

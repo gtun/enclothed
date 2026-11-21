@@ -63,9 +63,12 @@ def model_for(provider: str, feature: str) -> str:
     return config.MODELS_BY_PROVIDER[provider][feature]
 
 
-def make_client() -> Client:
-    """A client for the active provider. Raises NotConfigured when there's no such provider or its key isn't set."""
-    provider = active_provider()
+def make_client(provider: str | None = None) -> Client:
+    """A client for provider, or for the active one when that's None. Raises NotConfigured when there's no such
+    provider or its key isn't set."""
+    provider = provider or active_provider()
+    if provider not in config.MODELS_BY_PROVIDER:
+        raise NotConfigured(f"There's no LLM provider named {provider!r}.")
     variable = API_KEY_VARIABLES[provider]
     if not os.getenv(variable):
         raise NotConfigured(f"No {variable} is set in .env, so AI features are off.")

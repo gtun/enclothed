@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,16 +19,16 @@ from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
     DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH,
-    MIMIC_LOG_PATH, SHARES_DIR, DEMO_SHARE_LIMIT, SHARE_MAX_LIFETIME_DAYS
+    MIMIC_LOG_PATH, SHARES_DIR, DEMO_SHARE_LIMIT, SHARE_MAX_LIFETIME_DAYS, MODEL_NAMES, MODELS_BY_PROVIDER, PROVIDER_NAMES
 )
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, WeighCreatedOut, WeighIn, WeighOut, blank_fields,
-    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut,
+    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut, LLMModelOut, LLMOut,
 )
 from enclothed.insights import answer_question
-from enclothed.llm import Client, NotConfigured, ServiceError, UnusableResponse, improve_preferences, make_client
+from enclothed.llm import Client, NotConfigured, ServiceError, UnusableResponse, active_provider, improve_preferences, make_client
 from enclothed.outfit import fill_description, generate_outfits
 from enclothed.usage import log_failed_call, read_calls
 
@@ -65,12 +65,25 @@ app.mount("/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="static"
 app.mount("/s/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="share-static")
 
 
-def _llm_client() -> Client:
-    """The LLM client, or a 503 explaining why the AI features are unavailable."""
+def _llm_client(provider: str | None = None) -> Client:
+    """The LLM client (for provider, or the default when that's None), or a 503 explaining why AI is unavailable."""
     try:
-        return make_client()
+        return make_client(provider)
     except NotConfigured as error:
         raise HTTPException(status_code=503, detail=str(error))
+
+
+def _chosen_provider(me: SignedInUser, choice: Annotated[str | None, Header(alias="X-LLM-Provider")] = None) -> str | None:
+    """The LLM an admin picked for this browser tab (hold L and click an AI button; see features/llmPicker.js).
+    Anyone else's choice is ignored, so they always get the default."""
+    if not choice or not me.is_admin:
+        return None
+    if choice not in MODELS_BY_PROVIDER:
+        raise HTTPException(status_code=422, detail=f"There's no LLM provider named {choice!r}.")
+    return choice
+
+
+ChosenProvider = Annotated[str | None, Depends(_chosen_provider)]
 
 
 def _require_demo_tokens(user: User) -> None:
@@ -135,6 +148,7 @@ def _stage_uploads(uploads: list[UploadFile], tmp_dir: Path) -> list[Path]:
 @app.post("/api/garments/drafts", status_code=201)
 def tag_new_garment(
     user: CurrentUser,
+    provider: ChosenProvider,
     photos_in: list[UploadFile] = File(alias="photos"),
     prompt_message: str | None = Form(None),
     notes: str | None = Form(None),
@@ -143,7 +157,7 @@ def tag_new_garment(
     if not 1 <= len(photos_in) <= UPLOAD_MAX_PHOTOS:
         raise HTTPException(status_code=422, detail=f"Send between 1 and {UPLOAD_MAX_PHOTOS} photos.")
     _require_demo_tokens(user)
-    client = _llm_client()
+    client = _llm_client(provider)
 
     _drafts_dir().mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="upload-", ignore_cleanup_errors=True) as tmp:
@@ -176,7 +190,7 @@ def discard_draft(draft_id: str, user: CurrentUser) -> None:
 
 
 @app.post("/api/garments/{garment_id}/mend")
-def mend_garment(garment_id: int, user: CurrentUser) -> MendOut:
+def mend_garment(garment_id: int, user: CurrentUser, provider: ChosenProvider) -> MendOut:
     """Ask the LLM for this garment's blank fields, for the owner to review. Saves none of its answers."""
     _require_demo_tokens(user)
     garment = db.select_garment(DB_PATH, user.id, garment_id)
@@ -184,7 +198,7 @@ def mend_garment(garment_id: int, user: CurrentUser) -> MendOut:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
     if not blank_fields(garment):
         raise HTTPException(status_code=422, detail="This garment has no blank fields.")
-    client = _llm_client()
+    client = _llm_client(provider)
 
     try:
         result = mend.mend_garment(DB_PATH, TAGGING_LOG_PATH, user.id, garment, client, user.language, _saved_preferences(user))
@@ -221,11 +235,11 @@ def edit_garment(garment_id: int, changes: dict[str, Any], user: CurrentUser) ->
 
 # --- weigh: should I buy this? (#2) -------
 @app.post("/api/weighs", status_code=201)
-def weigh_garment(body: WeighIn, user: CurrentUser) -> WeighCreatedOut:
+def weigh_garment(body: WeighIn, user: CurrentUser, provider: ChosenProvider) -> WeighCreatedOut:
     """Weigh a tagged, reviewed draft against the wardrobe. Saves it as a candidate, not as owned.
     If the AI call fails, the draft is left as it was, so trying again doesn't re-tag the photos."""
     _require_demo_tokens(user)
-    client = _llm_client()
+    client = _llm_client(provider)
     try:
         saved, garment_id, outfit_ids = weigh.weigh_draft(
             DB_PATH, _drafts_dir(), GARMENTS_DIR, TAGGING_LOG_PATH, WEIGH_LOG_PATH, user.id, body.draft_id, body.garment, client,
@@ -274,6 +288,7 @@ MATCH_FAILED = "The AI couldn't match this look to your wardrobe. The look is sa
 @app.post("/api/looks", status_code=201)
 def create_look(
     user: CurrentUser,
+    provider: ChosenProvider,
     photos_in: list[UploadFile] = File(alias="photos"),
     note: str | None = Form(None),
 ) -> LookOut:
@@ -281,7 +296,7 @@ def create_look(
     if not 1 <= len(photos_in) <= UPLOAD_MAX_PHOTOS:
         raise HTTPException(status_code=422, detail=f"Send between 1 and {UPLOAD_MAX_PHOTOS} photos.")
     _require_demo_tokens(user)
-    client = _llm_client()
+    client = _llm_client(provider)
 
     INTAKE_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="look-", ignore_cleanup_errors=True) as tmp:
@@ -302,7 +317,7 @@ def list_looks(user: CurrentUser) -> list[LookOut]:
 
 
 @app.post("/api/looks/{look_id}/recreations", status_code=201)
-def recreate_look(look_id: int, user: CurrentUser) -> MimicCreatedOut:
+def recreate_look(look_id: int, user: CurrentUser, provider: ChosenProvider) -> MimicCreatedOut:
     """Step 2: recreate a saved look from the wardrobe, as up to two outfits, closest first, each with the owned
     stand-in for every piece and how close it is. Text only. Refused once the look has recreations."""
     look = db.select_look(DB_PATH, user.id, look_id)
@@ -311,7 +326,7 @@ def recreate_look(look_id: int, user: CurrentUser) -> MimicCreatedOut:
     if look["recreations"]:
         raise HTTPException(status_code=409, detail="This look already has its recreations.")
     _require_demo_tokens(user)
-    client = _llm_client()
+    client = _llm_client(provider)
     try:
         _, outfit_ids = mimic.recreate(DB_PATH, user.id, look_id, mimic.look_tags(look), look["note"], client, MIMIC_LOG_PATH,
                                        _saved_preferences(user), user.language)
@@ -360,7 +375,7 @@ def _styling_wardrobe(user: User, ids: list[int]) -> dict[int, Garment]:
 
 
 @app.post("/api/outfits/suggestions")
-def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]:
+def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser, provider: ChosenProvider) -> list[OutfitOut]:
     """Ask the LLM for outfits built around the anchors and details; returns only the new, valid ones."""
     details = _blank_to_none(body.details)
     anchors = list(dict.fromkeys(body.anchors))
@@ -373,7 +388,7 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
 
     _require_demo_tokens(user)
-    client = _llm_client()
+    client = _llm_client(provider)
     try:
         saved = db.select_preferences(DB_PATH, user.id)
         _, new_ids = generate_outfits(DB_PATH, user.id, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
@@ -408,7 +423,7 @@ def create_outfit(body: OutfitCreateIn, user: CurrentUser) -> OutfitOut:
 
 
 @app.post("/api/outfits/describe")
-def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser) -> OutfitDescription:
+def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser, provider: ChosenProvider) -> OutfitDescription:
     """Fill in a blank name or explanation for an outfit the user is putting together. Saves nothing."""
     ids = list(dict.fromkeys(body.garments))
     wardrobe = _styling_wardrobe(user, ids)
@@ -421,7 +436,7 @@ def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser) -> OutfitDesc
         return OutfitDescription(aesthetic=aesthetic, explanation=explanation)  # nothing to fill, so no tokens
 
     _require_demo_tokens(user)
-    client = _llm_client()
+    client = _llm_client(provider)
     try:
         return fill_description(OUTFIT_LOG_PATH, user.id, {i: wardrobe[i] for i in ids}, client, _blank_to_none(body.details),
                                 aesthetic, explanation, _saved_preferences(user), user.language)
@@ -522,10 +537,10 @@ def put_preferences(body: PreferencesIn, user: CurrentUser) -> PreferencesOut:
 
 
 @app.post("/api/preferences/improve")
-def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> PreferencesIn:
+def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser, provider: ChosenProvider) -> PreferencesIn:
     """Ask the LLM to rewrite the text into a clearer brief. Returns the rewrite; saves nothing."""
     _require_demo_tokens(user)
-    client = _llm_client()
+    client = _llm_client(provider)
     try:
         text, usage = improve_preferences(client, body.text)
     except ServiceError as error:
@@ -540,10 +555,10 @@ def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> P
 
 # --- insights ------------------------
 @app.post("/api/insights")
-def ask_insights(body: InsightsIn, user: CurrentUser) -> InsightsOut:
+def ask_insights(body: InsightsIn, user: CurrentUser, provider: ChosenProvider) -> InsightsOut:
     """Answer a question about this wardrobe. The browser keeps the conversation and sends it as history."""
     _require_demo_tokens(user)
-    client = _llm_client()
+    client = _llm_client(provider)
     saved = db.select_preferences(DB_PATH, user.id)
     history = [message.model_dump() for message in body.history]
     try:
@@ -570,6 +585,21 @@ def get_options(user: CurrentUser) -> OptionsOut:
 
 
 # --- profile -------------------------
+@app.get("/api/llms")
+def list_llms(me: SignedInUser) -> list[LLMOut]:
+    """The LLMs an admin can pick for a browser tab, with the models each one runs for each feature."""
+    _require_admin(me)
+    default = active_provider()
+    options = []
+    for provider, models in MODELS_BY_PROVIDER.items():
+        by_model: dict[str, list[str]] = {}
+        for feature, model in models.items():
+            by_model.setdefault(model, []).append(feature)
+        options.append(LLMOut(provider=provider, name=PROVIDER_NAMES.get(provider, provider), is_default=provider == default,
+                              models=[LLMModelOut(id=m, name=MODEL_NAMES.get(m, m), features=f) for m, f in by_model.items()]))
+    return options
+
+
 @app.get("/api/profile")
 def get_profile(user: CurrentUser, me: SignedInUser) -> ProfileOut:
     """Whose wardrobe is showing, and what the page should offer the person looking at it."""

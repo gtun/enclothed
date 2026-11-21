@@ -1,8 +1,15 @@
 /* Talking to the server: api() for JSON requests, errorText() for readable error messages. */
 "use strict";
 
+/* The LLM an admin picked for this tab (hold L and click an AI button: features/llmPicker.js). sessionStorage, so it
+   lasts through refreshes in this tab only, and every other tab keeps its own. The server ignores it for anyone
+   who isn't an admin. Sent with every request; only the AI endpoints read it. */
+const LLM_PICK_KEY = "enclothed-llm";
+function pickedLLM(){ try { return sessionStorage.getItem(LLM_PICK_KEY); } catch (e) { return null; } }
+function llmHeaders(){ const picked = pickedLLM(); return picked ? {"X-LLM-Provider": picked} : {}; }
+
 async function api(path, options = {}){
-  const init = {headers: {"Accept": "application/json"}, ...options};
+  const init = {...options, headers: {"Accept": "application/json", ...llmHeaders(), ...(options.headers || {})}};
   if (options.body !== undefined){ init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(options.body); }
   let res;
   try { res = await fetch(path, init); }

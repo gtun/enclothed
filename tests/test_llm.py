@@ -325,3 +325,20 @@ def test_the_output_schema_fits_openais_strict_mode(model):
     assert all(set(node["required"]) == set(node["properties"]) for node in objects)
     assert sum(len(node["properties"]) for node in objects) <= 5000
     assert sum(len(node["enum"]) for node in nodes if "enum" in node) <= 1000
+
+
+def test_a_client_can_be_made_for_a_named_provider(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    client = llm.make_client("openai")   # the default is still anthropic
+    assert client.provider == "openai" and isinstance(client.sdk, openai.OpenAI)
+
+
+def test_a_client_for_an_unknown_provider_is_refused():
+    with pytest.raises(llm.NotConfigured, match="'gemini'"):
+        llm.make_client("gemini")
+
+
+def test_every_configured_model_has_a_display_name():
+    models = {m for provider in config.MODELS_BY_PROVIDER.values() for m in provider.values()}
+    assert models <= set(config.MODEL_NAMES)
+    assert set(config.MODELS_BY_PROVIDER) <= set(config.PROVIDER_NAMES)
