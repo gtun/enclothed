@@ -6,7 +6,7 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
-from enclothed import api, db
+from enclothed import api, db, llm
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.intake import TEST_GARMENT
@@ -26,8 +26,10 @@ def tool(block_id, sql):
     return SimpleNamespace(type="tool_use", id=block_id, name="run_select", input={"sql": sql})
 
 
-class FakeClient:
+class FakeClient(llm.Client):
+    """Plays back scripted responses. It's its own SDK client too."""
     def __init__(self):
+        super().__init__("anthropic", self)
         self.responses = []
         self.calls = []
         self.messages = self
@@ -54,7 +56,7 @@ def db_path(tmp_path, monkeypatch):
 @pytest.fixture
 def llm(monkeypatch):
     fake = FakeClient()
-    monkeypatch.setattr(api, "_anthropic_client", lambda: fake)
+    monkeypatch.setattr(api, "_llm_client", lambda: fake)
     return fake
 
 
@@ -177,3 +179,10 @@ def test_the_demo_stops_at_its_token_limit(db_path, as_user, llm, monkeypatch):
     response = client.post("/api/insights", json={"question": "Again"})
     assert response.status_code == 429
     assert len(llm.calls) == 1
+
+
+def test_no_api_key_is_a_503_naming_the_missing_key(client, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    response = client.post("/api/insights", json={"question": "Hi"})
+    assert response.status_code == 503
+    assert "ANTHROPIC_API_KEY" in response.json()["detail"]

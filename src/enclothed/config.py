@@ -25,11 +25,14 @@ PUBLIC_DIR = PROJECT_ROOT / "public"
 LOCALES_DIR = PKG_DIR / "locales"
 
 DEFAULT_USER_ID = 1
-# Which Claude model each AI feature uses. They all share one API, so switching a feature is a change to its line.
-# Before moving a feature to a bigger model: Opus and Fable always think first, and thinking counts toward that
+# Which LLM provider runs every AI feature. Only llm.py talks to it; every other module goes through llm.py.
+LLM_PROVIDER = "anthropic"
+# Which model each AI feature uses, for each provider. Every provider lists the same features. Within a provider the
+# features share one API, so switching a feature is a change to its line.
+# Before moving a feature to a bigger Claude model: Opus and Fable always think first, and thinking counts toward that
 # feature's token cap below; they're also slower, and the site's proxy gives up on a request after 100 seconds.
 # Weigh and mimic's matching step use "outfits": they share the cached wardrobe only while they're on the same model.
-MODELS: dict[str, str] = {
+ANTHROPIC_MODELS: dict[str, str] = {
     "tag": "claude-sonnet-5-5",          # reading photos and labels into a garment record
     "mend": "claude-sonnet-5-5",         # filling a garment's blank fields from its photos
     "outfits": "claude-sonnet-5-5",      # outfit suggestions, weigh, and matching a look to the wardrobe (mimic)
@@ -38,6 +41,10 @@ MODELS: dict[str, str] = {
     "preferences": "claude-haiku-5-5",   # tidying your style notes
     "insights": "claude-sonnet-5-5",     # "Ask your wardrobe": writes SQL over several steps, so accuracy matters
 }
+MODELS_BY_PROVIDER: dict[str, dict[str, str]] = {
+    "anthropic": ANTHROPIC_MODELS,
+}
+MODELS = MODELS_BY_PROVIDER[LLM_PROVIDER]   # the active provider's models, which is what the app reads
 MAX_LLM_ATTEMPTS = 2
 TAG_TOKEN_CAP = 2048
 MEND_TOKEN_CAP = 2048

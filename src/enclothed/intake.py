@@ -8,8 +8,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from enclothed.db import insert_garment
-from anthropic import Anthropic
-from enclothed.llm import UnusableResponse, tag_garment
+from enclothed.llm import Client, UnusableResponse, tag_garment
 from enclothed.usage import log_failed_call
 from collections import defaultdict
 import logging
@@ -67,7 +66,7 @@ TEST_GARMENT = Garment(
 def is_url(text: str) -> bool:
     return urlparse(text).scheme in ("http", "https")
 
-def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Anthropic | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None, language:Language = DEFAULT_LANGUAGE, preferences:str | None = None) -> int:
+def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garments_path:Path, intake_dir:Path, logging_path:Path, client:Client | None, is_test:bool, prompt_message:str | None = None, notes:str | None = None, language:Language = DEFAULT_LANGUAGE, preferences:str | None = None) -> int:
     logger.info("Staging your photos...")
     with tempfile.TemporaryDirectory(dir=intake_dir, ignore_cleanup_errors=True, prefix="staging-") as tmp:
         run_dir = Path(tmp)
@@ -93,7 +92,7 @@ def add_garment(user_id: int, image_paths:list[str], garment_db_path:Path, garme
 
         return new_garment_id
 
-def tag_photos(user_id: int, paths: list[Path], logging_path: Path, client: Anthropic | None, is_test: bool, prompt_message: str | None, language: Language, preferences: str | None) -> tuple[TaggingResult, TokenUsage | None]:
+def tag_photos(user_id: int, paths: list[Path], logging_path: Path, client: Client | None, is_test: bool, prompt_message: str | None, language: Language, preferences: str | None) -> tuple[TaggingResult, TokenUsage | None]:
     if is_test:
         return TaggingResult(garment=TEST_GARMENT, photos=[]), None
 

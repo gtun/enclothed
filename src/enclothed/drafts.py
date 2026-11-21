@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
-from anthropic import Anthropic
+from enclothed.llm import Client
 
 from enclothed import config
 from enclothed.db import insert_garment
@@ -43,7 +43,7 @@ def remove_old_drafts(drafts_dir: Path) -> None:
             shutil.rmtree(folder, ignore_errors=True)
 
 
-def create_draft(drafts_dir: Path, user_id: int, photo_paths: list[Path], logging_path: Path, client: Anthropic | None,
+def create_draft(drafts_dir: Path, user_id: int, photo_paths: list[Path], logging_path: Path, client: Client | None,
                  prompt_message: str | None, notes: str | None, language: Language, preferences: str | None) -> Draft:
     remove_old_drafts(drafts_dir)
     wrapper, usage = tag_photos(user_id, photo_paths, logging_path, client, False, prompt_message, language, preferences)
