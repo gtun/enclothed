@@ -70,3 +70,61 @@ def test_bad_requests_fail_before_any_call(tmp_path, owner_db, requests, only, m
 
 def test_the_shipped_requests_file_is_valid():
     assert len(evals.load_requests(evals.REQUESTS_PATH, None)) >= 5
+
+
+# --- comparing providers --------------------------------------------------------------------
+
+def rows_of(out):
+    return [json.loads(line) for line in (out / "results.jsonl").read_text(encoding="utf-8").splitlines()]
+
+
+def one_request(tmp_path):
+    return requests_file(tmp_path, [{"id": "a", "details": "dinner"}])
+
+
+def test_each_row_and_the_scores_name_the_provider_and_model(tmp_path, owner_db):
+    out = evals.run("v1", 1, 1, owner_db, one_request(tmp_path), None, True, tmp_path / "evals")
+    [row] = rows_of(out)
+    assert (row["provider"], row["model"]) == ("anthropic", config.MODELS_BY_PROVIDER["anthropic"]["outfits"])
+    assert f"on `{row['model']}` (anthropic)" in (out / "scores.md").read_text(encoding="utf-8")
+
+
+def test_the_provider_setting_is_recorded(tmp_path, owner_db, monkeypatch):
+    monkeypatch.setenv("ENCLOTHED_LLM_PROVIDER", "openai")
+    [row] = rows_of(evals.run("v1", 1, 1, owner_db, one_request(tmp_path), None, True, tmp_path / "evals"))
+    assert (row["provider"], row["model"]) == ("openai", config.MODELS_BY_PROVIDER["openai"]["outfits"])
+
+
+def run_main(monkeypatch, tmp_path, owner_db, *flags):
+    monkeypatch.setattr(evals, "load_dotenv", lambda: None)   # never the real .env
+    monkeypatch.setattr(evals, "EVALS_DIR", tmp_path / "evals")
+    monkeypatch.setenv("ENCLOTHED_LLM_PROVIDER", "anthropic")   # so monkeypatch undoes what --provider sets
+    monkeypatch.setattr("sys.argv", ["eval-outfits", "-l", "cmp", "-t", "--runs", "1", "--db", str(owner_db),
+                                     "--requests", str(one_request(tmp_path)), *flags])
+    evals.main()
+    [out] = (tmp_path / "evals").iterdir()
+    return rows_of(out)
+
+
+def test_the_provider_flag_runs_on_that_provider(tmp_path, owner_db, monkeypatch):
+    [row] = run_main(monkeypatch, tmp_path, owner_db, "--provider", "openai")
+    assert row["provider"] == "openai"
+
+
+def test_the_model_flag_applies_to_the_chosen_provider(tmp_path, owner_db, monkeypatch):
+    monkeypatch.setitem(config.MODELS_BY_PROVIDER["openai"], "outfits", config.MODELS_BY_PROVIDER["openai"]["outfits"])
+    [row] = run_main(monkeypatch, tmp_path, owner_db, "--provider", "openai", "--model", "gpt-other")
+    assert (row["provider"], row["model"]) == ("openai", "gpt-other")
+    assert config.MODELS_BY_PROVIDER["anthropic"]["outfits"] != "gpt-other"
+
+
+def test_an_unknown_provider_is_refused(tmp_path, owner_db, monkeypatch):
+    with pytest.raises(SystemExit):
+        run_main(monkeypatch, tmp_path, owner_db, "--provider", "gemini")
+
+
+def test_the_cost_adds_up_priced_calls_only():
+    usage = lambda model: {"model": model, "input_tokens": 1_000_000, "output_tokens": 0}
+    rows = [{"usage": usage("gpt-6.1-terra")}, {"usage": usage("unpriced-model")}, {"usage": None}]
+    assert evals.total_cost(rows) == pytest.approx(config.MODEL_PRICES["gpt-6.1-terra"]["input"])
+    assert evals.total_cost([{"usage": None}]) is None
