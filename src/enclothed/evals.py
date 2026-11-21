@@ -29,7 +29,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from enclothed import config, db
-from enclothed.llm import make_client, outfit_system_prompt
+from enclothed.llm import active_provider, make_client, model_for, outfit_system_prompt
 from enclothed.models import Garment, RiskTier
 from enclothed.outfit import generate_outfits, tier_plan
 
@@ -76,7 +76,7 @@ def write_scores(path: Path, label: str, prompt_hash: str, rows: list[dict], war
     out = [
         f"# Outfit eval: {label}",
         "",
-        f"Prompt `{prompt_hash}` on `{config.MODELS['outfits']}`. Fill in the columns, then compare with the last run's scores.md.",
+        f"Prompt `{prompt_hash}` on `{model_for(active_provider(), 'outfits')}`. Fill in the columns, then compare with the last run's scores.md.",
         "Mark a tier wrong when a 'bold' outfit is really safe, or a 'safe' one is risky.",
         "",
         "| Request | Run | # | Tier | Outfit | " + " | ".join(RUBRIC) + " |",
@@ -148,7 +148,7 @@ def run(label: str, runs: int, user_id: int, db_path: Path, requests_path: Path,
                 totals["output"] += usage.get("output_tokens", 0)
                 row = {
                     "request_id": request["id"], "run": repeat, "details": request["details"], "options": options,
-                    "anchors": anchors, "prompt_hash": prompt_hash, "label": label, "model": config.MODELS["outfits"],
+                    "anchors": anchors, "prompt_hash": prompt_hash, "label": label, "model": model_for(active_provider(), "outfits"),
                     "outfits": result.model_dump(mode="json")["outfits"],
                     "problems": entry["problems"], "usage": entry["usage"],
                 }
@@ -165,6 +165,7 @@ def run(label: str, runs: int, user_id: int, db_path: Path, requests_path: Path,
 
 
 def main() -> None:
+    load_dotenv()   # first: it can set the provider, which the help text names
     parser = argparse.ArgumentParser(prog="eval-outfits", description="Rerun the fixed outfit requests to compare prompt versions.")
     parser.add_argument("-l", "--label", required=True, help="Name for this prompt version, e.g. v2-rule-of-one (used in the folder name)")
     parser.add_argument("--runs", type=int, default=2, help="How many times to run each request (default 2; output varies between runs)")
@@ -172,7 +173,7 @@ def main() -> None:
     parser.add_argument("--only", nargs="+", metavar="ID", help="Run only these request ids")
     parser.add_argument("--requests", type=Path, default=REQUESTS_PATH, help="A different requests file")
     parser.add_argument("--db", type=Path, default=config.DB_PATH, help="Database to copy from (default: the app's)")
-    parser.add_argument("-m", "--model", help=f"Run the outfit calls on this model instead of the configured one ({config.MODELS['outfits']}), e.g. claude-opus-5-5 to compare")
+    parser.add_argument("-m", "--model", help=f"Run the outfit calls on this model instead of the configured one ({model_for(active_provider(), 'outfits')}), e.g. claude-opus-5-5 to compare")
     parser.add_argument("-t", "--test", action="store_true", help="Use the canned test outfits: checks the script, spends no tokens")
     args = parser.parse_args()
     if args.runs < 1:
@@ -180,8 +181,7 @@ def main() -> None:
     if not all(c.isalnum() or c in "-_." for c in args.label):
         parser.error("--label may only use letters, digits, - _ and .")
     if args.model:
-        config.MODELS["outfits"] = args.model   # this run only: llm reads the setting at each call
-    load_dotenv()
+        config.MODELS_BY_PROVIDER[active_provider()]["outfits"] = args.model   # this run only: llm reads it at each call
     try:
         run(args.label, args.runs, args.user, args.db, args.requests, args.only, args.test, EVALS_DIR)
     except ValueError as error:

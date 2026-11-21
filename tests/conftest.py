@@ -23,3 +23,9 @@ def private_logs(tmp_path, monkeypatch):
     leaked = [str(p) for p in api._usage_logs().values() if not p.is_relative_to(tmp_path)]
     assert not leaked, f"_usage_logs() still points outside tmp_path, so tests would read data/: {leaked}"
     monkeypatch.setattr(api, "SHARES_DIR", tmp_path / "thumbs" / "shares")
+
+
+@pytest.fixture(autouse=True)
+def default_provider(monkeypatch):
+    """api.py loads .env, so a provider chosen there would reach every test. Tests that want one set it themselves."""
+    monkeypatch.delenv("ENCLOTHED_LLM_PROVIDER", raising=False)

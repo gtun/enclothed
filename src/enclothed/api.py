@@ -28,7 +28,7 @@ from enclothed.models import (
     LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut,
 )
 from enclothed.insights import answer_question
-from enclothed.llm import Client, MissingKey, ServiceError, UnusableResponse, improve_preferences, make_client
+from enclothed.llm import Client, NotConfigured, ServiceError, UnusableResponse, improve_preferences, make_client
 from enclothed.outfit import fill_description, generate_outfits
 from enclothed.usage import log_failed_call, read_calls
 
@@ -69,7 +69,7 @@ def _llm_client() -> Client:
     """The LLM client, or a 503 explaining why the AI features are unavailable."""
     try:
         return make_client()
-    except MissingKey as error:
+    except NotConfigured as error:
         raise HTTPException(status_code=503, detail=str(error))
 
 

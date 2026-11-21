@@ -201,3 +201,11 @@ def test_generate_outfits_logs_a_refused_call(tmp_path, monkeypatch):
     with pytest.raises(UnusableResponse):
         outfit.generate_outfits(tmp_path / "db", 2, {}, None, log, None, "dinner", False)
     assert read_calls({"outfits": log})[0].user_id == 2
+
+
+def test_an_openai_call_is_priced_at_each_tokens_own_rate():
+    """500 uncached, 300 cached and 200 cache-written input tokens (OpenAI reports 1,000 input), and 80 output."""
+    usage = TokenUsage(model="gpt-6.1-terra", input_tokens=500, cache_read_input_tokens=300,
+                       cache_creation_input_tokens=200, output_tokens=80)
+    expected = (500 * 1.00 + 300 * 0.05 + 200 * 1.25 + 80 * 5.00) / 1_000_000
+    assert call_cost(usage) == pytest.approx(expected)

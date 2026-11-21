@@ -25,7 +25,8 @@ PUBLIC_DIR = PROJECT_ROOT / "public"
 LOCALES_DIR = PKG_DIR / "locales"
 
 DEFAULT_USER_ID = 1
-# Which LLM provider runs every AI feature. Only llm.py talks to it; every other module goes through llm.py.
+# Which LLM provider runs every AI feature: a key of MODELS_BY_PROVIDER. ENCLOTHED_LLM_PROVIDER in .env overrides it.
+# Only llm.py reads either one (llm.active_provider), at each call, because .env loads after this file is imported.
 LLM_PROVIDER = "anthropic"
 # Which model each AI feature uses, for each provider. Every provider lists the same features. Within a provider the
 # features share one API, so switching a feature is a change to its line.
@@ -41,10 +42,28 @@ ANTHROPIC_MODELS: dict[str, str] = {
     "preferences": "claude-haiku-5-5",   # tidying your style notes
     "insights": "claude-sonnet-5-5",     # "Ask your wardrobe": writes SQL over several steps, so accuracy matters
 }
+# GPT-6.1 Terra is OpenAI's recommended model for visual work, and tagging matters most here. Insights doesn't run on
+# OpenAI yet; its entry is ready for when it does.
+OPENAI_MODELS: dict[str, str] = {
+    "tag": "gpt-6.1-terra",
+    "mend": "gpt-6.1-terra",
+    "outfits": "gpt-6.1-terra",
+    "look": "gpt-6.1-terra",
+    "describe": "gpt-6.1-terra",
+    "preferences": "gpt-6.1-terra",
+    "insights": "gpt-6.1-terra",
+}
 MODELS_BY_PROVIDER: dict[str, dict[str, str]] = {
     "anthropic": ANTHROPIC_MODELS,
+    "openai": OPENAI_MODELS,
 }
-MODELS = MODELS_BY_PROVIDER[LLM_PROVIDER]   # the active provider's models, which is what the app reads
+# On OpenAI, reasoning tokens count toward max_output_tokens, so this is added to a feature's token cap below.
+# OpenAI suggests reserving 25,000 for reasoning and output when starting out; tune it from the logged reasoning tokens.
+OPENAI_REASONING_EFFORT = "high"
+OPENAI_REASONING_ALLOWANCE = 25_000
+# "high" keeps a photo's full size up to 2048 px a side on the models the docs list sizes for, and uploads are at most
+# UPLOAD_MAX_SIDE. The docs don't list Terra's sizes or say whether it accepts "original".
+OPENAI_IMAGE_DETAIL = "high"
 MAX_LLM_ATTEMPTS = 2
 TAG_TOKEN_CAP = 2048
 MEND_TOKEN_CAP = 2048
@@ -89,11 +108,13 @@ DEMO_MAX_OUTFITS = 8
 DEMO_RESET_HOUR_UTC = 8
 DEMO_DAILY_TOKEN_LIMIT = 200_000
 
-# Dollars per million tokens, for the usage page's estimates. cache_write is the 5-minute rate, the
-# only cache this app uses. Haiku's prices are for prompts up to 100,000 tokens. Update these when
+# Dollars per million tokens, for the usage page's estimates. cache_write is Anthropic's 5-minute rate, the
+# only cache this app asks for, and OpenAI's default 30-minute rate. Haiku's prices are for prompts up to 100,000 tokens. Update these when
 # Anthropic's prices change, and add any new model: a model missing here shows tokens but no cost.
 # https://platform.claude.com/docs/en/about-claude/pricing
 MODEL_PRICES = {
     "claude-sonnet-5-5": {"input": 2.00, "output": 10.00, "cache_write": 2.50, "cache_read": 0.10},
     "claude-haiku-5-5": {"input": 0.10, "output": 0.50, "cache_write": 0.125, "cache_read": 0.01},
+    # https://developers.openai.com/api/docs/pricing, standard tier, prompts up to 272,000 tokens
+    "gpt-6.1-terra": {"input": 1.00, "output": 5.00, "cache_write": 1.25, "cache_read": 0.05},
 }

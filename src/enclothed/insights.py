@@ -1,7 +1,7 @@
 from contextlib import closing
 from pathlib import Path
 from enclothed.models import DEFAULT_LANGUAGE, InsightAnswer, Language, QueryResult, TokenUsage
-from enclothed.llm import Client, InsightsChat, ServiceError, ToolResult, UnusableResponse
+from enclothed.llm import Client, InsightsChat, ServiceError, ToolResult, UnusableResponse, model_for
 from enclothed.sandbox import build_snapshot, run_select
 from enclothed import config
 import json
@@ -47,7 +47,7 @@ def log_insight(log_path: Path, user_id: int, usage: TokenUsage, message_count: 
 
 def answer_question(client: Client, db_path: Path, user_id: int, question: str, history: list[dict], language: Language = DEFAULT_LANGUAGE, preferences: str | None = None, log_path: Path | None = None) -> InsightAnswer:
     chat = InsightsChat(client, history, question, language, preferences)
-    total_usage = TokenUsage(model=config.MODELS["insights"], input_tokens=0, output_tokens=0)
+    total_usage = TokenUsage(model=model_for(client.provider, "insights"), input_tokens=0, output_tokens=0)
     queries = []
     answer = None
     error = None
