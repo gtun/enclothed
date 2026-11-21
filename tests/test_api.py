@@ -871,8 +871,8 @@ def test_the_llm_list_names_each_provider_its_models_and_the_default(client):
     assert set(llms) == {"anthropic", "openai"}
     assert llms["anthropic"]["is_default"] and not llms["openai"]["is_default"]
     sonnet = next(m for m in llms["anthropic"]["models"] if m["id"] == "claude-sonnet-5-5")
-    assert sonnet["name"] == "Claude Sonnet 5.5" and "tag" in sonnet["features"]
-    assert [m["name"] for m in llms["openai"]["models"]] == ["GPT-6.1 Terra"]
+    assert sonnet["name"] == "Claude Sonnet 5.5" and "outfits" in sonnet["features"]
+    assert [m["name"] for m in llms["openai"]["models"]] == ["GPT-6.1 Terra", "GPT-6 Luna", "GPT-6.1 Sol"]
 
 
 def test_only_an_admin_sees_the_llm_list(db_path):

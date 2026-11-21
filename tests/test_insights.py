@@ -335,7 +335,7 @@ def test_a_turn_sends_the_tool_prompt_and_cache_setting():
     assert call["messages"] == messages
     assert call["tools"] == [llm.RUN_SELECT_TOOL]
     assert call["cache_control"] == {"type": "ephemeral"}
-    assert call["max_tokens"] == config.INSIGHTS_TOKEN_CAP
+    assert call["max_tokens"] == llm.anthropic_token_cap(call["model"], config.INSIGHTS_TOKEN_CAP)
     assert "Loose fits" in call["system"]
 
 
@@ -407,7 +407,7 @@ def test_on_openai_the_settings_decided_for_it_are_sent(db_path):
     sent = client.calls[0]
     assert sent["store"] is False
     assert sent["prompt_cache_options"] == {"mode": "explicit"}
-    assert sent["reasoning"] == {"effort": config.OPENAI_REASONING_EFFORT}
+    assert sent["reasoning"] == {"effort": config.OPENAI_REASONING_EFFORT["insights"]}
     assert sent["max_output_tokens"] == config.INSIGHTS_TOKEN_CAP + config.OPENAI_REASONING_ALLOWANCE
     assert sent["tools"] == [llm.OPENAI_RUN_SELECT_TOOL]
     assert sent["tools"][0]["strict"] is True and sent["tools"][0]["parameters"]["additionalProperties"] is False
