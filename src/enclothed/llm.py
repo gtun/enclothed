@@ -109,20 +109,24 @@ def _openai_usage(model: str, usage: Any) -> TokenUsage:
 
 
 def _openai_content(content: str | list[dict]) -> str | list[dict]:
-    """The content blocks callers build, which are Anthropic's, in the Responses API's shape. cache_control is
-    dropped: OpenAI caches a long enough prompt prefix by itself, and the wardrobe already comes first."""
+    """The content blocks callers build, which are Anthropic's, in the Responses API's shape. A block marked with
+    cache_control (the wardrobe) gets an explicit cache breakpoint, so on both providers the prompt is cached up to
+    that block and nowhere else."""
     if isinstance(content, str):
         return content
     parts = []
     for block in content:
         if block["type"] == "text":
-            parts.append({"type": "input_text", "text": block["text"]})
+            part = {"type": "input_text", "text": block["text"]}
         elif block["type"] == "image":
             source = block["source"]
-            parts.append({"type": "input_image", "image_url": f"data:{source['media_type']};base64,{source['data']}",
-                          "detail": config.OPENAI_IMAGE_DETAIL})
+            part = {"type": "input_image", "image_url": f"data:{source['media_type']};base64,{source['data']}",
+                    "detail": config.OPENAI_IMAGE_DETAIL}
         else:
             raise ValueError(f"No OpenAI form for a {block['type']!r} block")
+        if block.get("cache_control"):
+            part["prompt_cache_breakpoint"] = {"mode": "explicit"}
+        parts.append(part)
     return parts
 
 
@@ -179,6 +183,10 @@ def _parse_openai[T](client: Client, model: str, system: str, content: str | lis
                              "schema": to_strict_json_schema(output_format), "strict": True}},
             max_output_tokens=token_cap + config.OPENAI_REASONING_ALLOWANCE,
             reasoning={"effort": config.OPENAI_REASONING_EFFORT},
+            # Explicit: cache only at the breakpoints above. The implicit default put its one breakpoint near the end
+            # of the prompt, after the request, so the next call couldn't reuse it; every call paid 1.25x to write
+            # its whole prompt (photos included) and read back almost nothing.
+            prompt_cache_options={"mode": "explicit"},
             store=False,
         )
     usage = _openai_usage(model, response.usage)

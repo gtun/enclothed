@@ -212,9 +212,32 @@ def test_content_blocks_are_sent_in_openais_shape(tmp_path):
     photo.write_bytes(b"jpeg")
     blocks = [{"type": "text", "text": "<wardrobe>", "cache_control": {"type": "ephemeral"}}, llm.image_block(photo)]
     assert llm._openai_content(blocks) == [
-        {"type": "input_text", "text": "<wardrobe>"},
+        {"type": "input_text", "text": "<wardrobe>", "prompt_cache_breakpoint": {"mode": "explicit"}},
         {"type": "input_image", "image_url": "data:image/jpeg;base64,anBlZw==", "detail": config.OPENAI_IMAGE_DETAIL},
     ]
+
+
+def test_caching_is_explicit_so_calls_without_a_breakpoint_write_nothing():
+    """The implicit default writes the whole prompt every call, at 1.25x, and tagging's photos are never sent again."""
+    client = OpenAIFake(openai_response(message(output_text('{"text": "x"}'))))
+    preferences_call(client)
+    assert client.sent["prompt_cache_options"] == {"mode": "explicit"}
+    assert "prompt_cache_breakpoint" not in str(client.sent["input"])
+
+
+def test_the_outfit_wardrobe_is_the_one_cache_breakpoint():
+    from enclothed.outfit import wardrobe_block
+    client = OpenAIFake(openai_response(message(output_text('{"outfits": []}'))))
+    llm.recommend_outfits(client, [wardrobe_block({"1": {"category": "top"}}, caching=True), {"type": "text", "text": "<request>"}])
+    first, second = client.sent["input"][0]["content"]
+    assert first["prompt_cache_breakpoint"] == {"mode": "explicit"}
+    assert "prompt_cache_breakpoint" not in second
+
+
+def test_no_breakpoint_when_the_caller_turns_caching_off():
+    from enclothed.outfit import wardrobe_block
+    [part] = llm._openai_content([wardrobe_block({"1": {"category": "top"}}, caching=False)])
+    assert "prompt_cache_breakpoint" not in part
 
 
 def test_a_block_with_no_openai_form_is_refused():
