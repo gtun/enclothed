@@ -726,6 +726,18 @@ class ChoiceOption(BaseModel):
     value: str
     label: str
 
+class LLMModelOut(BaseModel):
+    id: str
+    name: str
+    features: list[str]   # the config.MODELS_BY_PROVIDER feature keys that use it
+
+class LLMOut(BaseModel):
+    """One provider in the admin's LLM picker."""
+    provider: str
+    name: str
+    models: list[LLMModelOut]
+    is_default: bool      # what runs when the page picks nothing
+
 class ProfileOut(BaseModel):
     name: str
     language: Language = DEFAULT_LANGUAGE

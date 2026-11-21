@@ -56,7 +56,7 @@ def db_path(tmp_path, monkeypatch):
 @pytest.fixture
 def llm(monkeypatch):
     fake = FakeClient()
-    monkeypatch.setattr(api, "_llm_client", lambda: fake)
+    monkeypatch.setattr(api, "_llm_client", lambda provider=None: fake)
     return fake
 
 

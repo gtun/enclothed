@@ -52,6 +52,9 @@ OPENAI_MODELS: dict[str, str] = {
     "preferences": "gpt-6.1-terra",
     "insights": "gpt-6.1-terra",
 }
+# How the page names each provider and model, in the admin's LLM picker (hold L and click an AI button).
+PROVIDER_NAMES = {"anthropic": "Claude", "openai": "OpenAI"}
+MODEL_NAMES = {"claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-haiku-5-5": "Claude Haiku 5.5", "gpt-6.1-terra": "GPT-6.1 Terra"}
 MODELS_BY_PROVIDER: dict[str, dict[str, str]] = {
     "anthropic": ANTHROPIC_MODELS,
     "openai": OPENAI_MODELS,

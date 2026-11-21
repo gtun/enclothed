@@ -168,6 +168,7 @@ paintTheme();
     document.getElementById("who").textContent = profile.name;
     renderActAs(profile);
     startHelp(profile.signed_in_as || profile.name);
+    startLLMPicker(profile);
     usage.admin = profile.is_admin;
     sharedLinks.demo = profile.is_demo;
     reindex();

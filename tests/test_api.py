@@ -617,7 +617,7 @@ def test_outfit_with_a_disowned_piece_still_loads(client, outfit_id):
 def test_disowned_anchor_is_rejected(client, db_path, monkeypatch):
     garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     disown(client, garment_id)
-    monkeypatch.setattr(api, "_llm_client", lambda: None)
+    monkeypatch.setattr(api, "_llm_client", lambda provider=None: None)
     response = client.post("/api/outfits/suggestions", json={"anchors": [garment_id]})
     assert response.status_code == 422
     assert str(garment_id) in response.json()["detail"]
@@ -640,7 +640,7 @@ def test_disowned_garment_is_not_sent_to_the_llm(client, db_path, monkeypatch):
         sent["wardrobe"] = context[0]["text"]
         return OutfitResult(outfits=[]), None
 
-    monkeypatch.setattr(api, "_llm_client", lambda: None)
+    monkeypatch.setattr(api, "_llm_client", lambda provider=None: None)
     monkeypatch.setattr(outfit_module, "recommend_outfits", fake_recommend)
     assert client.post("/api/outfits/suggestions", json={"details": "dinner"}).status_code == 200
 
@@ -790,3 +790,94 @@ def test_outfits_you_save_are_your_own_and_suggestions_are_the_ais(client, db_pa
                                             "details": "rainy sunday"}).json()
     assert own["source"] == "own"
     assert client.get(f"/api/outfits/{outfit_id}").json()["source"] == "ai"
+
+
+# --- the admin's LLM picker (X-LLM-Provider) ------------------------------------------------
+
+@pytest.fixture
+def picked(monkeypatch):
+    """Which provider each AI call's client was made for, with the call itself faked."""
+    providers = []
+    def client_for(provider=None):
+        providers.append(provider)
+        return None
+    monkeypatch.setattr(api, "_llm_client", client_for)
+    monkeypatch.setattr(api, "improve_preferences", lambda client_, text: ("tidy", TokenUsage(model="m", input_tokens=1, output_tokens=1)))
+    return providers
+
+
+def improve(client, **headers):
+    return client.post("/api/preferences/improve", json={"text": "navy"}, headers=headers)
+
+
+def test_an_admin_can_pick_the_provider_for_a_call(client, picked):
+    assert improve(client, **{"X-LLM-Provider": "openai"}).status_code == 200
+    assert picked == ["openai"]
+
+
+def test_without_a_pick_the_default_runs(client, picked):
+    improve(client)
+    assert picked == [None]
+
+
+def test_an_unknown_provider_is_refused(client, picked):
+    response = improve(client, **{"X-LLM-Provider": "gemini"})
+    assert response.status_code == 422
+    assert "gemini" in response.json()["detail"]
+    assert picked == []
+
+
+def test_anyone_elses_pick_is_ignored(db_path, picked):
+    api.app.dependency_overrides[signed_in_user] = lambda: User(id=1, username="owner", is_admin=False)
+    try:
+        assert improve(TestClient(api.app), **{"X-LLM-Provider": "openai"}).status_code == 200
+    finally:
+        api.app.dependency_overrides.clear()
+    assert picked == [None]
+
+
+def test_every_endpoint_that_makes_an_llm_client_passes_the_pick_on():
+    """So a new AI endpoint can't forget it: the page sends the header to all of them."""
+    import inspect
+    endpoints = [route.endpoint for route in api.app.routes
+                 if inspect.isfunction(getattr(route, "endpoint", None)) and "_llm_client(" in inspect.getsource(route.endpoint)]
+    assert len(endpoints) >= 9
+    for endpoint in endpoints:
+        assert inspect.signature(endpoint).parameters["provider"].annotation is api.ChosenProvider, endpoint.__name__
+        assert "_llm_client(provider)" in inspect.getsource(endpoint), endpoint.__name__
+
+
+@pytest.mark.parametrize("path, body", [
+    ("/api/outfits/suggestions", {"details": "dinner"}),
+    ("/api/insights", {"question": "Hi"}),
+])
+def test_the_pick_reaches_the_client(client, db_path, path, body, monkeypatch):
+    """Each one asks _llm_client for the picked provider; stopping there keeps the rest of the call out of it."""
+    class Stop(Exception):
+        pass
+    seen = []
+    def client_for(provider=None):
+        seen.append(provider)
+        raise Stop
+    monkeypatch.setattr(api, "_llm_client", client_for)
+    insert_garment(db_path, 1, TEST_GARMENT)
+    with pytest.raises(Stop):
+        client.post(path, json=body, headers={"X-LLM-Provider": "openai"})
+    assert seen == ["openai"]
+
+
+def test_the_llm_list_names_each_provider_its_models_and_the_default(client):
+    llms = {llm["provider"]: llm for llm in client.get("/api/llms").json()}
+    assert set(llms) == {"anthropic", "openai"}
+    assert llms["anthropic"]["is_default"] and not llms["openai"]["is_default"]
+    sonnet = next(m for m in llms["anthropic"]["models"] if m["id"] == "claude-sonnet-5-5")
+    assert sonnet["name"] == "Claude Sonnet 5.5" and "tag" in sonnet["features"]
+    assert [m["name"] for m in llms["openai"]["models"]] == ["GPT-6.1 Terra"]
+
+
+def test_only_an_admin_sees_the_llm_list(db_path):
+    api.app.dependency_overrides[signed_in_user] = lambda: User(id=1, username="owner", is_admin=False)
+    try:
+        assert TestClient(api.app).get("/api/llms").status_code == 403
+    finally:
+        api.app.dependency_overrides.clear()
