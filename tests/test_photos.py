@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from PIL import Image
 
-from enclothed import photos
+from enclothed import config, photos
 
 
 @pytest.fixture
@@ -83,3 +83,22 @@ def test_a_failed_thumbnail_doesnt_block_the_next(folders):
     bad.write_bytes(b"not an image")
     for _ in range(2):
         assert photos.get_thumbnail(1, "front_00.jpg") == bad
+
+
+def test_big_or_unusual_photos_are_shrunk_before_sending(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "MEND_MAX_PHOTO_BYTES", 10)
+    big = tmp_path / "front_00.jpg"
+    Image.new("RGB", (100, 100), "red").save(big)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    [ready] = photos.sendable_copies([big], out)
+
+    assert ready.parent == out
+    assert ready.suffix == ".jpg"
+
+
+def test_small_photos_are_sent_as_they_are(tmp_path):
+    small = tmp_path / "front_00.jpg"
+    Image.new("RGB", (10, 10), "red").save(small)
+    assert photos.sendable_copies([small], tmp_path) == [small]

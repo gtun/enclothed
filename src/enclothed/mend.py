@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 # Never sent. notes are the owner's private notes, and the rest mean nothing to the LLM.
 NOT_SENT = {"id", "notes", "date_added", "set_id", "disowned_on", "mended_on", "user_id"}
-SENDABLE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_FAILURES_IN_A_ROW = 3
 
 
@@ -29,19 +28,6 @@ class Mended(BaseModel):
     filled: dict
     unanswered: list[str]
     usage: TokenUsage
-
-
-def _sendable(paths: list[Path], tmp_dir: Path) -> list[Path]:
-    """Older photos came straight from a camera. Shrink any the API would refuse."""
-    ready = []
-    for index, path in enumerate(paths):
-        if path.suffix.lower() in SENDABLE_SUFFIXES and path.stat().st_size <= config.MEND_MAX_PHOTO_BYTES:
-            ready.append(path)
-        else:
-            smaller = tmp_dir / f"{index:02d}.jpg"
-            photos.normalize_photo(path, smaller)
-            ready.append(smaller)
-    return ready
 
 
 def usable_answers(garment: Garment, answers: dict) -> dict:
@@ -85,7 +71,7 @@ def mend_garment(db_path: Path, log_path: Path, user_id: int, garment: Garment, 
 
     record = garment.model_dump(mode="json", exclude=NOT_SENT, exclude_none=True)
     with tempfile.TemporaryDirectory(prefix="mend-") as tmp:
-        ready = _sendable(photo_paths, Path(tmp))
+        ready = photos.sendable_copies(photo_paths, Path(tmp))
         try:
             answers, usage = fill_blanks(client, ready, record, blanks, language, preferences)
         except UnusableResponse as error:

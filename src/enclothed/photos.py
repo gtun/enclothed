@@ -7,6 +7,7 @@ from typing import get_args
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
+from enclothed import config
 from enclothed.config import GARMENTS_DIR, LOOKS_DIR, THUMBS_DIR, THUMB_SIZE, UPLOAD_MAX_SIDE
 from enclothed.models import LookPhoto, Photo, PhotoRole
 
@@ -17,6 +18,21 @@ logger = logging.getLogger(__name__)
 _thumbnail_lock = threading.Lock()
 
 ROLES = get_args(PhotoRole)   # ("front", "back", "detail", "label", "other")
+SENDABLE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def sendable_copies(paths: list[Path], tmp_dir: Path) -> list[Path]:
+    """Saved photos to send to the LLM again (mend, the tagging eval). Older ones came straight from a camera, so
+    any the API would refuse is shrunk into tmp_dir; the rest are sent as they are."""
+    ready = []
+    for index, path in enumerate(paths):
+        if path.suffix.lower() in SENDABLE_SUFFIXES and path.stat().st_size <= config.MEND_MAX_PHOTO_BYTES:
+            ready.append(path)
+        else:
+            smaller = tmp_dir / f"{index:02d}.jpg"
+            normalize_photo(path, smaller)
+            ready.append(smaller)
+    return ready
 
 
 def _photo_files(garment_id: int) -> list[Path]:
