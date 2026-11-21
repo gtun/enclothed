@@ -813,6 +813,16 @@ class InsightsTurn:
     stop_reason: str | None
 
 
+# The same tool in the Responses API's shape. Strict mode needs every object closed, and sql is already required.
+OPENAI_RUN_SELECT_TOOL = {
+    "type": "function",
+    "name": RUN_SELECT_TOOL["name"],
+    "description": RUN_SELECT_TOOL["description"],
+    "parameters": {**RUN_SELECT_TOOL["input_schema"], "additionalProperties": False},
+    "strict": True,
+}
+
+
 class InsightsChat:
     """One "Ask your wardrobe" question, kept in the provider's own message format. insights.py runs the loop and
     the tools; this only builds the messages and makes the calls."""
@@ -820,13 +830,19 @@ class InsightsChat:
     def __init__(self, client: Client, history: list[dict], question: str, language: Language = DEFAULT_LANGUAGE, preferences: str | None = None):
         self._client = client
         self._system = insights_system_prompt(language, preferences)
-        self._messages: list[dict] = [*history, {"role": "user", "content": question}]
-        self._last_content: list = []
+        self._last_output: list = []
+        if client.provider == "openai":
+            question_part = {"type": "input_text", "text": question}
+            self._messages: list = [*history, {"role": "user", "content": [question_part]}]
+            self._breakpoint: dict | None = None
+            self._move_breakpoint(question_part)
+        else:
+            self._messages = [*history, {"role": "user", "content": question}]
 
     def next_turn(self) -> InsightsTurn:
-        if self._client.provider != "anthropic":
-            raise ServiceError("Ask your wardrobe doesn't run on OpenAI yet.", "NotSupported")
         model = model_for(self._client.provider, "insights")
+        if self._client.provider == "openai":
+            return self._openai_turn(model)
         with _service_errors():
             response = self._client.sdk.messages.create(
                 model=model,
@@ -843,7 +859,7 @@ class InsightsChat:
         if response.stop_reason == "max_tokens":
             logger.warning("Insights response cut off at max_tokens (%s)", config.INSIGHTS_TOKEN_CAP)
 
-        self._last_content = response.content
+        self._last_output = response.content
         calls = []
         if response.stop_reason == "tool_use":
             calls = [ToolCall(block.id, block.name, block.input) for block in response.content if block.type == "tool_use"]
@@ -852,8 +868,67 @@ class InsightsChat:
 
     def add_tool_results(self, results: list[ToolResult]) -> None:
         """Answer the last turn's tool calls, ready for the next turn."""
-        self._messages.append({"role": "assistant", "content": self._last_content})
+        if self._client.provider == "openai":
+            self._add_openai_results(results)
+            return
+        self._messages.append({"role": "assistant", "content": self._last_output})
         self._messages.append({"role": "user", "content": [
             {"type": "tool_result", "tool_use_id": result.call_id, "content": result.content, "is_error": result.is_error}
             for result in results
         ]})
+
+    def _openai_turn(self, model: str) -> InsightsTurn:
+        with _service_errors():
+            response = self._client.sdk.responses.create(
+                model=model,
+                instructions=self._system,
+                input=self._messages,
+                tools=[OPENAI_RUN_SELECT_TOOL],
+                max_output_tokens=config.INSIGHTS_TOKEN_CAP + config.OPENAI_REASONING_ALLOWANCE,
+                reasoning={"effort": config.OPENAI_REASONING_EFFORT},
+                prompt_cache_options={"mode": "explicit"},
+                store=False,
+            )
+
+        usage = _openai_usage(model, response.usage)
+        logger.debug("tokens: in=%s out=%s cache_creation=%s cache_read=%s", usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
+        logger.debug("items: %s", [item.type for item in response.output])
+        incomplete = response.incomplete_details.reason if response.incomplete_details else None
+        if incomplete == "max_output_tokens":
+            logger.warning("Insights response cut off at max_output_tokens (%s)", config.INSIGHTS_TOKEN_CAP + config.OPENAI_REASONING_ALLOWANCE)
+
+        # With store=False nothing is kept server-side, so every item goes back next turn, reasoning included.
+        self._last_output = list(response.output)
+        calls = []
+        if not incomplete:   # as on Anthropic, a reply cut off mid tool call is the answer, not a call to run
+            calls = [ToolCall(item.call_id, item.name, _tool_arguments(item.arguments))
+                     for item in response.output if item.type == "function_call"]
+        text, refused = _openai_answer(response)
+        stop_reason = incomplete or ("refusal" if refused else response.status)
+        return InsightsTurn(text="" if refused else text, tool_calls=calls, usage=usage, stop_reason=stop_reason)
+
+    def _add_openai_results(self, results: list[ToolResult]) -> None:
+        self._messages.extend(self._last_output)
+        last_part = None
+        for result in results:
+            # The Responses API has no is_error flag, so an error says so in its text.
+            last_part = {"type": "input_text", "text": f"Error: {result.content}" if result.is_error else result.content}
+            self._messages.append({"type": "function_call_output", "call_id": result.call_id, "output": [last_part]})
+        if last_part:
+            self._move_breakpoint(last_part)
+
+    def _move_breakpoint(self, part: dict) -> None:
+        """One cache breakpoint, on the newest content, as Anthropic's automatic caching does: each turn reads the
+        conversation so far from the cache and writes only what's new."""
+        if self._breakpoint:
+            del self._breakpoint["prompt_cache_breakpoint"]
+        part["prompt_cache_breakpoint"] = {"mode": "explicit"}
+        self._breakpoint = part
+
+
+def _tool_arguments(arguments: str) -> Any:
+    """The call's arguments as a dict. Text that isn't JSON comes back as is, and insights reports it as an error."""
+    try:
+        return json.loads(arguments)
+    except json.JSONDecodeError:
+        return arguments
