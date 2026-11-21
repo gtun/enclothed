@@ -1,4 +1,4 @@
-# Each AI feature runs on the model config.MODELS names for it.
+# Each AI feature runs on the model config.MODELS_BY_PROVIDER names for it.
 from pathlib import Path
 
 import pytest
@@ -44,7 +44,7 @@ CALLS = {
 
 @pytest.mark.parametrize("feature", CALLS)
 def test_each_feature_uses_its_configured_model(feature, photo, monkeypatch):
-    monkeypatch.setitem(config.MODELS, feature, f"model-for-{feature}")
+    monkeypatch.setitem(config.MODELS_BY_PROVIDER["anthropic"], feature, f"model-for-{feature}")
     client = Recorder()
     with pytest.raises(StopCall):
         CALLS[feature](client, photo)
@@ -52,7 +52,7 @@ def test_each_feature_uses_its_configured_model(feature, photo, monkeypatch):
 
 
 def test_weigh_shares_the_outfit_model_so_they_share_the_cached_wardrobe(monkeypatch):
-    monkeypatch.setitem(config.MODELS, "outfits", "shared-model")
+    monkeypatch.setitem(config.MODELS_BY_PROVIDER["anthropic"], "outfits", "shared-model")
     client = Recorder()
     with pytest.raises(StopCall):
         llm.weigh_candidate(client, [{"type": "text", "text": "x"}])
@@ -60,7 +60,7 @@ def test_weigh_shares_the_outfit_model_so_they_share_the_cached_wardrobe(monkeyp
 
 
 def test_matching_a_look_shares_the_outfit_model_so_it_shares_the_cached_wardrobe(monkeypatch):
-    monkeypatch.setitem(config.MODELS, "outfits", "shared-model")
+    monkeypatch.setitem(config.MODELS_BY_PROVIDER["anthropic"], "outfits", "shared-model")
     client = Recorder()
     with pytest.raises(StopCall):
         llm.match_look(client, [{"type": "text", "text": "x"}])
@@ -76,5 +76,29 @@ def test_every_anthropic_feature_has_a_claude_model():
     assert all(model.startswith("claude-") for model in config.MODELS_BY_PROVIDER["anthropic"].values())
 
 
-def test_the_app_reads_the_active_providers_models():
-    assert config.MODELS is config.MODELS_BY_PROVIDER[config.LLM_PROVIDER]
+
+class OpenAIRecorder(llm.Client):
+    """The same, for OpenAI's responses.create."""
+    def __init__(self):
+        super().__init__("openai", self)
+        self.models = []
+        recorder = self
+        class Responses:
+            def create(self, **kwargs):
+                recorder.models.append(kwargs["model"]); raise StopCall
+        self.responses = Responses()
+
+
+@pytest.mark.parametrize("feature", [feature for feature in CALLS if feature != "insights"])
+def test_each_feature_uses_its_configured_openai_model(feature, photo, monkeypatch):
+    monkeypatch.setitem(config.MODELS_BY_PROVIDER["openai"], feature, f"model-for-{feature}")
+    client = OpenAIRecorder()
+    with pytest.raises(StopCall):
+        CALLS[feature](client, photo)
+    assert client.models == [f"model-for-{feature}"]
+
+
+def test_insights_says_it_doesnt_run_on_openai_yet():
+    with pytest.raises(llm.ServiceError) as raised:
+        CALLS["insights"](OpenAIRecorder(), None)
+    assert raised.value.kind == "NotSupported"

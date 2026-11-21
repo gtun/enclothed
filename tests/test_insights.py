@@ -335,3 +335,12 @@ def test_a_turn_sends_the_tool_prompt_and_cache_setting():
     assert call["cache_control"] == {"type": "ephemeral"}
     assert call["max_tokens"] == config.INSIGHTS_TOKEN_CAP
     assert "Loose fits" in call["system"]
+
+
+def test_on_openai_the_question_fails_and_is_logged(db_path, tmp_path):
+    log = tmp_path / "insights.jsonl"
+    with pytest.raises(ServiceError):
+        answer_question(llm.Client("openai", None), db_path, OWNER, "Q", [], log_path=log)
+    [entry] = log_lines(log)
+    assert entry["error"] == "NotSupported"
+    assert entry["usage"]["model"] == config.MODELS_BY_PROVIDER["openai"]["insights"]

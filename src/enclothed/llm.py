@@ -1,4 +1,6 @@
 import anthropic
+import openai
+from openai.lib._pydantic import to_strict_json_schema
 from enclothed import config, i18n
 from enclothed.fabrics import FABRIC_GROUPS
 from enclothed.models import DEFAULT_LANGUAGE, Garment, SUBCATEGORIES, Language, TaggedGarment, TaggingReply, TaggingResult, TokenUsage, blank_unknowns, to_tagging_result, OutfitResult, OutfitDescription, ImprovedPreferences, WeighResult, LookReply, LookTags, MimicResult, to_look_tags
@@ -34,8 +36,8 @@ class ServiceError(RuntimeError):
         self.request_id = request_id    # what the provider's support asks for
 
 
-class MissingKey(RuntimeError):
-    """The active provider's API key isn't set, so AI features are off."""
+class NotConfigured(RuntimeError):
+    """The provider setting names no provider, or the provider's API key isn't set, so AI features are off."""
 
 
 @dataclass
@@ -45,24 +47,38 @@ class Client:
     sdk: Any
 
 
-API_KEY_VARIABLES = {"anthropic": "ANTHROPIC_API_KEY"}
+API_KEY_VARIABLES = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+PROVIDER_VARIABLE = "ENCLOTHED_LLM_PROVIDER"
+
+
+def active_provider() -> str:
+    """ENCLOTHED_LLM_PROVIDER if it's set, otherwise config.LLM_PROVIDER. Read at each call, since .env loads late."""
+    provider = os.getenv(PROVIDER_VARIABLE) or config.LLM_PROVIDER
+    if provider not in config.MODELS_BY_PROVIDER:
+        raise NotConfigured(f"{PROVIDER_VARIABLE} is {provider!r}, but the providers are {', '.join(config.MODELS_BY_PROVIDER)}.")
+    return provider
+
+
+def model_for(provider: str, feature: str) -> str:
+    return config.MODELS_BY_PROVIDER[provider][feature]
 
 
 def make_client() -> Client:
-    """A client for config.LLM_PROVIDER. Raises MissingKey when that provider's key isn't set."""
-    provider = config.LLM_PROVIDER
+    """A client for the active provider. Raises NotConfigured when there's no such provider or its key isn't set."""
+    provider = active_provider()
     variable = API_KEY_VARIABLES[provider]
     if not os.getenv(variable):
-        raise MissingKey(f"No {variable} is set in .env, so AI features are off.")
-    return Client(provider, anthropic.Anthropic())
+        raise NotConfigured(f"No {variable} is set in .env, so AI features are off.")
+    sdk = openai.OpenAI() if provider == "openai" else anthropic.Anthropic()
+    return Client(provider, sdk)
 
 
 @contextmanager
 def _service_errors():
-    """Turn the SDK's errors into ServiceError."""
+    """Turn the SDKs' errors into ServiceError."""
     try:
         yield
-    except anthropic.APIError as error:
+    except (anthropic.APIError, openai.APIError) as error:
         raise ServiceError(error.message, type(error).__name__, getattr(error, "request_id", None)) from error
 
 
@@ -76,6 +92,55 @@ def _usage(model: str, usage: Any) -> TokenUsage:
     )
 
 
+def _openai_usage(model: str, usage: Any) -> TokenUsage:
+    """OpenAI's input_tokens includes the cached and cache-written tokens, and Anthropic's excludes them. TokenUsage
+    follows Anthropic, so each input token is counted once, at its own price. output_tokens includes reasoning."""
+    details = usage.input_tokens_details
+    cached = details.cached_tokens or 0
+    written = details.cache_write_tokens or 0
+    logger.debug("reasoning tokens: %s", usage.output_tokens_details.reasoning_tokens)
+    return TokenUsage(
+        model=model,
+        input_tokens=usage.input_tokens - cached - written,
+        output_tokens=usage.output_tokens,
+        cache_creation_input_tokens=written,
+        cache_read_input_tokens=cached,
+    )
+
+
+def _openai_content(content: str | list[dict]) -> str | list[dict]:
+    """The content blocks callers build, which are Anthropic's, in the Responses API's shape. cache_control is
+    dropped: OpenAI caches a long enough prompt prefix by itself, and the wardrobe already comes first."""
+    if isinstance(content, str):
+        return content
+    parts = []
+    for block in content:
+        if block["type"] == "text":
+            parts.append({"type": "input_text", "text": block["text"]})
+        elif block["type"] == "image":
+            source = block["source"]
+            parts.append({"type": "input_image", "image_url": f"data:{source['media_type']};base64,{source['data']}",
+                          "detail": config.OPENAI_IMAGE_DETAIL})
+        else:
+            raise ValueError(f"No OpenAI form for a {block['type']!r} block")
+    return parts
+
+
+def _openai_answer(response: Any) -> tuple[str, bool]:
+    """The reply's final-answer text, and whether it refused. Messages in another phase, such as commentary,
+    aren't the answer."""
+    texts, refused = [], False
+    for item in response.output:
+        if item.type != "message" or getattr(item, "phase", None) not in (None, "final_answer"):
+            continue
+        for part in item.content:
+            if part.type == "output_text":
+                texts.append(part.text)
+            elif part.type == "refusal":
+                refused = True
+    return "".join(texts), refused
+
+
 @dataclass
 class _Reply[T]:
     parsed: T | None        # None when the reply had nothing to parse, such as a refusal
@@ -85,8 +150,10 @@ class _Reply[T]:
 
 
 def _parse[T](client: Client, feature: str, system: str, content: str | list[dict], output_format: type[T], token_cap: int) -> _Reply[T]:
-    """One structured call on the model config.MODELS names for feature, with content as the only user message."""
-    model = config.MODELS[feature]
+    """One structured call on the provider's model for feature, with content as the only user message."""
+    model = model_for(client.provider, feature)
+    if client.provider == "openai":
+        return _parse_openai(client, model, system, content, output_format, token_cap)
     with _service_errors():
         response = client.sdk.messages.parse(
             model=model,
@@ -98,6 +165,35 @@ def _parse[T](client: Client, feature: str, system: str, content: str | list[dic
     usage = _usage(model, response.usage)
     logger.debug("%s tokens: in=%s out=%s cache_creation=%s cache_read=%s", feature, usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
     return _Reply(response.parsed_output, usage, response.stop_reason, response.stop_reason == "max_tokens")
+
+
+def _parse_openai[T](client: Client, model: str, system: str, content: str | list[dict], output_format: type[T], token_cap: int) -> _Reply[T]:
+    """responses.create with a strict schema, parsed here rather than by responses.parse: that raises on JSON cut
+    off at the token cap, and the usage, which was billed, would be lost with it."""
+    with _service_errors():
+        response = client.sdk.responses.create(
+            model=model,
+            instructions=system,
+            input=[{"role": "user", "content": _openai_content(content)}],
+            text={"format": {"type": "json_schema", "name": output_format.__name__,
+                             "schema": to_strict_json_schema(output_format), "strict": True}},
+            max_output_tokens=token_cap + config.OPENAI_REASONING_ALLOWANCE,
+            reasoning={"effort": config.OPENAI_REASONING_EFFORT},
+            store=False,
+        )
+    usage = _openai_usage(model, response.usage)
+    logger.debug("tokens: in=%s out=%s cache_creation=%s cache_read=%s", usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
+
+    incomplete = response.incomplete_details.reason if response.incomplete_details else None
+    text, refused = _openai_answer(response)
+    parsed = None
+    if text and not refused:
+        try:
+            parsed = output_format.model_validate_json(text)
+        except ValidationError as error:
+            logger.warning("OpenAI reply didn't match %s (status=%s): %s", output_format.__name__, response.status, error)
+    stop_reason = incomplete or ("refusal" if refused else response.status)
+    return _Reply(parsed, usage, stop_reason, incomplete == "max_output_tokens")
 
 
 SUBCATEGORY_TEXT = "\n".join(
@@ -720,7 +816,9 @@ class InsightsChat:
         self._last_content: list = []
 
     def next_turn(self) -> InsightsTurn:
-        model = config.MODELS["insights"]
+        if self._client.provider != "anthropic":
+            raise ServiceError("Ask your wardrobe doesn't run on OpenAI yet.", "NotSupported")
+        model = model_for(self._client.provider, "insights")
         with _service_errors():
             response = self._client.sdk.messages.create(
                 model=model,
