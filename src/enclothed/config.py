@@ -30,38 +30,58 @@ DEFAULT_USER_ID = 1
 LLM_PROVIDER = "anthropic"
 # Which model each AI feature uses, for each provider. Every provider lists the same features. Within a provider the
 # features share one API, so switching a feature is a change to its line.
-# Before moving a feature to a bigger Claude model: Opus and Fable always think first, and thinking counts toward that
-# feature's token cap below; they're also slower, and the site's proxy gives up on a request after 100 seconds.
+# Thinking counts toward max_tokens, so ANTHROPIC_THINKING_ALLOWANCE is added to the feature's token cap below on the
+# models that think at length first. Opus and Fable always do. Haiku 5.5 does too: tagging on it used 1,400-2,000 output
+# tokens and cut off at the 2,048 cap on 3 of 12 garments (eval-tags, 21 Nov 2026). Opus and Fable are also slower, and
+# the site's proxy gives up on a request after 100 seconds.
 # Weigh and mimic's matching step use "outfits": they share the cached wardrobe only while they're on the same model.
 ANTHROPIC_MODELS: dict[str, str] = {
-    "tag": "claude-sonnet-5-5",          # reading photos and labels into a garment record
-    "mend": "claude-sonnet-5-5",         # filling a garment's blank fields from its photos
+    "tag": "claude-sonnet-5-5",          # reading photos and labels into a garment record. Opus 5.5 matched no more
+                                         # saved fields (97 of 132 against 101) at twice the cost (eval-tags, 21 Nov 2026)
+    "mend": "claude-haiku-5-5",          # filling a garment's blank fields from its photos, a narrower job than tag
     "outfits": "claude-sonnet-5-5",      # outfit suggestions, weigh, and matching a look to the wardrobe (mimic)
     "look": "claude-sonnet-5-5",         # reading a photographed look into its pieces (mimic)
     "describe": "claude-haiku-5-5",      # a name and "why it works" for an outfit you put together
     "preferences": "claude-haiku-5-5",   # tidying your style notes
-    "insights": "claude-sonnet-5-5",     # "Ask your wardrobe": writes SQL over several steps, so accuracy matters
+    "insights": "claude-opus-5-5",       # "Ask your wardrobe": writes SQL over several steps, so accuracy matters
 }
-# GPT-6.1 Terra is OpenAI's recommended model for visual work, and tagging matters most here.
+ANTHROPIC_THINKING_MODELS = {"claude-opus-5-5", "claude-fable-5-2", "claude-haiku-5-5"}
+ANTHROPIC_THINKING_ALLOWANCE = 8_000   # keeps insights' cap near 16,000, which a non-streaming request stays under
+# GPT-6.1 Terra is OpenAI's recommended model for visual work, so the photo features stay on it. The short text
+# features use GPT-6 Luna, as Claude uses Haiku, and insights uses GPT-6.1 Sol, as Claude uses its bigger model.
 OPENAI_MODELS: dict[str, str] = {
     "tag": "gpt-6.1-terra",
     "mend": "gpt-6.1-terra",
     "outfits": "gpt-6.1-terra",
     "look": "gpt-6.1-terra",
-    "describe": "gpt-6.1-terra",
-    "preferences": "gpt-6.1-terra",
-    "insights": "gpt-6.1-terra",
+    "describe": "gpt-6-luna",
+    "preferences": "gpt-6-luna",
+    "insights": "gpt-6.1-sol",
 }
 # How the page names each provider and model, in the admin's LLM picker (hold L and click an AI button).
 PROVIDER_NAMES = {"anthropic": "Claude", "openai": "OpenAI"}
-MODEL_NAMES = {"claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-haiku-5-5": "Claude Haiku 5.5", "gpt-6.1-terra": "GPT-6.1 Terra"}
+MODEL_NAMES = {
+    "claude-opus-5-5": "Claude Opus 5.5", "claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-haiku-5-5": "Claude Haiku 5.5",
+    "gpt-6.1-sol": "GPT-6.1 Sol", "gpt-6.1-terra": "GPT-6.1 Terra", "gpt-6-luna": "GPT-6 Luna",
+}
 MODELS_BY_PROVIDER: dict[str, dict[str, str]] = {
     "anthropic": ANTHROPIC_MODELS,
     "openai": OPENAI_MODELS,
 }
+# How hard OpenAI reasons for each feature. Reading photos and writing SQL get "high"; picking outfits from a listed
+# wardrobe gets "medium", which halved Terra's output tokens with no validation problems (eval-outfits, 21 Nov 2026);
+# a name and a sentence or two, or tidied notes, need little thought.
+OPENAI_REASONING_EFFORT: dict[str, str] = {
+    "tag": "high",
+    "mend": "high",
+    "outfits": "medium",
+    "look": "high",
+    "describe": "low",
+    "preferences": "low",
+    "insights": "high",
+}
 # On OpenAI, reasoning tokens count toward max_output_tokens, so this is added to a feature's token cap below.
 # OpenAI suggests reserving 25,000 for reasoning and output when starting out; tune it from the logged reasoning tokens.
-OPENAI_REASONING_EFFORT = "high"
 OPENAI_REASONING_ALLOWANCE = 25_000
 # "high" keeps a photo's full size up to 2048 px a side on the models the docs list sizes for, and uploads are at most
 # UPLOAD_MAX_SIDE. The docs don't list Terra's sizes or say whether it accepts "original".
@@ -115,8 +135,11 @@ DEMO_DAILY_TOKEN_LIMIT = 200_000
 # Anthropic's prices change, and add any new model: a model missing here shows tokens but no cost.
 # https://platform.claude.com/docs/en/about-claude/pricing
 MODEL_PRICES = {
+    "claude-opus-5-5": {"input": 4.00, "output": 20.00, "cache_write": 5.00, "cache_read": 0.20},
     "claude-sonnet-5-5": {"input": 2.00, "output": 10.00, "cache_write": 2.50, "cache_read": 0.10},
     "claude-haiku-5-5": {"input": 0.10, "output": 0.50, "cache_write": 0.125, "cache_read": 0.01},
     # https://developers.openai.com/api/docs/pricing, standard tier, prompts up to 272,000 tokens
+    "gpt-6.1-sol": {"input": 2.00, "output": 10.00, "cache_write": 2.50, "cache_read": 0.10},
     "gpt-6.1-terra": {"input": 1.00, "output": 5.00, "cache_write": 1.25, "cache_read": 0.05},
+    "gpt-6-luna": {"input": 0.10, "output": 0.50, "cache_write": 0.125, "cache_read": 0.01},
 }

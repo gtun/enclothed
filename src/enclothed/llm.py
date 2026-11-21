@@ -156,15 +156,20 @@ class _Reply[T]:
     cut_off: bool           # the reply hit the token cap
 
 
+def anthropic_token_cap(model: str, token_cap: int) -> int:
+    """max_tokens for a Claude call: the feature's cap, plus room to think on the models that always think first."""
+    return token_cap + (config.ANTHROPIC_THINKING_ALLOWANCE if model in config.ANTHROPIC_THINKING_MODELS else 0)
+
+
 def _parse[T](client: Client, feature: str, system: str, content: str | list[dict], output_format: type[T], token_cap: int) -> _Reply[T]:
     """One structured call on the provider's model for feature, with content as the only user message."""
     model = model_for(client.provider, feature)
     if client.provider == "openai":
-        return _parse_openai(client, model, system, content, output_format, token_cap)
+        return _parse_openai(client, feature, model, system, content, output_format, token_cap)
     with _service_errors():
         response = client.sdk.messages.parse(
             model=model,
-            max_tokens=token_cap,
+            max_tokens=anthropic_token_cap(model, token_cap),
             system=system,
             messages=[{"role": "user", "content": content}],
             output_format=output_format,
@@ -174,7 +179,7 @@ def _parse[T](client: Client, feature: str, system: str, content: str | list[dic
     return _Reply(response.parsed_output, usage, response.stop_reason, response.stop_reason == "max_tokens")
 
 
-def _parse_openai[T](client: Client, model: str, system: str, content: str | list[dict], output_format: type[T], token_cap: int) -> _Reply[T]:
+def _parse_openai[T](client: Client, feature: str, model: str, system: str, content: str | list[dict], output_format: type[T], token_cap: int) -> _Reply[T]:
     """responses.create with a strict schema, parsed here rather than by responses.parse: that raises on JSON cut
     off at the token cap, and the usage, which was billed, would be lost with it."""
     with _service_errors():
@@ -185,7 +190,7 @@ def _parse_openai[T](client: Client, model: str, system: str, content: str | lis
             text={"format": {"type": "json_schema", "name": output_format.__name__,
                              "schema": to_strict_json_schema(output_format), "strict": True}},
             max_output_tokens=token_cap + config.OPENAI_REASONING_ALLOWANCE,
-            reasoning={"effort": config.OPENAI_REASONING_EFFORT},
+            reasoning={"effort": config.OPENAI_REASONING_EFFORT[feature]},
             # Explicit: cache only at the breakpoints above. The implicit default put its one breakpoint near the end
             # of the prompt, after the request, so the next call couldn't reuse it; every call paid 1.25x to write
             # its whole prompt (photos included) and read back almost nothing.
@@ -848,7 +853,7 @@ class InsightsChat:
         with _service_errors():
             response = self._client.sdk.messages.create(
                 model=model,
-                max_tokens=config.INSIGHTS_TOKEN_CAP,
+                max_tokens=anthropic_token_cap(model, config.INSIGHTS_TOKEN_CAP),
                 system=self._system,
                 tools=[RUN_SELECT_TOOL],
                 cache_control={"type": "ephemeral"},
@@ -859,7 +864,7 @@ class InsightsChat:
         logger.debug("tokens: in=%s out=%s cache_creation=%s cache_read=%s", usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
         logger.debug("blocks: %s", [block.type for block in response.content])
         if response.stop_reason == "max_tokens":
-            logger.warning("Insights response cut off at max_tokens (%s)", config.INSIGHTS_TOKEN_CAP)
+            logger.warning("Insights response cut off at max_tokens (%s)", anthropic_token_cap(model, config.INSIGHTS_TOKEN_CAP))
 
         self._last_output = response.content
         calls = []
@@ -887,7 +892,7 @@ class InsightsChat:
                 input=self._messages,
                 tools=[OPENAI_RUN_SELECT_TOOL],
                 max_output_tokens=config.INSIGHTS_TOKEN_CAP + config.OPENAI_REASONING_ALLOWANCE,
-                reasoning={"effort": config.OPENAI_REASONING_EFFORT},
+                reasoning={"effort": config.OPENAI_REASONING_EFFORT["insights"]},
                 prompt_cache_options={"mode": "explicit"},
                 store=False,
             )

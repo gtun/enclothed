@@ -201,7 +201,7 @@ def test_an_openai_call_sends_the_settings_decided_for_it():
     assert sent["instructions"] == "Be brief."
     assert sent["input"] == [{"role": "user", "content": "I like navy"}]
     assert sent["max_output_tokens"] == 100 + config.OPENAI_REASONING_ALLOWANCE
-    assert sent["reasoning"] == {"effort": "high"}
+    assert sent["reasoning"] == {"effort": "low"}
     schema = sent["text"]["format"]
     assert (schema["type"], schema["name"], schema["strict"]) == ("json_schema", "ImprovedPreferences", True)
     assert schema["schema"]["additionalProperties"] is False
@@ -336,6 +336,27 @@ def test_a_client_can_be_made_for_a_named_provider(monkeypatch):
 def test_a_client_for_an_unknown_provider_is_refused():
     with pytest.raises(llm.NotConfigured, match="'gemini'"):
         llm.make_client("gemini")
+
+
+def test_every_feature_has_an_openai_reasoning_effort():
+    assert set(config.OPENAI_REASONING_EFFORT) == set(config.OPENAI_MODELS)
+    assert set(config.OPENAI_REASONING_EFFORT.values()) <= {"low", "medium", "high"}
+
+
+def test_claude_models_that_always_think_get_room_to_think():
+    assert llm.anthropic_token_cap("claude-opus-5-5", 2048) == 2048 + config.ANTHROPIC_THINKING_ALLOWANCE
+    assert llm.anthropic_token_cap("claude-haiku-5-5", 2048) == 2048 + config.ANTHROPIC_THINKING_ALLOWANCE
+    assert llm.anthropic_token_cap("claude-sonnet-5-5", 2048) == 2048
+
+
+def test_a_structured_call_on_opus_sends_the_cap_with_thinking_room(monkeypatch):
+    monkeypatch.setitem(config.ANTHROPIC_MODELS, "preferences", "claude-opus-5-5")
+    sent = {}
+    def parse(**kwargs):
+        sent.update(kwargs)
+        return SimpleNamespace(parsed_output=ImprovedPreferences(text="Navy"), usage=usage(), stop_reason="end_turn")
+    llm._parse(llm.Client("anthropic", sdk(parse=parse)), "preferences", "Be brief.", "I like navy", ImprovedPreferences, 100)
+    assert sent["max_tokens"] == 100 + config.ANTHROPIC_THINKING_ALLOWANCE
 
 
 def test_every_configured_model_has_a_display_name():
