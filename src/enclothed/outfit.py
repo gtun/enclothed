@@ -1,6 +1,5 @@
-from anthropic import Anthropic
 from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitDescription, OutfitResult, Category, RiskTier, Silhouette, layer_for
-from enclothed.llm import UnusableResponse, describe_outfit, recommend_outfits
+from enclothed.llm import Client, UnusableResponse, describe_outfit, recommend_outfits
 from enclothed.usage import log_failed_call
 from enclothed import config
 from enclothed.db import insert_outfits
@@ -77,11 +76,11 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None, silhouette: Silhouette | None = None) -> OutfitResult:
+def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Client | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None, silhouette: Silhouette | None = None) -> OutfitResult:
     result, _ = generate_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences, language, count, riskiness, silhouette)
     return result
 
-def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Anthropic | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None, silhouette: Silhouette | None = None) -> tuple[OutfitResult, list[int]]:
+def generate_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Client | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None, silhouette: Silhouette | None = None) -> tuple[OutfitResult, list[int]]:
     """Ask the LLM for outfits, save the valid ones, and return the result plus the new outfit ids."""
     # TODO: filters (ADR-039 O8)
     prompt_wardrobe = wardrobe_for_prompt(wardrobe)
@@ -197,7 +196,7 @@ def log_outfit(log_path: Path, user_id: int, anchors: list[int] | None, result: 
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-def fill_description(log_path: Path, user_id: int, pieces: dict[int, Garment], client: Anthropic, details: str | None,
+def fill_description(log_path: Path, user_id: int, pieces: dict[int, Garment], client: Client, details: str | None,
                      aesthetic: str | None, explanation: str | None, preferences: str | None = None,
                      language: Language = DEFAULT_LANGUAGE) -> OutfitDescription:
     """Ask the LLM for whichever of the name and explanation are blank. What the user wrote is kept as is.

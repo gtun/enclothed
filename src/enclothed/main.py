@@ -9,7 +9,7 @@ import shutil
 import sqlite3
 import tempfile
 from dotenv import load_dotenv
-from anthropic import Anthropic
+from enclothed.llm import make_client
 from enclothed.intake import add_garment, download_photo, is_url
 from enclothed.outfit import get_outfits
 from pathlib import Path
@@ -130,7 +130,7 @@ def main() -> int:
         if invalid_photo_paths:
             add_parser.error(f"Nonexistent filepath(s): {invalid_photo_paths}")
 
-        client = None if args.test else Anthropic()
+        client = None if args.test else make_client()
         logger.info('Adding your garment now. Please wait...')
         saved_preferences = db.select_preferences(config.DB_PATH, config.DEFAULT_USER_ID)
         new_garment_id = add_garment(config.DEFAULT_USER_ID, args.photos, config.DB_PATH, config.GARMENTS_DIR, config.INTAKE_DIR, config.TAGGING_LOG_PATH, client, args.test, args.prompt_message, args.notes, owner_language(),
@@ -170,7 +170,7 @@ def main() -> int:
             if missing:
                 outfit_parser.error(f"Invalid garment ID{'s' if len(missing) > 1 else ''}: {missing}")
         user_prompt = args.prompt_message or "everyday wear"
-        client = None if args.test else Anthropic()
+        client = None if args.test else make_client()
         saved_preferences = db.select_preferences(config.DB_PATH, config.DEFAULT_USER_ID)
         result = get_outfits(config.DB_PATH, config.DEFAULT_USER_ID, wardrobe, args.anchors, config.OUTFIT_LOG_PATH, client, user_prompt, args.test, args.cache,
                              preferences=saved_preferences[0] if saved_preferences else None, language=owner_language(),
@@ -188,7 +188,7 @@ def main() -> int:
         if len(args.photos) > config.UPLOAD_MAX_PHOTOS:
             mimic_parser.error(f"At most {config.UPLOAD_MAX_PHOTOS} photos")
 
-        client = None if args.test else Anthropic()
+        client = None if args.test else make_client()
         saved_preferences = db.select_preferences(config.DB_PATH, config.DEFAULT_USER_ID)
         with tempfile.TemporaryDirectory(dir=config.INTAKE_DIR, prefix="look-", ignore_cleanup_errors=True) as tmp:
             staged = stage_look_photos(args.photos, Path(tmp))
@@ -246,7 +246,7 @@ def main() -> int:
         if user is None:
             mend_parser.error(f"No user {args.user_id}")
         saved_preferences = db.select_preferences(config.DB_PATH, user.id)
-        failures = mend.mend_all(config.DB_PATH, config.TAGGING_LOG_PATH, user.id, Anthropic(), args.ids, args.limit, args.retry, user.language,
+        failures = mend.mend_all(config.DB_PATH, config.TAGGING_LOG_PATH, user.id, make_client(), args.ids, args.limit, args.retry, user.language,
                                  saved_preferences[0] if saved_preferences else None)
         return 1 if failures else 0
 

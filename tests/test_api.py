@@ -446,11 +446,9 @@ def test_a_discarded_drafts_tokens_still_count(client, tagger, tmp_path, monkeyp
 
 def test_a_refused_tagging_call_is_logged_with_its_request_id(client, tagger, tmp_path, monkeypatch):
     """2026-11-08: the API refused tagging ("Schema is too complex") and the only trace was in docker logs."""
-    import anthropic, httpx
+    from enclothed.llm import ServiceError
     def refusing_tag(client, photo_paths, prompt_message=None, language="en-US", preferences=None):
-        request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
-        response = httpx.Response(400, request=request, headers={"request-id": "req_123"})
-        raise anthropic.BadRequestError("Schema is too complex.", response=response, body=None)
+        raise ServiceError("Schema is too complex.", "BadRequestError", "req_123")
     monkeypatch.setattr(intake, "tag_garment", refusing_tag)
 
     response = client.post("/api/garments/drafts", files=[("photos", ("a.jpg", jpeg_bytes(), "image/jpeg"))])
@@ -619,7 +617,7 @@ def test_outfit_with_a_disowned_piece_still_loads(client, outfit_id):
 def test_disowned_anchor_is_rejected(client, db_path, monkeypatch):
     garment_id = insert_garment(db_path, 1, TEST_GARMENT)
     disown(client, garment_id)
-    monkeypatch.setattr(api, "_anthropic_client", lambda: None)
+    monkeypatch.setattr(api, "_llm_client", lambda: None)
     response = client.post("/api/outfits/suggestions", json={"anchors": [garment_id]})
     assert response.status_code == 422
     assert str(garment_id) in response.json()["detail"]
@@ -642,7 +640,7 @@ def test_disowned_garment_is_not_sent_to_the_llm(client, db_path, monkeypatch):
         sent["wardrobe"] = context[0]["text"]
         return OutfitResult(outfits=[]), None
 
-    monkeypatch.setattr(api, "_anthropic_client", lambda: None)
+    monkeypatch.setattr(api, "_llm_client", lambda: None)
     monkeypatch.setattr(outfit_module, "recommend_outfits", fake_recommend)
     assert client.post("/api/outfits/suggestions", json={"details": "dinner"}).status_code == 200
 

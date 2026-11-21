@@ -12,7 +12,7 @@ from enclothed import api, config, intake, outfit
 from enclothed.auth import signed_in_user
 from enclothed.config import DEFAULT_USER_ID, MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.db import init_db
-from enclothed.llm import UnusableResponse, improve_preferences, recommend_outfits, tag_garment
+from enclothed.llm import Client, UnusableResponse, improve_preferences, recommend_outfits, tag_garment
 from enclothed.models import TokenUsage, User
 from enclothed.usage import call_cost, log_failed_call, read_calls
 
@@ -161,7 +161,7 @@ def test_no_prompts_or_wardrobe_text_in_the_response(logged, as_user, path):
 def refused_client():
     usage = SimpleNamespace(input_tokens=500, output_tokens=0, cache_creation_input_tokens=0, cache_read_input_tokens=0)
     response = SimpleNamespace(parsed_output=None, stop_reason="refusal", usage=usage, content=[])
-    return SimpleNamespace(messages=SimpleNamespace(parse=lambda **kwargs: response))
+    return Client("anthropic", SimpleNamespace(messages=SimpleNamespace(parse=lambda **kwargs: response)))
 
 
 @pytest.mark.parametrize("call", [

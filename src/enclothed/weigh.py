@@ -14,10 +14,9 @@ import logging
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from anthropic import Anthropic
 
 from enclothed import config, db, drafts
-from enclothed.llm import WEIGH_INSTRUCTIONS, UnusableResponse, weigh_candidate
+from enclothed.llm import WEIGH_INSTRUCTIONS, Client, UnusableResponse, weigh_candidate
 from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, OutfitResult, TokenUsage, WeighOut, WeighResult
 from enclothed.outfit import options_text, tier_plan, validate_outfits, wardrobe_block, wardrobe_for_prompt
 from enclothed.similarity import similar_garments
@@ -79,7 +78,7 @@ def log_weigh(log_path: Path, user_id: int, garment_id: int, result: WeighResult
 
 
 def weigh_draft(db_path: Path, drafts_dir: Path, garments_dir: Path, tagging_log: Path, weigh_log: Path, user_id: int,
-                draft_id: str, garment: Garment, client: Anthropic, preferences: str | None = None,
+                draft_id: str, garment: Garment, client: Client, preferences: str | None = None,
                 language: Language = DEFAULT_LANGUAGE, caching: bool = True) -> tuple[WeighOut, int, list[int]]:
     """Weigh a reviewed draft. Returns the saved verdict, the candidate's new garment ID, and the new outfit IDs."""
     if not drafts.has_draft(drafts_dir, user_id, draft_id):   # before paying for the call

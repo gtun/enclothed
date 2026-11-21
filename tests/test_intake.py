@@ -122,13 +122,13 @@ class FakeParse:
 
     def __call__(self, **kwargs):
         self.sent = kwargs
-        usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1})()
+        usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": None, "cache_read_input_tokens": None})()
         return type("Response", (), {"usage": usage, "parsed_output": self.reply, "stop_reason": "end_turn"})()
 
 
 def fake_client(reply=None):
     parse = FakeParse(reply)
-    client = type("Client", (), {"messages": type("Messages", (), {"parse": parse})()})()
+    client = llm.Client("anthropic", type("SDK", (), {"messages": type("Messages", (), {"parse": parse})()})())
     return client, parse
 
 

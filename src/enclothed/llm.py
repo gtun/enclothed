@@ -1,5 +1,4 @@
-from anthropic import Anthropic
-from anthropic.types import Message
+import anthropic
 from enclothed import config, i18n
 from enclothed.fabrics import FABRIC_GROUPS
 from enclothed.models import DEFAULT_LANGUAGE, Garment, SUBCATEGORIES, Language, TaggedGarment, TaggingReply, TaggingResult, TokenUsage, blank_unknowns, to_tagging_result, OutfitResult, OutfitDescription, ImprovedPreferences, WeighResult, LookReply, LookTags, MimicResult, to_look_tags
@@ -7,6 +6,9 @@ from enclothed.sandbox import insights_schema_text
 import base64
 import json
 import mimetypes
+import os
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 import logging
 from typing import Any
@@ -20,6 +22,82 @@ class UnusableResponse(RuntimeError):
     def __init__(self, message: str, usage: TokenUsage):
         super().__init__(message)
         self.usage = usage
+
+
+class ServiceError(RuntimeError):
+    """The provider refused the call or never answered, so no tokens were spent. Every provider's SDK errors become
+    this, so callers catch one type whichever provider ran."""
+    def __init__(self, message: str, kind: str, request_id: str | None = None):
+        super().__init__(message)
+        self.message = message
+        self.kind = kind                # the SDK's name for the error, such as RateLimitError
+        self.request_id = request_id    # what the provider's support asks for
+
+
+class MissingKey(RuntimeError):
+    """The active provider's API key isn't set, so AI features are off."""
+
+
+@dataclass
+class Client:
+    """The provider's SDK client. Only llm.py looks inside, so the rest of the app doesn't depend on the provider."""
+    provider: str
+    sdk: Any
+
+
+API_KEY_VARIABLES = {"anthropic": "ANTHROPIC_API_KEY"}
+
+
+def make_client() -> Client:
+    """A client for config.LLM_PROVIDER. Raises MissingKey when that provider's key isn't set."""
+    provider = config.LLM_PROVIDER
+    variable = API_KEY_VARIABLES[provider]
+    if not os.getenv(variable):
+        raise MissingKey(f"No {variable} is set in .env, so AI features are off.")
+    return Client(provider, anthropic.Anthropic())
+
+
+@contextmanager
+def _service_errors():
+    """Turn the SDK's errors into ServiceError."""
+    try:
+        yield
+    except anthropic.APIError as error:
+        raise ServiceError(error.message, type(error).__name__, getattr(error, "request_id", None)) from error
+
+
+def _usage(model: str, usage: Any) -> TokenUsage:
+    return TokenUsage(
+        model=model,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        cache_creation_input_tokens=usage.cache_creation_input_tokens or 0,
+        cache_read_input_tokens=usage.cache_read_input_tokens or 0,
+    )
+
+
+@dataclass
+class _Reply[T]:
+    parsed: T | None        # None when the reply had nothing to parse, such as a refusal
+    usage: TokenUsage
+    stop_reason: str | None
+    cut_off: bool           # the reply hit the token cap
+
+
+def _parse[T](client: Client, feature: str, system: str, content: str | list[dict], output_format: type[T], token_cap: int) -> _Reply[T]:
+    """One structured call on the model config.MODELS names for feature, with content as the only user message."""
+    model = config.MODELS[feature]
+    with _service_errors():
+        response = client.sdk.messages.parse(
+            model=model,
+            max_tokens=token_cap,
+            system=system,
+            messages=[{"role": "user", "content": content}],
+            output_format=output_format,
+        )
+    usage = _usage(model, response.usage)
+    logger.debug("%s tokens: in=%s out=%s cache_creation=%s cache_read=%s", feature, usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
+    return _Reply(response.parsed_output, usage, response.stop_reason, response.stop_reason == "max_tokens")
 
 
 SUBCATEGORY_TEXT = "\n".join(
@@ -435,7 +513,7 @@ def image_block(path: Path) -> dict:
         "source": {"type": "base64", "media_type": media_type, "data": data}
     }
 
-def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str | None = None, language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> tuple[TaggingResult, TokenUsage]:
+def tag_garment(client: Client, photo_paths: list[Path], prompt_message: str | None = None, language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> tuple[TaggingResult, TokenUsage]:
     content = []
     for i, p in enumerate(photo_paths):
         content.append({"type": "text", "text": f"Image {i}:"})
@@ -446,28 +524,17 @@ def tag_garment(client: Anthropic, photo_paths: list[Path], prompt_message: str 
     if preferences:
         content.append({"type": "text", "text": f"The owner's preferences, to use only when judging hem:\n<preferences>\n{preferences}\n</preferences>"})
 
-    response = client.messages.parse(
-        model=config.MODELS["tag"],
-        max_tokens=config.TAG_TOKEN_CAP,
-        system=tag_system_prompt(language),
-        messages=[{"role": "user", "content": content}],
-        output_format=TaggingReply,   # not TaggingResult: see the note above TaggedGarment in models.py
-    )
-    usage = TokenUsage(
-        model=config.MODELS["tag"],
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-    )
-    logger.debug("tokens: in=%s out=%s", usage.input_tokens, usage.output_tokens)
-
-    if response.parsed_output is None:
-        raise UnusableResponse(f"No garment in response (stop_reason={response.stop_reason})", usage)
+    # TaggingReply, not TaggingResult: see the note above TaggedGarment in models.py
+    reply = _parse(client, "tag", tag_system_prompt(language), content, TaggingReply, config.TAG_TOKEN_CAP)
+    usage = reply.usage
+    if reply.parsed is None:
+        raise UnusableResponse(f"No garment in response (stop_reason={reply.stop_reason})", usage)
     try:
-        return to_tagging_result(response.parsed_output), usage
+        return to_tagging_result(reply.parsed), usage
     except ValidationError as error:
         raise UnusableResponse(f"Tagged garment didn't validate: {error}", usage) from error
 
-def tag_look(client: Anthropic, photo_paths: list[Path], note: str | None = None, language: Language = DEFAULT_LANGUAGE) -> tuple[LookTags, TokenUsage]:
+def tag_look(client: Client, photo_paths: list[Path], note: str | None = None, language: Language = DEFAULT_LANGUAGE) -> tuple[LookTags, TokenUsage]:
     """mimic, step 1: the only call that sees the look's photos. Everything after works from what it returns."""
     content = []
     for i, path in enumerate(photo_paths):
@@ -477,26 +544,14 @@ def tag_look(client: Anthropic, photo_paths: list[Path], note: str | None = None
     if note:
         content.append({"type": "text", "text": f"The owner's note about the look:\n<note>\n{note}\n</note>"})
 
-    response = client.messages.parse(
-        model=config.MODELS["look"],
-        max_tokens=config.LOOK_TAG_TOKEN_CAP,
-        system=look_tag_system_prompt(language),
-        messages=[{"role": "user", "content": content}],
-        output_format=LookReply,
-    )
-    usage = TokenUsage(
-        model=config.MODELS["look"],
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-    )
-    logger.debug("tokens: in=%s out=%s", usage.input_tokens, usage.output_tokens)
-
-    if response.stop_reason == "max_tokens":
+    reply = _parse(client, "look", look_tag_system_prompt(language), content, LookReply, config.LOOK_TAG_TOKEN_CAP)
+    usage = reply.usage
+    if reply.cut_off:
         logger.warning("Look tagging cut off at max_tokens (%s)", config.LOOK_TAG_TOKEN_CAP)
-    if response.parsed_output is None:
-        raise UnusableResponse(f"No look in response (stop_reason={response.stop_reason})", usage)
+    if reply.parsed is None:
+        raise UnusableResponse(f"No look in response (stop_reason={reply.stop_reason})", usage)
     try:
-        tags = to_look_tags(response.parsed_output)
+        tags = to_look_tags(reply.parsed)
     except ValidationError as error:
         raise UnusableResponse(f"Tagged look didn't validate: {error}", usage) from error
     if not tags.pieces:
@@ -518,7 +573,7 @@ Rules:
 - Write in the language the person used.
 - If the text isn't about clothing at all, return it unchanged."""
 
-def fill_blanks(client: Anthropic, photo_paths: list[Path], record: dict, blanks: list[str], language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> tuple[dict[str, Any], TokenUsage]:
+def fill_blanks(client: Client, photo_paths: list[Path], record: dict, blanks: list[str], language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> tuple[dict[str, Any], TokenUsage]:
     """Ask for only the blank fields of a garment that's already in the wardrobe."""
     # Required fields with "unknown" values, like tagging, so even a garment with every field blank stays under the
     # API's schema limits (with "value or nothing" fields, 17 blanks were enough to fail).
@@ -533,59 +588,28 @@ def fill_blanks(client: Anthropic, photo_paths: list[Path], record: dict, blanks
     if preferences:
         content.append({"type": "text", "text": f"The owner's preferences, to use only when judging hem:\n<preferences>\n{preferences}\n</preferences>"})
 
-    response = client.messages.parse(
-        model=config.MODELS["mend"],
-        max_tokens=config.MEND_TOKEN_CAP,
-        system=tag_system_prompt(language) + MEND_RULES,
-        messages=[{"role": "user", "content": content}],
-        output_format=answers,
-    )
-    usage = TokenUsage(
-        model=config.MODELS["mend"],
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-    )
-    if response.parsed_output is None:
-        raise UnusableResponse(f"No fields in response (stop_reason={response.stop_reason})", usage)
-    answered = blank_unknowns(response.parsed_output.model_dump(mode="json"))
+    reply = _parse(client, "mend", tag_system_prompt(language) + MEND_RULES, content, answers, config.MEND_TOKEN_CAP)
+    usage = reply.usage
+    if reply.parsed is None:
+        raise UnusableResponse(f"No fields in response (stop_reason={reply.stop_reason})", usage)
+    answered = blank_unknowns(reply.parsed.model_dump(mode="json"))
     return {field: value for field, value in answered.items() if value is not None}, usage
 
 
-def improve_preferences(client: Anthropic, text: str) -> tuple[str, TokenUsage]:
+def improve_preferences(client: Client, text: str) -> tuple[str, TokenUsage]:
     """Rewrite the user's preferences so the outfit LLM can follow them reliably. Saves nothing."""
-    response = client.messages.parse(
-        model=config.MODELS["preferences"],
-        max_tokens=config.PREFERENCES_TOKEN_CAP,
-        system=PREFERENCES_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"<description>{text}</description>"}],
-        output_format=ImprovedPreferences,
-    )
-    usage = TokenUsage(
-        model=config.MODELS["preferences"],
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-    )
-    if response.parsed_output is None:
-        raise UnusableResponse(f"No rewrite in response (stop_reason={response.stop_reason})", usage)
-    return response.parsed_output.text.strip(), usage
+    reply = _parse(client, "preferences", PREFERENCES_SYSTEM_PROMPT, f"<description>{text}</description>",
+                   ImprovedPreferences, config.PREFERENCES_TOKEN_CAP)
+    if reply.parsed is None:
+        raise UnusableResponse(f"No rewrite in response (stop_reason={reply.stop_reason})", reply.usage)
+    return reply.parsed.text.strip(), reply.usage
 
-def describe_outfit(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitDescription, TokenUsage]:
+def describe_outfit(client: Client, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitDescription, TokenUsage]:
     """Name and explain an outfit the user put together. Saves nothing."""
-    response = client.messages.parse(
-        model=config.MODELS["describe"],
-        max_tokens=config.DESCRIBE_TOKEN_CAP,
-        system=describe_system_prompt(language),
-        messages=[{"role": "user", "content": context}],
-        output_format=OutfitDescription,
-    )
-    usage = TokenUsage(
-        model=config.MODELS["describe"],
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-    )
-    if response.parsed_output is None:
-        raise UnusableResponse(f"No description in response (stop_reason={response.stop_reason})", usage)
-    return response.parsed_output, usage
+    reply = _parse(client, "describe", describe_system_prompt(language), context, OutfitDescription, config.DESCRIBE_TOKEN_CAP)
+    if reply.parsed is None:
+        raise UnusableResponse(f"No description in response (stop_reason={reply.stop_reason})", reply.usage)
+    return reply.parsed, reply.usage
 
 # Sent in the user message, not the system prompt, so weigh and outfits share one system prompt.
 WEIGH_INSTRUCTIONS = """<weigh>
@@ -638,70 +662,92 @@ how to wear a garment to get closer to the look (tucked, cuffed, worn open), whe
 </mimic>"""
 
 
-def recommend_outfits(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitResult, TokenUsage]:
-    return _outfit_style_call(client, context, language, OutfitResult, "outfits", config.MODELS["outfits"])
+def recommend_outfits(client: Client, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[OutfitResult, TokenUsage]:
+    return _outfit_style_call(client, context, language, OutfitResult, "outfits")
 
 
-def weigh_candidate(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[WeighResult, TokenUsage]:
+def weigh_candidate(client: Client, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[WeighResult, TokenUsage]:
     """The weigh call: the outfit system prompt, the weigh instructions in the message, and a verdict plus outfits back."""
-    return _outfit_style_call(client, context, language, WeighResult, "verdict", config.MODELS["outfits"])
+    return _outfit_style_call(client, context, language, WeighResult, "verdict")
 
 
-def match_look(client: Anthropic, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[MimicResult, TokenUsage]:
+def match_look(client: Client, context: list[dict], language: Language = DEFAULT_LANGUAGE) -> tuple[MimicResult, TokenUsage]:
     """mimic, step 2: text only. The look's tagged pieces against the cached wardrobe, and up to two recreations back."""
-    return _outfit_style_call(client, context, language, MimicResult, "recreation", config.MODELS["outfits"])
+    return _outfit_style_call(client, context, language, MimicResult, "recreation")
 
 
-def _outfit_style_call[T](client: Anthropic, context: list[dict], language: Language, output_format: type[T], what: str, model: str) -> tuple[T, TokenUsage]:
-    """One structured call with the outfit system prompt. Outfits and weigh share it, so the outfit
-    rules (coordination, weather, tiers) apply to the outfits weigh builds too."""
-    response = client.messages.parse(
-        model=model,
-        max_tokens=config.OUTFIT_TOKEN_CAP,
-        system=outfit_system_prompt(language),
-        messages=[{"role": "user", "content": context}],
-        output_format=output_format,
-    )
-
-    usage = TokenUsage(
-        model=model,
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-        cache_creation_input_tokens=response.usage.cache_creation_input_tokens or 0,
-        cache_read_input_tokens=response.usage.cache_read_input_tokens or 0,
-    )
-    logger.debug("tokens: in=%s out=%s cache_creation=%s cache_read=%s", usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
-    logger.debug("blocks: %s", [block.type for block in response.content])
-
-    if response.stop_reason == "max_tokens":
+def _outfit_style_call[T](client: Client, context: list[dict], language: Language, output_format: type[T], what: str) -> tuple[T, TokenUsage]:
+    """One structured call with the outfit system prompt, on the outfits model. Outfits and weigh share it, so the
+    outfit rules (coordination, weather, tiers) apply to the outfits weigh builds too."""
+    reply = _parse(client, "outfits", outfit_system_prompt(language), context, output_format, config.OUTFIT_TOKEN_CAP)
+    if reply.cut_off:
         logger.warning("%s response cut off at max_tokens (%s)", what.capitalize(), config.OUTFIT_TOKEN_CAP)
-    if response.parsed_output is None:
-        raise UnusableResponse(f"No {what} in response (stop_reason={response.stop_reason})", usage)
-    return response.parsed_output, usage
+    if reply.parsed is None:
+        raise UnusableResponse(f"No {what} in response (stop_reason={reply.stop_reason})", reply.usage)
+    return reply.parsed, reply.usage
 
 
-def insights_turn(client: Anthropic, messages: list[dict], language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> tuple[Message, TokenUsage]:
-    response = client.messages.create(
-        model=config.MODELS["insights"],
-        max_tokens=config.INSIGHTS_TOKEN_CAP,
-        system=insights_system_prompt(language, preferences),
-        tools=[RUN_SELECT_TOOL],
-        cache_control={"type": "ephemeral"},
-        messages=messages,
-    )
+@dataclass
+class ToolCall:
+    id: str
+    name: str
+    arguments: Any      # as the model sent them: usually a dict, but nothing guarantees it
 
-    usage = TokenUsage(
-        model=config.MODELS["insights"],
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-        cache_creation_input_tokens=response.usage.cache_creation_input_tokens or 0,
-        cache_read_input_tokens=response.usage.cache_read_input_tokens or 0,
-    )
 
-    logger.debug("tokens: in=%s out=%s cache_creation=%s cache_read=%s", usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
-    logger.debug("blocks: %s", [block.type for block in response.content])
+@dataclass
+class ToolResult:
+    call_id: str        # the ToolCall.id this answers
+    content: str
+    is_error: bool
 
-    if response.stop_reason == "max_tokens":
-        logger.warning("Insights response cut off at max_tokens (%s)", config.INSIGHTS_TOKEN_CAP)
 
-    return response, usage
+@dataclass
+class InsightsTurn:
+    text: str                   # the turn's text, joined. The answer, when there are no tool calls
+    tool_calls: list[ToolCall]  # empty when the model is done
+    usage: TokenUsage
+    stop_reason: str | None
+
+
+class InsightsChat:
+    """One "Ask your wardrobe" question, kept in the provider's own message format. insights.py runs the loop and
+    the tools; this only builds the messages and makes the calls."""
+
+    def __init__(self, client: Client, history: list[dict], question: str, language: Language = DEFAULT_LANGUAGE, preferences: str | None = None):
+        self._client = client
+        self._system = insights_system_prompt(language, preferences)
+        self._messages: list[dict] = [*history, {"role": "user", "content": question}]
+        self._last_content: list = []
+
+    def next_turn(self) -> InsightsTurn:
+        model = config.MODELS["insights"]
+        with _service_errors():
+            response = self._client.sdk.messages.create(
+                model=model,
+                max_tokens=config.INSIGHTS_TOKEN_CAP,
+                system=self._system,
+                tools=[RUN_SELECT_TOOL],
+                cache_control={"type": "ephemeral"},
+                messages=self._messages,
+            )
+
+        usage = _usage(model, response.usage)
+        logger.debug("tokens: in=%s out=%s cache_creation=%s cache_read=%s", usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
+        logger.debug("blocks: %s", [block.type for block in response.content])
+        if response.stop_reason == "max_tokens":
+            logger.warning("Insights response cut off at max_tokens (%s)", config.INSIGHTS_TOKEN_CAP)
+
+        self._last_content = response.content
+        calls = []
+        if response.stop_reason == "tool_use":
+            calls = [ToolCall(block.id, block.name, block.input) for block in response.content if block.type == "tool_use"]
+        text = "".join(block.text for block in response.content if block.type == "text")
+        return InsightsTurn(text=text, tool_calls=calls, usage=usage, stop_reason=response.stop_reason)
+
+    def add_tool_results(self, results: list[ToolResult]) -> None:
+        """Answer the last turn's tool calls, ready for the next turn."""
+        self._messages.append({"role": "assistant", "content": self._last_content})
+        self._messages.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": result.call_id, "content": result.content, "is_error": result.is_error}
+            for result in results
+        ]})

@@ -2,8 +2,6 @@
 import json
 from datetime import date
 
-import anthropic
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -191,7 +189,7 @@ class FakeParse:
 
     def __call__(self, **kwargs):
         self.sent = kwargs
-        usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1})()
+        usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": None, "cache_read_input_tokens": None})()
         # hem answered; every other blank asked about comes back "unknown", as the prompt tells Claude to do
         fields = kwargs["output_format"].model_fields
         parsed = kwargs["output_format"](**{f: "hip" if f == "hem" else "unknown" for f in fields}) if self.parsed else None
@@ -199,7 +197,7 @@ class FakeParse:
 
 
 def fake_client(parse):
-    return type("Client", (), {"messages": type("Messages", (), {"parse": parse})()})()
+    return llm.Client("anthropic", type("SDK", (), {"messages": type("Messages", (), {"parse": parse})()})())
 
 
 def test_the_output_schema_has_only_the_blank_fields(tmp_path):
@@ -281,7 +279,7 @@ def test_a_garment_with_no_photos_is_skipped_and_can_be_tried_later(db_path, log
 
 
 def api_error():
-    return anthropic.APIConnectionError(request=httpx.Request("POST", "https://example.com"))
+    return llm.ServiceError("Connection error.", "APIConnectionError")
 
 
 def test_one_failure_doesnt_stop_the_run(db_path, log_path, tmp_path, monkeypatch):
@@ -383,7 +381,7 @@ def test_the_command_runs_on_the_chosen_wardrobe(db_path, tmp_path, llm_answers,
     monkeypatch.setattr(config, "TAGGING_LOG_PATH", tmp_path / "tagging_log.jsonl")
     monkeypatch.setattr(config, "GARMENTS_DIR", tmp_path / "garments")
     monkeypatch.setattr(config, "INTAKE_DIR", tmp_path / "intake")
-    monkeypatch.setattr(main, "Anthropic", lambda: None)
+    monkeypatch.setattr(main, "make_client", lambda: None)
     monkeypatch.setattr("sys.argv", ["enclothed", "mend", "--limit", "1"])
 
     assert main.main() == 0

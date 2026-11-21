@@ -15,10 +15,9 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from anthropic import Anthropic
 
 from enclothed import config, db, photos
-from enclothed.llm import MIMIC_INSTRUCTIONS, UnusableResponse, match_look, tag_look
+from enclothed.llm import MIMIC_INSTRUCTIONS, Client, UnusableResponse, match_look, tag_look
 from enclothed.models import (
     DEFAULT_LANGUAGE, Garment, Language, LookMatchOut, LookPiece, LookTags, MimicOutfit, MimicResult, Outfit,
     OutfitGarment, TokenUsage, layer_for,
@@ -60,7 +59,7 @@ def _log(log_path: Path, entry: dict) -> None:
 
 
 # --- step 1: the look --------------------------------------------------------------------------
-def create_look(db_path: Path, user_id: int, photo_paths: list[Path], note: str | None, client: Anthropic | None,
+def create_look(db_path: Path, user_id: int, photo_paths: list[Path], note: str | None, client: Client | None,
                 language: Language, log_path: Path, is_test: bool = False) -> tuple[int | None, LookTags]:
     """Tag the look's photos and save the look, with its photos moved into its folder.
     Returns the new look's ID (None in test mode, which saves nothing) and its tags."""
@@ -201,7 +200,7 @@ def offline_result(tags: LookTags, owned: dict[int, Garment]) -> MimicResult:
                                                     "aesthetic": f"{tags.title} (test)", "explanation": "Test mode: no AI call was made."}]})
 
 
-def recreate(db_path: Path, user_id: int, look_id: int | None, tags: LookTags, note: str | None, client: Anthropic | None,
+def recreate(db_path: Path, user_id: int, look_id: int | None, tags: LookTags, note: str | None, client: Client | None,
              log_path: Path, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, caching: bool = True,
              is_test: bool = False) -> tuple[list[tuple[Outfit, list[LookMatchOut]]], list[int]]:
     """Match the look against the owned wardrobe and save the valid recreations (unless testing).

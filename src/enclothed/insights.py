@@ -1,8 +1,7 @@
 from contextlib import closing
-from anthropic import Anthropic
 from pathlib import Path
 from enclothed.models import DEFAULT_LANGUAGE, InsightAnswer, Language, QueryResult, TokenUsage
-from enclothed.llm import insights_turn, UnusableResponse
+from enclothed.llm import Client, InsightsChat, ServiceError, ToolResult, UnusableResponse
 from enclothed.sandbox import build_snapshot, run_select
 from enclothed import config
 import json
@@ -46,13 +45,8 @@ def log_insight(log_path: Path, user_id: int, usage: TokenUsage, message_count: 
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def answer_question(client: Anthropic, db_path: Path, user_id: int, question: str, history: list[dict], language: Language = DEFAULT_LANGUAGE, preferences: str | None = None, log_path: Path | None = None) -> InsightAnswer:
-    messages = [*history,
-        {
-            "role": "user",
-            "content": question,
-        }
-    ]
+def answer_question(client: Client, db_path: Path, user_id: int, question: str, history: list[dict], language: Language = DEFAULT_LANGUAGE, preferences: str | None = None, log_path: Path | None = None) -> InsightAnswer:
+    chat = InsightsChat(client, history, question, language, preferences)
     total_usage = TokenUsage(model=config.MODELS["insights"], input_tokens=0, output_tokens=0)
     queries = []
     answer = None
@@ -63,44 +57,34 @@ def answer_question(client: Anthropic, db_path: Path, user_id: int, question: st
             tools = {"run_select": lambda sql: run_select(conn, sql)}
 
             for _ in range(config.INSIGHTS_MAX_TURNS):
-                response, new_usage = insights_turn(client, messages, language, preferences)
+                turn = chat.next_turn()
+                total_usage = add_usage(total_usage, turn.usage)
 
-                total_usage = add_usage(total_usage, new_usage)
-
-                if response.stop_reason != "tool_use":
-                    answer = "".join(block.text for block in response.content if block.type == "text").strip()
+                if not turn.tool_calls:
+                    answer = turn.text.strip()
                     if not answer:
-                        raise UnusableResponse(f"No answer in response (stop_reason={response.stop_reason})", total_usage)
+                        raise UnusableResponse(f"No answer in response (stop_reason={turn.stop_reason})", total_usage)
                     return InsightAnswer(answer=answer, queries=queries, usage=total_usage)
 
-                messages.append({"role": "assistant", "content": response.content})
-
-                tool_results = []
-                for block in response.content:
-                    if block.type != "tool_use":
-                        continue
-
+                results = []
+                for call in turn.tool_calls:
                     try:
-                        result = tools[block.name](**block.input)
+                        result = tools[call.name](**call.arguments)
                     except (KeyError, TypeError):
-                        result = QueryResult(error=f"Couldn't run tool {block.name} with those arguments.")
+                        result = QueryResult(error=f"Couldn't run tool {call.name} with those arguments.")
 
                     if not result.error:
-                        queries.append(block.input["sql"])
+                        queries.append(call.arguments["sql"])
 
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": tool_text(result),
-                        "is_error": result.error is not None,
-                    })
+                    results.append(ToolResult(call_id=call.id, content=tool_text(result), is_error=result.error is not None))
 
-                messages.append({"role": "user", "content": tool_results})
+                chat.add_tool_results(results)
 
             raise UnusableResponse("Ran out of turns", total_usage)
 
     except Exception as caught:
-        error = type(caught).__name__
+        # The SDK's name (RateLimitError, say) says more than ServiceError does.
+        error = caught.kind if isinstance(caught, ServiceError) else type(caught).__name__
         raise
 
     finally:

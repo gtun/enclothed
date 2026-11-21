@@ -86,6 +86,6 @@ def log_failed_call(log_path: Path, user_id: int, usage: TokenUsage | None, erro
         "error": error,
     }
     if request_id:
-        entry["request_id"] = request_id   # what Anthropic support asks for
+        entry["request_id"] = request_id   # what the provider's support asks for
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")

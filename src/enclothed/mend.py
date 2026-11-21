@@ -6,12 +6,10 @@ import tempfile
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-import anthropic
-from anthropic import Anthropic
 from pydantic import BaseModel, ValidationError
 
 from enclothed import config, db, photos
-from enclothed.llm import UnusableResponse, fill_blanks
+from enclothed.llm import Client, ServiceError, UnusableResponse, fill_blanks
 from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, blank_fields
 from enclothed.usage import call_cost, log_failed_call
 
@@ -77,7 +75,7 @@ def log_mend(log_path: Path, user_id: int, garment_id: int, usage: TokenUsage, f
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def mend_garment(db_path: Path, log_path: Path, user_id: int, garment: Garment, client: Anthropic,
+def mend_garment(db_path: Path, log_path: Path, user_id: int, garment: Garment, client: Client,
                  language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> Mended:
     """Ask for the blank fields and return the answers. Only records that it asked; saves no answers."""
     blanks = blank_fields(garment)
@@ -109,7 +107,7 @@ def garments_to_mend(db_path: Path, user_id: int, ids: list[int] | None = None, 
     return garments if retry else [g for g in garments if g.mended_on is None]
 
 
-def mend_all(db_path: Path, log_path: Path, user_id: int, client: Anthropic, ids: list[int] | None = None, limit: int | None = None,
+def mend_all(db_path: Path, log_path: Path, user_id: int, client: Client, ids: list[int] | None = None, limit: int | None = None,
              retry: bool = False, language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> int:
     """Mend and save, with no review. Returns how many garments failed."""
     waiting = garments_to_mend(db_path, user_id, ids, retry)
@@ -124,7 +122,7 @@ def mend_all(db_path: Path, log_path: Path, user_id: int, client: Anthropic, ids
         except NoPhotos:
             print(f"{label}: skipped, no photos")
             continue
-        except (anthropic.APIError, UnusableResponse, OSError, ValueError) as error:
+        except (ServiceError, UnusableResponse, OSError, ValueError) as error:
             failures += 1
             in_a_row += 1
             print(f"{label}: FAILED, {error}")

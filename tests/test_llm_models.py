@@ -6,9 +6,10 @@ import pytest
 from enclothed import config, llm
 
 
-class Recorder:
+class Recorder(llm.Client):
     """A client whose messages.parse and messages.create remember the model they were asked for, then stop the call."""
     def __init__(self):
+        super().__init__("anthropic", self)
         self.models = []
         recorder = self
         class Messages:
@@ -36,7 +37,7 @@ CALLS = {
     "outfits": lambda c, photo: llm.recommend_outfits(c, [{"type": "text", "text": "x"}]),
     "describe": lambda c, photo: llm.describe_outfit(c, [{"type": "text", "text": "x"}]),
     "preferences": lambda c, photo: llm.improve_preferences(c, "I like navy"),
-    "insights": lambda c, photo: llm.insights_turn(c, [{"role": "user", "content": "how many coats?"}]),
+    "insights": lambda c, photo: llm.InsightsChat(c, [], "how many coats?").next_turn(),
     "look": lambda c, photo: llm.tag_look(c, [photo]),
 }
 
@@ -66,6 +67,14 @@ def test_matching_a_look_shares_the_outfit_model_so_it_shares_the_cached_wardrob
     assert client.models == ["shared-model"]
 
 
-def test_every_feature_has_a_claude_model():
-    assert set(config.MODELS) == set(CALLS)
-    assert all(model.startswith("claude-") for model in config.MODELS.values())
+def test_every_provider_has_a_model_for_every_feature():
+    for models in config.MODELS_BY_PROVIDER.values():
+        assert set(models) == set(CALLS)
+
+
+def test_every_anthropic_feature_has_a_claude_model():
+    assert all(model.startswith("claude-") for model in config.MODELS_BY_PROVIDER["anthropic"].values())
+
+
+def test_the_app_reads_the_active_providers_models():
+    assert config.MODELS is config.MODELS_BY_PROVIDER[config.LLM_PROVIDER]

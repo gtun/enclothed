@@ -26,11 +26,10 @@ from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from enclothed import config, db
-from enclothed.llm import outfit_system_prompt
+from enclothed.llm import make_client, outfit_system_prompt
 from enclothed.models import Garment, RiskTier
 from enclothed.outfit import generate_outfits, tier_plan
 
@@ -120,7 +119,7 @@ def run(label: str, runs: int, user_id: int, db_path: Path, requests_path: Path,
     out_dir.mkdir(parents=True)
     (out_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
 
-    client = None if is_test else Anthropic()
+    client = None if is_test else make_client()
     rows: list[dict] = []
     totals = {"input": 0, "output": 0, "cache_read": 0}
     with tempfile.TemporaryDirectory() as scratch:

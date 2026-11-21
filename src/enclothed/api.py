@@ -1,13 +1,11 @@
 import json
 import logging
-import os
 import shutil
 import tempfile
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any
 
-import anthropic
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
@@ -30,7 +28,7 @@ from enclothed.models import (
     LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut,
 )
 from enclothed.insights import answer_question
-from enclothed.llm import UnusableResponse, improve_preferences
+from enclothed.llm import Client, MissingKey, ServiceError, UnusableResponse, improve_preferences, make_client
 from enclothed.outfit import fill_description, generate_outfits
 from enclothed.usage import log_failed_call, read_calls
 
@@ -67,11 +65,12 @@ app.mount("/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="static"
 app.mount("/s/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="share-static")
 
 
-def _anthropic_client() -> anthropic.Anthropic:
-    """The API client, or a 503 explaining why the AI features are unavailable."""
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        raise HTTPException(status_code=503, detail="No ANTHROPIC_API_KEY is set in .env, so AI features are off.")
-    return anthropic.Anthropic()
+def _llm_client() -> Client:
+    """The LLM client, or a 503 explaining why the AI features are unavailable."""
+    try:
+        return make_client()
+    except MissingKey as error:
+        raise HTTPException(status_code=503, detail=str(error))
 
 
 def _require_demo_tokens(user: User) -> None:
@@ -80,10 +79,10 @@ def _require_demo_tokens(user: User) -> None:
         raise HTTPException(status_code=429, detail="The demo has used up today's AI allowance. It resets overnight.")
 
 
-def _llm_failed(error: anthropic.APIError, log_path: Path, user: User) -> HTTPException:
+def _llm_failed(error: ServiceError, log_path: Path, user: User) -> HTTPException:
     """The API refused the call or never answered. Logged to that feature's log, so it's on record outside docker logs."""
     logger.exception("LLM call failed")
-    log_failed_call(log_path, user.id, None, f"{type(error).__name__}: {error.message}", getattr(error, "request_id", None))
+    log_failed_call(log_path, user.id, None, f"{error.kind}: {error.message}", error.request_id)
     return HTTPException(status_code=502, detail=f"The AI service failed: {error.message}. Nothing was saved; try again.")
 
 
@@ -144,7 +143,7 @@ def tag_new_garment(
     if not 1 <= len(photos_in) <= UPLOAD_MAX_PHOTOS:
         raise HTTPException(status_code=422, detail=f"Send between 1 and {UPLOAD_MAX_PHOTOS} photos.")
     _require_demo_tokens(user)
-    client = _anthropic_client()
+    client = _llm_client()
 
     _drafts_dir().mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="upload-", ignore_cleanup_errors=True) as tmp:
@@ -152,7 +151,7 @@ def tag_new_garment(
         try:
             draft = drafts.create_draft(_drafts_dir(), user.id, paths, TAGGING_LOG_PATH, client, _blank_to_none(prompt_message),
                                         _blank_to_none(notes), user.language, _saved_preferences(user))
-        except anthropic.APIError as error:
+        except ServiceError as error:
             raise _llm_failed(error, TAGGING_LOG_PATH, user)
         except UnusableResponse:
             logger.exception("Tagging gave no usable answer")
@@ -185,13 +184,13 @@ def mend_garment(garment_id: int, user: CurrentUser) -> MendOut:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
     if not blank_fields(garment):
         raise HTTPException(status_code=422, detail="This garment has no blank fields.")
-    client = _anthropic_client()
+    client = _llm_client()
 
     try:
         result = mend.mend_garment(DB_PATH, TAGGING_LOG_PATH, user.id, garment, client, user.language, _saved_preferences(user))
     except mend.NoPhotos as error:
         raise HTTPException(status_code=422, detail=str(error))
-    except anthropic.APIError as error:
+    except ServiceError as error:
         raise _llm_failed(error, TAGGING_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Mend gave no usable answer")
@@ -226,14 +225,14 @@ def weigh_garment(body: WeighIn, user: CurrentUser) -> WeighCreatedOut:
     """Weigh a tagged, reviewed draft against the wardrobe. Saves it as a candidate, not as owned.
     If the AI call fails, the draft is left as it was, so trying again doesn't re-tag the photos."""
     _require_demo_tokens(user)
-    client = _anthropic_client()
+    client = _llm_client()
     try:
         saved, garment_id, outfit_ids = weigh.weigh_draft(
             DB_PATH, _drafts_dir(), GARMENTS_DIR, TAGGING_LOG_PATH, WEIGH_LOG_PATH, user.id, body.draft_id, body.garment, client,
             _saved_preferences(user), user.language)
     except weigh.DraftGone:
         raise HTTPException(status_code=404, detail="That garment is no longer waiting. Photograph it again.")
-    except anthropic.APIError as error:
+    except ServiceError as error:
         raise _llm_failed(error, WEIGH_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Weigh gave no usable answer")
@@ -282,14 +281,14 @@ def create_look(
     if not 1 <= len(photos_in) <= UPLOAD_MAX_PHOTOS:
         raise HTTPException(status_code=422, detail=f"Send between 1 and {UPLOAD_MAX_PHOTOS} photos.")
     _require_demo_tokens(user)
-    client = _anthropic_client()
+    client = _llm_client()
 
     INTAKE_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="look-", ignore_cleanup_errors=True) as tmp:
         paths = _stage_uploads(photos_in, Path(tmp))
         try:
             look_id, _ = mimic.create_look(DB_PATH, user.id, paths, _blank_to_none(note), client, user.language, MIMIC_LOG_PATH)
-        except anthropic.APIError as error:
+        except ServiceError as error:
             raise _llm_failed(error, MIMIC_LOG_PATH, user)
         except UnusableResponse:
             logger.exception("Tagging a look gave no usable answer")
@@ -312,11 +311,11 @@ def recreate_look(look_id: int, user: CurrentUser) -> MimicCreatedOut:
     if look["recreations"]:
         raise HTTPException(status_code=409, detail="This look already has its recreations.")
     _require_demo_tokens(user)
-    client = _anthropic_client()
+    client = _llm_client()
     try:
         _, outfit_ids = mimic.recreate(DB_PATH, user.id, look_id, mimic.look_tags(look), look["note"], client, MIMIC_LOG_PATH,
                                        _saved_preferences(user), user.language)
-    except anthropic.APIError as error:
+    except ServiceError as error:
         raise _llm_failed(error, MIMIC_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Matching a look gave no usable answer")
@@ -374,14 +373,14 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser) -> list[OutfitOut]
         raise HTTPException(status_code=422, detail=f"Garment(s) not found: {unknown}")
 
     _require_demo_tokens(user)
-    client = _anthropic_client()
+    client = _llm_client()
     try:
         saved = db.select_preferences(DB_PATH, user.id)
         _, new_ids = generate_outfits(DB_PATH, user.id, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
                                       details or "everyday wear", False, preferences=saved[0] if saved else None,
                                       language=user.language, count=body.count, riskiness=body.riskiness,
                                       silhouette=body.silhouette)
-    except anthropic.APIError as error:
+    except ServiceError as error:
         raise _llm_failed(error, OUTFIT_LOG_PATH, user)
     return responses.get_outfits(DB_PATH, user.id, new_ids)
 
@@ -422,11 +421,11 @@ def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser) -> OutfitDesc
         return OutfitDescription(aesthetic=aesthetic, explanation=explanation)  # nothing to fill, so no tokens
 
     _require_demo_tokens(user)
-    client = _anthropic_client()
+    client = _llm_client()
     try:
         return fill_description(OUTFIT_LOG_PATH, user.id, {i: wardrobe[i] for i in ids}, client, _blank_to_none(body.details),
                                 aesthetic, explanation, _saved_preferences(user), user.language)
-    except anthropic.APIError as error:
+    except ServiceError as error:
         raise _llm_failed(error, OUTFIT_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Outfit description gave no usable answer")
@@ -526,10 +525,10 @@ def put_preferences(body: PreferencesIn, user: CurrentUser) -> PreferencesOut:
 def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> PreferencesIn:
     """Ask the LLM to rewrite the text into a clearer brief. Returns the rewrite; saves nothing."""
     _require_demo_tokens(user)
-    client = _anthropic_client()
+    client = _llm_client()
     try:
         text, usage = improve_preferences(client, body.text)
-    except anthropic.APIError as error:
+    except ServiceError as error:
         raise _llm_failed(error, PREFERENCES_LOG_PATH, user)
     except UnusableResponse as error:
         log_failed_call(PREFERENCES_LOG_PATH, user.id, error.usage, str(error))
@@ -544,13 +543,13 @@ def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser) -> P
 def ask_insights(body: InsightsIn, user: CurrentUser) -> InsightsOut:
     """Answer a question about this wardrobe. The browser keeps the conversation and sends it as history."""
     _require_demo_tokens(user)
-    client = _anthropic_client()
+    client = _llm_client()
     saved = db.select_preferences(DB_PATH, user.id)
     history = [message.model_dump() for message in body.history]
     try:
         result = answer_question(client, DB_PATH, user.id, body.question, history, user.language,
                                  saved[0] if saved else None, INSIGHTS_LOG_PATH)
-    except anthropic.APIError as error:
+    except ServiceError as error:
         raise _llm_failed(error, INSIGHTS_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Insights gave no usable answer")

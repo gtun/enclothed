@@ -11,7 +11,7 @@ import pytest
 from enclothed import config, db, insights, llm
 from enclothed.usage import read_calls
 from enclothed.insights import add_usage, answer_question, tool_text
-from enclothed.llm import UnusableResponse, insights_system_prompt, insights_turn
+from enclothed.llm import InsightsChat, ServiceError, UnusableResponse, insights_system_prompt
 from enclothed.models import QueryResult, TokenUsage
 from enclothed.sandbox import insights_schema_text
 
@@ -36,10 +36,11 @@ def tool_turn(*content):
     return turn(*content, stop="tool_use")
 
 
-class FakeClient:
-    """Plays back scripted responses and keeps a copy of what each call was sent."""
+class FakeClient(llm.Client):
+    """Plays back scripted responses and keeps a copy of what each call was sent. It's its own SDK client too."""
 
     def __init__(self, *responses):
+        super().__init__("anthropic", self)
         self.responses = list(responses)
         self.calls = []
         self.messages = self
@@ -256,7 +257,7 @@ def test_an_api_error_partway_is_logged_with_the_tokens_so_far(db_path, tmp_path
 
     log = tmp_path / "insights.jsonl"
     client = FailsSecondCall(tool_turn(tool("a", "SELECT 1")))
-    with pytest.raises(anthropic.APIError):
+    with pytest.raises(ServiceError):
         answer_question(client, db_path, OWNER, "Q", [], log_path=log)
     [entry] = log_lines(log)
     assert entry["error"] == "APIConnectionError"
@@ -324,10 +325,11 @@ def test_another_language_adds_instructions():
 def test_a_turn_sends_the_tool_prompt_and_cache_setting():
     client = FakeClient(turn(text("Hi")))
     messages = [{"role": "user", "content": "Hi"}]
-    response, usage = insights_turn(client, messages, "ja-JP", "Loose fits")
+    reply = InsightsChat(client, [], "Hi", "ja-JP", "Loose fits").next_turn()
     call = client.calls[0]
-    assert response.content[0].text == "Hi"
-    assert (usage.input_tokens, usage.cache_read_input_tokens) == (10, 3)
+    assert reply.text == "Hi"
+    assert reply.tool_calls == []
+    assert (reply.usage.input_tokens, reply.usage.cache_read_input_tokens) == (10, 3)
     assert call["messages"] == messages
     assert call["tools"] == [llm.RUN_SELECT_TOOL]
     assert call["cache_control"] == {"type": "ephemeral"}
