@@ -834,8 +834,7 @@ class InsightsChat:
         if client.provider == "openai":
             question_part = {"type": "input_text", "text": question}
             self._messages: list = [*history, {"role": "user", "content": [question_part]}]
-            self._breakpoint: dict | None = None
-            self._move_breakpoint(question_part)
+            _add_breakpoint(question_part)
         else:
             self._messages = [*history, {"role": "user", "content": question}]
 
@@ -915,15 +914,14 @@ class InsightsChat:
             last_part = {"type": "input_text", "text": f"Error: {result.content}" if result.is_error else result.content}
             self._messages.append({"type": "function_call_output", "call_id": result.call_id, "output": [last_part]})
         if last_part:
-            self._move_breakpoint(last_part)
+            _add_breakpoint(last_part)
 
-    def _move_breakpoint(self, part: dict) -> None:
-        """One cache breakpoint, on the newest content, as Anthropic's automatic caching does: each turn reads the
-        conversation so far from the cache and writes only what's new."""
-        if self._breakpoint:
-            del self._breakpoint["prompt_cache_breakpoint"]
-        part["prompt_cache_breakpoint"] = {"mode": "explicit"}
-        self._breakpoint = part
+
+def _add_breakpoint(part: dict) -> None:
+    """A cache breakpoint at the end of each turn's new content, and the earlier ones kept: OpenAI only matches the
+    cache at breakpoints in the request, so the last turn's is where this turn reads the conversation so far. A
+    question has at most INSIGHTS_MAX_TURNS of them; OpenAI looks at the latest 80."""
+    part["prompt_cache_breakpoint"] = {"mode": "explicit"}
 
 
 def _tool_arguments(arguments: str) -> Any:

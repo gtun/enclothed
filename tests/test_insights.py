@@ -422,14 +422,25 @@ def test_on_openai_history_comes_first_as_plain_messages(db_path):
     assert client.calls[0]["input"][2]["content"][0]["text"] == "And now?"
 
 
-def test_on_openai_the_cache_breakpoint_is_on_the_newest_content_only(db_path):
+def test_on_openai_each_turn_adds_a_cache_breakpoint_and_keeps_the_earlier_ones(db_path):
+    """2026-11-21: moving one breakpoint to the newest content left nothing for the next turn to match, so every
+    turn of a 10-query question wrote its whole prompt and read none back. The cache matches only at breakpoints
+    in the request, so the last turn's has to stay."""
     client = FakeOpenAI(openai_turn(call("a", "SELECT 1")), openai_turn(call("b", "SELECT 2")), openai_turn(answer("Done")))
     ask(client, db_path)
     marked = [[str(item) for item in c["input"] if "prompt_cache_breakpoint" in str(item)] for c in client.calls]
-    assert [len(m) for m in marked] == [1, 1, 1]
-    assert "user" in marked[0][0]
-    assert "'call_id': 'a'" in marked[1][0]
-    assert "'call_id': 'b'" in marked[2][0]
+    assert [len(m) for m in marked] == [1, 2, 3]
+    assert "user" in marked[2][0]
+    assert "'call_id': 'a'" in marked[2][1]
+    assert "'call_id': 'b'" in marked[2][2]
+
+
+def test_on_openai_parallel_calls_get_one_breakpoint_after_the_last_result(db_path):
+    client = FakeOpenAI(openai_turn(call("a", "SELECT 1"), call("b", "SELECT 2")), openai_turn(answer("Done")))
+    ask(client, db_path)
+    first, second = outputs(client, 1)
+    assert "prompt_cache_breakpoint" not in first["output"][0]
+    assert second["output"][0]["prompt_cache_breakpoint"] == {"mode": "explicit"}
 
 
 def test_on_openai_a_failed_query_says_its_an_error(db_path):
