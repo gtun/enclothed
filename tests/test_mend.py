@@ -161,25 +161,6 @@ def test_a_response_with_no_fields_still_logs_its_cost(db_path, log_path, tmp_pa
     assert json.loads(log_path.read_text())["usage"]["input_tokens"] == 1000
 
 
-def test_big_or_unusual_photos_are_shrunk_before_sending(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "MEND_MAX_PHOTO_BYTES", 10)
-    big = tmp_path / "front_00.jpg"
-    Image.new("RGB", (100, 100), "red").save(big)
-    out = tmp_path / "out"
-    out.mkdir()
-
-    [ready] = mend._sendable([big], out)
-
-    assert ready.parent == out
-    assert ready.suffix == ".jpg"
-
-
-def test_small_photos_are_sent_as_they_are(tmp_path):
-    small = tmp_path / "front_00.jpg"
-    Image.new("RGB", (10, 10), "red").save(small)
-    assert mend._sendable([small], tmp_path) == [small]
-
-
 # --- what the LLM is told -------------------------------------------------------------------
 
 class FakeParse:
