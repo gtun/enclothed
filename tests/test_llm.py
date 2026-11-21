@@ -345,6 +345,7 @@ def test_every_feature_has_an_openai_reasoning_effort():
 
 def test_claude_models_that_always_think_get_room_to_think():
     assert llm.anthropic_token_cap("claude-opus-5-5", 2048) == 2048 + config.ANTHROPIC_THINKING_ALLOWANCE
+    assert llm.anthropic_token_cap("claude-haiku-5-5", 2048) == 2048 + config.ANTHROPIC_THINKING_ALLOWANCE
     assert llm.anthropic_token_cap("claude-sonnet-5-5", 2048) == 2048
 
 
