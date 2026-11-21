@@ -12,12 +12,14 @@ Usage:
     uv run eval-outfits --label v2-rule-of-one --runs 3 --only dinner-rain office
     uv run eval-outfits --label smoke --test              # canned outfits, no tokens
     uv run eval-outfits --label opus-trial --model claude-opus-5-5   # the same requests on another model
+    uv run eval-outfits --label terra-trial --provider openai        # the same requests on another provider
 
 On the server: docker exec enclothed /app/.venv/bin/eval-outfits --label ...
 """
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import sqlite3
 import sys
@@ -29,9 +31,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from enclothed import config, db
-from enclothed.llm import active_provider, make_client, model_for, outfit_system_prompt
-from enclothed.models import Garment, RiskTier
+from enclothed.llm import PROVIDER_VARIABLE, active_provider, make_client, model_for, outfit_system_prompt
+from enclothed.models import Garment, RiskTier, TokenUsage
 from enclothed.outfit import generate_outfits, tier_plan
+from enclothed.usage import call_cost
 
 REQUESTS_PATH = config.PKG_DIR / "eval_requests.json"
 EVALS_DIR = config.DATA_DIR / "evals"
@@ -71,12 +74,22 @@ def piece_lines(outfit: dict, wardrobe: dict[int, Garment]) -> list[str]:
     return lines
 
 
-def write_scores(path: Path, label: str, prompt_hash: str, rows: list[dict], wardrobe: dict[int, Garment]) -> None:
+def total_cost(rows: list[dict]) -> float | None:
+    """Estimated dollars for the run's calls, or None when none of them has a price (test mode, an unpriced model)."""
+    costs = [call_cost(TokenUsage.model_validate(row["usage"])) for row in rows if row["usage"]]
+    priced = [cost for cost in costs if cost is not None]
+    return sum(priced) if priced else None
+
+
+def write_scores(path: Path, label: str, prompt_hash: str, provider: str, model: str, rows: list[dict],
+                 wardrobe: dict[int, Garment]) -> None:
     cell = lambda text: str(text).replace("|", "/").replace("\n", " ")
+    cost = total_cost(rows)
     out = [
         f"# Outfit eval: {label}",
         "",
-        f"Prompt `{prompt_hash}` on `{model_for(active_provider(), 'outfits')}`. Fill in the columns, then compare with the last run's scores.md.",
+        f"Prompt `{prompt_hash}` on `{model}` ({provider}). Fill in the columns, then compare with the last run's scores.md.",
+        *([f"Estimated cost: ${cost:.4f} for {len(rows)} calls."] if cost is not None else []),
         "Mark a tier wrong when a 'bold' outfit is really safe, or a 'safe' one is risky.",
         "",
         "| Request | Run | # | Tier | Outfit | " + " | ".join(RUBRIC) + " |",
@@ -119,6 +132,8 @@ def run(label: str, runs: int, user_id: int, db_path: Path, requests_path: Path,
     out_dir.mkdir(parents=True)
     (out_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
 
+    provider = active_provider()
+    model = model_for(provider, "outfits")
     client = None if is_test else make_client()
     rows: list[dict] = []
     totals = {"input": 0, "output": 0, "cache_read": 0}
@@ -148,7 +163,7 @@ def run(label: str, runs: int, user_id: int, db_path: Path, requests_path: Path,
                 totals["output"] += usage.get("output_tokens", 0)
                 row = {
                     "request_id": request["id"], "run": repeat, "details": request["details"], "options": options,
-                    "anchors": anchors, "prompt_hash": prompt_hash, "label": label, "model": model_for(active_provider(), "outfits"),
+                    "anchors": anchors, "prompt_hash": prompt_hash, "label": label, "provider": provider, "model": model,
                     "outfits": result.model_dump(mode="json")["outfits"],
                     "problems": entry["problems"], "usage": entry["usage"],
                 }
@@ -156,16 +171,18 @@ def run(label: str, runs: int, user_id: int, db_path: Path, requests_path: Path,
                 with (out_dir / "results.jsonl").open("a", encoding="utf-8") as f:
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    write_scores(out_dir / "scores.md", label, prompt_hash, rows, wardrobe)
+    write_scores(out_dir / "scores.md", label, prompt_hash, provider, model, rows, wardrobe)
     problem_count = sum(len(r["problems"]) for r in rows)
     print(f"\n{len(rows)} calls, {sum(len(r['outfits']) for r in rows)} outfits, {problem_count} validation problem(s).")
-    print(f"Tokens: {totals['input']:,} in, {totals['cache_read']:,} cached reads, {totals['output']:,} out.")
+    cost = total_cost(rows)
+    print(f"Tokens: {totals['input']:,} in, {totals['cache_read']:,} cached reads, {totals['output']:,} out"
+          + (f", about ${cost:.4f}." if cost is not None else "."))
     print(f"Score it: {out_dir / 'scores.md'}")
     return out_dir
 
 
 def main() -> None:
-    load_dotenv()   # first: it can set the provider, which the help text names
+    load_dotenv()   # first: it can set the provider
     parser = argparse.ArgumentParser(prog="eval-outfits", description="Rerun the fixed outfit requests to compare prompt versions.")
     parser.add_argument("-l", "--label", required=True, help="Name for this prompt version, e.g. v2-rule-of-one (used in the folder name)")
     parser.add_argument("--runs", type=int, default=2, help="How many times to run each request (default 2; output varies between runs)")
@@ -173,15 +190,19 @@ def main() -> None:
     parser.add_argument("--only", nargs="+", metavar="ID", help="Run only these request ids")
     parser.add_argument("--requests", type=Path, default=REQUESTS_PATH, help="A different requests file")
     parser.add_argument("--db", type=Path, default=config.DB_PATH, help="Database to copy from (default: the app's)")
-    parser.add_argument("-m", "--model", help=f"Run the outfit calls on this model instead of the configured one ({model_for(active_provider(), 'outfits')}), e.g. claude-opus-5-5 to compare")
+    parser.add_argument("-p", "--provider", choices=list(config.MODELS_BY_PROVIDER),
+                        help=f"Run on this provider instead of the configured one ({PROVIDER_VARIABLE} or config.LLM_PROVIDER)")
+    parser.add_argument("-m", "--model", help="Run the outfit calls on this model instead of the provider's configured one, e.g. claude-opus-5-5 to compare. It has to be one of that provider's models")
     parser.add_argument("-t", "--test", action="store_true", help="Use the canned test outfits: checks the script, spends no tokens")
     args = parser.parse_args()
     if args.runs < 1:
         parser.error("--runs must be at least 1")
     if not all(c.isalnum() or c in "-_." for c in args.label):
         parser.error("--label may only use letters, digits, - _ and .")
+    if args.provider:
+        os.environ[PROVIDER_VARIABLE] = args.provider   # this run only: llm reads it at each call
     if args.model:
-        config.MODELS_BY_PROVIDER[active_provider()]["outfits"] = args.model   # this run only: llm reads it at each call
+        config.MODELS_BY_PROVIDER[active_provider()]["outfits"] = args.model   # this run only, likewise
     try:
         run(args.label, args.runs, args.user, args.db, args.requests, args.only, args.test, EVALS_DIR)
     except ValueError as error:
