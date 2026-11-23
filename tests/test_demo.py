@@ -203,6 +203,21 @@ def test_reset_removes_what_visitors_added(seeded, db_path, bob_in_demo):
     assert db.select_preferences(db_path, demo_id) is None
 
 
+def test_reset_deletes_the_demos_reworks_but_no_one_elses(seeded, db_path, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "REWORKS_DIR", tmp_path / "reworks")
+    (tmp_path / "reworks").mkdir()
+    demo_id = seeded["demo"].id
+    kept_garment = db.select_all_garments(db_path, demo_id)[0].id   # a template garment, which the reset keeps
+    owners_garment = db.select_all_garments(db_path, 1)[0].id
+    visitors = db.insert_rework(db_path, demo_id, kept_garment, "make it red", "front_00.jpg", "m", "2026-11-05T12:00:00+00:00")
+    owners = db.insert_rework(db_path, 1, owners_garment, "make it blue", "front_00.jpg", "m", "2026-11-05T12:00:00+00:00")
+    for rework_id in (visitors, owners):
+        (tmp_path / "reworks" / f"{rework_id}.jpg").write_bytes(b"jpeg")
+    demo.reset_wardrobe(db_path, demo_id, config.DEMO_TEMPLATE_DIR, "2026-11-05T12:00:00+00:00")
+    assert db.select_rework_ids(db_path) == {owners}
+    assert sorted(p.name for p in (tmp_path / "reworks").iterdir()) == [f"{owners}.jpg"]
+
+
 def test_reset_never_touches_real_wardrobes(seeded, db_path):
     demo_id = seeded["demo"].id
     bob_garment = add_garment(db_path, 2, "shoes", "tabi")
@@ -318,6 +333,28 @@ def test_tokens_used_counts_only_the_demo_since_the_last_reset(tmp_path):
     spend(log, 3, 50, NOON - timedelta(hours=5))    # before today's reset
     spend(log, 1, 999, NOON)                        # a real user
     assert demo.tokens_used({"outfits": log}, 3, NOON + timedelta(hours=1)) == 100
+
+
+def rework_line(path, user_id, when, image_usage=True):
+    usage = {"model": "gpt-image-2.5-sunburst", "text_input_tokens": 87, "image_input_tokens": 1452, "output_tokens": 386}
+    with path.open("a", encoding="utf-8") as log:
+        log.write(json.dumps({"timestamp": when.isoformat(), "user_id": user_id, "garment_id": 1,
+                              "image_usage": usage if image_usage else None}) + "\n")
+
+
+def test_reworks_used_counts_the_demos_billed_calls_since_the_last_reset(tmp_path):
+    log = tmp_path / "rework_log.jsonl"
+    rework_line(log, 3, NOON)
+    rework_line(log, 3, NOON, image_usage=False)              # refused: nothing billed
+    rework_line(log, 3, NOON - timedelta(hours=5))            # before today's reset
+    rework_line(log, 1, NOON)                                 # a real user
+    assert demo.reworks_used(log, 3, NOON + timedelta(hours=1)) == 1
+
+
+def test_reworks_dont_count_toward_the_token_allowance(tmp_path):
+    log = tmp_path / "rework_log.jsonl"
+    rework_line(log, 3, NOON)
+    assert demo.tokens_used({"rework": log}, 3, NOON + timedelta(hours=1)) == 0
 
 
 @pytest.mark.parametrize("request_args", [

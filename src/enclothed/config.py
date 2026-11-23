@@ -14,7 +14,7 @@ INSIGHTS_LOG_PATH = DATA_DIR / "insights_log.jsonl"
 PREFERENCES_LOG_PATH = DATA_DIR / "preferences_log.jsonl"
 WEIGH_LOG_PATH = DATA_DIR / "weigh_log.jsonl"
 MIMIC_LOG_PATH = DATA_DIR / "mimic_log.jsonl"
-REWORK_LOG_PATH = DATA_DIR / "rework_log.jsonl"   # image calls: the usage page doesn't read it yet (#74)
+REWORK_LOG_PATH = DATA_DIR / "rework_log.jsonl"   # image calls, which log image_usage, not usage
 REWORKS_DIR = DATA_DIR / "reworks"   # Rework's edited images, <id>.jpg, kept apart from garment photos
 LOOKS_DIR = DATA_DIR / "looks"          # photos of looks to recreate (mimic), one folder per look
 # Copies of a share link's photos, one folder per link. Under thumbs/ because the NAS backup skips it: shares
@@ -131,6 +131,7 @@ DEMO_PER_CATEGORY = 5
 DEMO_MAX_OUTFITS = 8
 DEMO_RESET_HOUR_UTC = 8
 DEMO_DAILY_TOKEN_LIMIT = 200_000
+DEMO_DAILY_REWORK_LIMIT = 3   # image calls are priced per image (about 2.5 cents), so they're counted apart from tokens
 
 # Dollars per million tokens, for the usage page's estimates. cache_write is Anthropic's 5-minute rate, the
 # only cache this app asks for, and OpenAI's default 30-minute rate. Haiku's prices are for prompts up to 100,000 tokens. Update these when

@@ -215,3 +215,14 @@ def test_image_calls_price_text_and_image_input_apart():
     usage = ImageUsage(model="gpt-image-2.5-sunburst", text_input_tokens=1_000_000, image_input_tokens=1_000_000, output_tokens=1_000_000)
     assert image_call_cost(usage) == pytest.approx(5.00 + 8.00 + 30.00)
     assert image_call_cost(usage.model_copy(update={"model": "some-new-image-model"})) is None
+
+
+def test_rework_lines_add_up_text_and_image_input_and_skip_refused_calls(tmp_path):
+    log = tmp_path / "rework_log.jsonl"
+    image = {"model": "gpt-image-2.5-sunburst", "text_input_tokens": 87, "image_input_tokens": 1452, "output_tokens": 386}
+    write_log(log, json.dumps({"timestamp": "2026-11-23T16:08:14+00:00", "user_id": 2, "garment_id": 1, "rework_id": 4, "image_usage": image}),
+              json.dumps({"timestamp": "2026-11-23T16:09:00+00:00", "user_id": 2, "garment_id": 1, "rework_id": None, "image_usage": None,
+                          "error": "BadRequestError: rejected"}))
+    [call] = read_calls({"rework": log})
+    assert (call.kind, call.user_id, call.input_tokens, call.output_tokens, call.cache_read_tokens) == ("rework", 2, 1539, 386, 0)
+    assert call.cost_usd == pytest.approx(image_call_cost(ImageUsage.model_validate(image)))
