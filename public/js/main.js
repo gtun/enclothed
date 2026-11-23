@@ -58,7 +58,7 @@ function route(){
   weighConfirm = false; lookConfirm = false;
   const view = render();
   current = view;
-  if (view === "garment") wireGallery();
+  if (view === "garment"){ wireGallery(); reworkPageShown(currentGarment()); }
   if (view === "usage") loadUsage();
   if (view === "shared") loadSharedLinks();
   scrollTo(0, (view === "wardrobe" || view === "outfits") ? (scrollMem[view] || 0) : 0);
@@ -93,6 +93,7 @@ app.addEventListener("click", e => {
   if (handleStyleClick(e)) return;
   if (handleUsageClick(e)) return;
   if (handleSharedLinksClick(e)) return;
+  if (handleReworkClick(e)) return;
   const of = e.target.closest("[data-ofilt-f],[data-ofilt-w],[data-ofilt-clear]");
   if (of){
     const toggle = (list, v) => list.includes(v) ? list.filter(x => x !== v) : [...list, v];
