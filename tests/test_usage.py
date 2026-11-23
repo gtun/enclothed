@@ -13,8 +13,8 @@ from enclothed.auth import signed_in_user
 from enclothed.config import DEFAULT_USER_ID, MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.db import init_db
 from enclothed.llm import Client, UnusableResponse, improve_preferences, recommend_outfits, tag_garment
-from enclothed.models import TokenUsage, User
-from enclothed.usage import call_cost, log_failed_call, read_calls
+from enclothed.models import ImageUsage, TokenUsage, User
+from enclothed.usage import call_cost, image_call_cost, log_failed_call, read_calls
 
 SONNET = "claude-sonnet-5-5"
 ALICE = User(id=1, username="alice", is_admin=True)
@@ -209,3 +209,9 @@ def test_an_openai_call_is_priced_at_each_tokens_own_rate():
                        cache_creation_input_tokens=200, output_tokens=80)
     expected = (500 * 1.00 + 300 * 0.05 + 200 * 1.25 + 80 * 5.00) / 1_000_000
     assert call_cost(usage) == pytest.approx(expected)
+
+
+def test_image_calls_price_text_and_image_input_apart():
+    usage = ImageUsage(model="gpt-image-2.5-sunburst", text_input_tokens=1_000_000, image_input_tokens=1_000_000, output_tokens=1_000_000)
+    assert image_call_cost(usage) == pytest.approx(5.00 + 8.00 + 30.00)
+    assert image_call_cost(usage.model_copy(update={"model": "some-new-image-model"})) is None

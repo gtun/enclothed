@@ -27,6 +27,7 @@ refresh = "enclothed.maintenance:refresh"
 snapshot = "enclothed.maintenance:snapshot"
 eval-outfits = "enclothed.evals:main"
 eval-tags = "enclothed.tag_evals:main"
+eval-previews = "enclothed.preview_evals:main"
 
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13.0"]

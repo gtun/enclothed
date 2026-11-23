@@ -3,7 +3,7 @@ import openai
 from openai.lib._pydantic import to_strict_json_schema
 from enclothed import config, i18n
 from enclothed.fabrics import FABRIC_GROUPS
-from enclothed.models import DEFAULT_LANGUAGE, Garment, SUBCATEGORIES, Language, TaggedGarment, TaggingReply, TaggingResult, TokenUsage, blank_unknowns, to_tagging_result, OutfitResult, OutfitDescription, ImprovedPreferences, WeighResult, LookReply, LookTags, MimicResult, to_look_tags
+from enclothed.models import DEFAULT_LANGUAGE, Garment, ImageUsage, SUBCATEGORIES, Language, TaggedGarment, TaggingReply, TaggingResult, TokenUsage, blank_unknowns, to_tagging_result, OutfitResult, OutfitDescription, ImprovedPreferences, WeighResult, LookReply, LookTags, MimicResult, to_look_tags
 from enclothed.sandbox import insights_schema_text
 import base64
 import json
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class UnusableResponse(RuntimeError):
     """The LLM answered, so the tokens are spent, but with nothing we can use."""
-    def __init__(self, message: str, usage: TokenUsage):
+    def __init__(self, message: str, usage: TokenUsage | ImageUsage):
         super().__init__(message)
         self.usage = usage
 
@@ -624,6 +624,38 @@ def image_block(path: Path) -> dict:
         "type": "image",
         "source": {"type": "base64", "media_type": media_type, "data": data}
     }
+
+PREVIEW_PROMPT = """This is a photo of a garment from someone's wardrobe. Edit it as they ask:
+
+{instruction}
+
+Change only what they ask for. Keep the garment's shape, proportions, fabric texture, seams, stitching, hardware,
+labels, folds and creases as they are, and keep the lighting, background and everything else in the photo the same."""
+
+
+def preview_garment(client: Client, photo_path: Path, instruction: str, quality: str = config.PREVIEW_QUALITY) -> tuple[bytes, ImageUsage]:
+    """The garment's photo edited by the instruction, as image bytes, and the call's tokens. Only the photo and the
+    instruction are sent: nothing from the garment's record. OpenAI only, since Claude makes no images."""
+    if client.provider != "openai":
+        raise NotConfigured("Garment previews need an OpenAI client: Claude makes no images.")
+    model = config.PREVIEW_MODEL
+    with _service_errors(), photo_path.open("rb") as photo:
+        response = client.sdk.images.edit(model=model, image=photo, prompt=PREVIEW_PROMPT.format(instruction=instruction),
+                                          quality=quality, size="auto", n=1)
+    usage = _image_usage(model, response.usage)
+    if not response.data or not response.data[0].b64_json:
+        raise UnusableResponse("No image in the response", usage)
+    return base64.b64decode(response.data[0].b64_json), usage
+
+
+def _image_usage(model: str, usage: Any) -> ImageUsage:
+    if usage is None:   # the SDK types it as optional
+        logger.warning("%s returned no usage, so this call's cost is unknown", model)
+        return ImageUsage(model=model, text_input_tokens=0, image_input_tokens=0, output_tokens=0)
+    details = usage.input_tokens_details
+    return ImageUsage(model=model, text_input_tokens=details.text_tokens, image_input_tokens=details.image_tokens,
+                      output_tokens=usage.output_tokens)
+
 
 def tag_garment(client: Client, photo_paths: list[Path], prompt_message: str | None = None, language: Language = DEFAULT_LANGUAGE, preferences: str | None = None) -> tuple[TaggingResult, TokenUsage]:
     content = []
