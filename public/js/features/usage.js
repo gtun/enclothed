@@ -10,18 +10,20 @@ function usageStart(range){
   if (range === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() - (+range - 1));
 }
+/* A day with nothing spent: a zero for every kind in USAGE_KINDS, so a new kind can't be left undefined here. */
+const emptyUsageDay = () => ({calls: 0, total: 0, ...Object.fromEntries(USAGE_KINDS.map(([k]) => [k, 0]))});
 /* One entry per local day from the start of the range (or the first call) through today, including quiet days. */
 function usageDays(calls){
   const first = usageStart(usage.range) || new Date(calls[0].timestamp);
   const byDay = {};
   calls.forEach(c => {
-    const d = byDay[localDay(new Date(c.timestamp))] ||= {calls: 0, total: 0, tagging: 0, outfits: 0, style: 0, insights: 0, weigh: 0, mimic: 0};
+    const d = byDay[localDay(new Date(c.timestamp))] ||= emptyUsageDay();
     d.calls++; d.total += c.cost_usd || 0; d[c.kind] += c.cost_usd || 0;
   });
   const days = [], today = localDay(Date.now());
   for (let i = 0; ; i++){
     const day = localDay(new Date(first.getFullYear(), first.getMonth(), first.getDate() + i));
-    days.push({day, calls: 0, total: 0, tagging: 0, outfits: 0, style: 0, insights: 0, weigh: 0, mimic: 0, ...byDay[day]});
+    days.push({day, ...emptyUsageDay(), ...byDay[day]});
     if (day >= today) break;
   }
   usage.days = Object.fromEntries(days.map(d => [d.day, d]));
