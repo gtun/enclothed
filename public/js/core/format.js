@@ -44,6 +44,8 @@ const levelLabel = (list, v) => (list.find(l => l.value === v) || {}).label || "
 const choiceLabel = (list, v) => (list.find(l => l.value === v) || {}).label || v;
 const unique = arr => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const SET_ICON = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="1.5" y="4.5" width="8" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="6.5" y="1.5" width="8" height="10" rx="1.5" fill="var(--surface)" stroke="currentColor" stroke-width="1.4"/></svg>`;
+/* Rework's seam ripper, drawn like the hanger logo: one round-capped stroke, tilted to read as a tool. */
+const REWORK_ICON = `<svg class="rwicon" viewBox="0 0 32 32" width="16" height="16" aria-hidden="true"><g transform="rotate(45 16 17)"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><rect x="12.4" y="19.5" width="7.2" height="10" rx="3.6"/><path d="M16 19.5V14"/><path d="M13.4 4.5V11.4A2.6 2.6 0 0 0 18.6 11.4V9.8"/></g><circle cx="18.6" cy="8.1" r="2.2" fill="currentColor"/></g></svg>`;
 const PEN = `<svg class="pen" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M11.3 2.3a1.6 1.6 0 0 1 2.3 2.3L5.4 12.8l-3 .8.8-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 /* A coat hanger: the "mark as worn" button before an outfit has any wears. */
 const WEAR_ICON = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 5.2V4.6c0-.4.2-.6.5-.8.7-.4 1-1 .9-1.6C9.2 1.5 8.6 1 8 1s-1.2.5-1.3 1.2M8 5.2 1.6 10.4c-.6.5-.3 1.4.5 1.4h11.8c.8 0 1.1-.9.5-1.4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>`;

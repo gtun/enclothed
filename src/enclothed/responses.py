@@ -7,7 +7,7 @@ from enclothed.models import (
     CATEGORY_ORDER, Category, Color, FIELD_CATEGORIES, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, RiskTier, Recommendation, Closeness, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
     FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, RISK_TIER_LABELS, RECOMMENDATION_LABELS, CLOSENESS_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
     ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, LookOut, OptionsOut,
-    OutfitGarmentOut, OutfitOut, SetOut, ShareOut, blank_fields,
+    OutfitGarmentOut, OutfitOut, ReworkOut, SetOut, ShareOut, blank_fields,
 )
 from enclothed.config import SHARE_MAX_LIFETIME_DAYS
 from enclothed.fabrics import FABRIC_TYPES
@@ -123,3 +123,12 @@ def get_options(language: Language = DEFAULT_LANGUAGE) -> OptionsOut:
         color_labels=terms.get("colors", {}),
         field_categories={field: sorted(categories, key=CATEGORY_ORDER.get) for field, categories in FIELD_CATEGORIES.items()},
     )
+
+
+def to_rework_out(rework: dict) -> ReworkOut:
+    return ReworkOut(id=rework["id"], garment_id=rework["garment_id"], instruction=rework["instruction"],
+                     url=f"/reworks/{rework['id']}", created_at=rework["created_at"])
+
+
+def list_reworks(db_path: Path, user_id: int, garment_id: int) -> list[ReworkOut]:
+    return [to_rework_out(r) for r in db.select_garment_reworks(db_path, user_id, garment_id)]

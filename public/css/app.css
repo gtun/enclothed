@@ -516,11 +516,14 @@ body.with-builder .wrap{margin-right:max(392px,calc((100% - 1180px)/2))}
 .ukey-insights{background:var(--series-insights)}
 .ukey-weigh{background:var(--series-weigh)}
 .ukey-mimic{background:var(--series-mimic)}
+.ukey-rework{background:var(--series-rework)}
 .useg-tagging{fill:var(--series-tagging)}
 .useg-outfits{fill:var(--series-outfits)}
 .useg-style{fill:var(--series-style)}
 .useg-insights{fill:var(--series-insights)}
 .useg-weigh{fill:var(--series-weigh)}
+.useg-mimic{fill:var(--series-mimic)}
+.useg-rework{fill:var(--series-rework)}
 .uchart{position:relative}
 .uchart svg{display:block;width:100%;height:auto}
 .ugrid{stroke:var(--line);stroke-width:1}
@@ -666,3 +669,26 @@ body.with-builder .insights-open,body.with-builder .insights-panel{right:392px}
 .sharefoot{margin:12px 0 28px;font-size:.78rem;color:var(--muted);text-align:center}
 .sharelink{display:flex;gap:8px;align-items:center}
 .sharelink input{flex:1;min-width:0;font:400 .84rem var(--mono)}
+
+/* rework: the seam ripper on cards and the garment page, its panel, and kept previews (templates/reworkPanel.js) */
+.rwicon{flex:none}
+.rwcard{right:50px}
+.rwcard .rwicon{width:18px;height:18px}
+@media (hover:hover) and (pointer:fine){.rwcard{opacity:0;transition:opacity .15s}.cardwrap:hover .rwcard,.rwcard:focus-visible{opacity:1}}
+.btn.rwbtn{display:inline-flex;align-items:center;gap:6px}
+.btn.rwgo{background:var(--llm);border-color:var(--llm);color:var(--on-llm)}
+.btn.rwgo:hover:not(:disabled){filter:brightness(1.08)}
+.rwpanel{margin-top:14px}
+.rwpanel textarea{resize:none;overflow:hidden;min-height:2.2em}
+.rwpanel .hero-actions{margin-top:0;align-items:center}
+.rwerror{margin:0;font-size:.85rem;color:var(--bad)}
+.rwcompare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.rwcompare figure,.rwstrip figure{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.rwcompare img,.rwstrip img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--surface);display:block}
+.rwcompare figcaption{font-size:.8rem;color:var(--muted)}
+.rwcompare figcaption b{color:var(--ink)}
+.rwstrip{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+.rwstrip figcaption{display:flex;flex-direction:column;gap:2px;font-size:.8rem}
+.rwstrip time{color:var(--muted);font-size:.74rem}
+.btn.rwdel{align-self:flex-start;padding:2px 8px;font-size:.76rem}
+@media (prefers-reduced-motion:reduce){.rwcard{transition:none}}

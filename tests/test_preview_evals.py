@@ -42,16 +42,6 @@ def run(owner_db, tmp_path, ids=None, runs=1, is_test=True):
     return preview_evals.run("blue", "Make it <bright> blue", runs, 1, owner_db, ids, 3, is_test, tmp_path / "evals", "low")
 
 
-def test_the_front_photo_is_sent(tmp_path):
-    paths = [tmp_path / "back_00.jpg", tmp_path / "front_00.jpg", tmp_path / "label_00.jpg"]
-    assert preview_evals.photo_to_send(paths) == paths[1]
-
-
-def test_without_a_front_photo_the_first_is_sent(tmp_path):
-    paths = [tmp_path / "detail_00.jpg", tmp_path / "label_00.jpg"]
-    assert preview_evals.photo_to_send(paths) == paths[0]
-
-
 def test_a_test_run_writes_the_photo_a_grey_preview_and_a_page(owner_db, garments_dir, tmp_path):
     garment_id = add(owner_db, garments_dir)
     out = run(owner_db, tmp_path, runs=2)

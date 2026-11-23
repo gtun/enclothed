@@ -28,8 +28,7 @@ def call_cost(usage: TokenUsage) -> float | None:
 
 
 def image_call_cost(usage: ImageUsage) -> float | None:
-    """Estimated dollars for one image-model call, or None when its model isn't in IMAGE_MODEL_PRICES. The usage
-    page doesn't count these yet (#74)."""
+    """Estimated dollars for one image-model call, or None when its model isn't in IMAGE_MODEL_PRICES."""
     price = IMAGE_MODEL_PRICES.get(usage.model)
     if price is None:
         return None
@@ -44,12 +43,18 @@ def _as_utc(moment: datetime) -> datetime:
 
 
 def _to_call(kind: str, entry: dict) -> UsageCall | None:
-    """One log line as a call. None for test-mode lines, which have no usage."""
+    """One log line as a call. None for test-mode lines and refused calls, which have no usage."""
+    timestamp = _as_utc(datetime.fromisoformat(entry["timestamp"])).isoformat()
+    if entry.get("image_usage"):   # Rework's log: text and image input are priced apart, so they're added up here
+        image = ImageUsage.model_validate(entry["image_usage"])
+        return UsageCall(timestamp=timestamp, user_id=entry["user_id"], kind=kind, model=image.model,
+                         input_tokens=image.text_input_tokens + image.image_input_tokens, output_tokens=image.output_tokens,
+                         cost_usd=image_call_cost(image))
     if not entry.get("usage"):
         return None
     usage = TokenUsage.model_validate(entry["usage"])
     return UsageCall(
-        timestamp=_as_utc(datetime.fromisoformat(entry["timestamp"])).isoformat(),
+        timestamp=timestamp,
         # Lines from before accounts have no user_id. There was one user then.
         user_id=entry.get("user_id") or DEFAULT_USER_ID,
         kind=kind,

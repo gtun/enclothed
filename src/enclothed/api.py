@@ -14,18 +14,18 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 
-from enclothed import db, demo, drafts, mend, mimic, photos, responses, shares, weigh
+from enclothed import db, demo, drafts, mend, mimic, photos, responses, reworks, shares, weigh
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
-    DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
+    DB_PATH, DEMO_DAILY_REWORK_LIMIT, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH,
-    MIMIC_LOG_PATH, SHARES_DIR, DEMO_SHARE_LIMIT, SHARE_MAX_LIFETIME_DAYS, MODEL_NAMES, MODELS_BY_PROVIDER, PROVIDER_NAMES
+    MIMIC_LOG_PATH, REWORK_LOG_PATH, REWORKS_DIR, SHARES_DIR, DEMO_SHARE_LIMIT, SHARE_MAX_LIFETIME_DAYS, MODEL_NAMES, MODELS_BY_PROVIDER, PROVIDER_NAMES
 )
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, WeighCreatedOut, WeighIn, WeighOut, blank_fields,
-    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut, LLMModelOut, LLMOut,
+    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut, LLMModelOut, LLMOut, ReworkAllowanceOut, ReworkIn, ReworkOut,
 )
 from enclothed.insights import answer_question
 from enclothed.llm import Client, NotConfigured, ServiceError, UnusableResponse, active_provider, improve_preferences, make_client
@@ -44,6 +44,7 @@ async def lifespan(app: FastAPI):
     db.init_db(DB_PATH, SCHEMA_PATH, MIGRATIONS_DIR)
     shares.purge_expired(DB_PATH, SHARES_DIR, datetime.now(timezone.utc))
     shares.remove_orphaned_photos(DB_PATH, SHARES_DIR)
+    reworks.remove_orphaned_files(DB_PATH, REWORKS_DIR)
     yield
 
 
@@ -210,6 +211,55 @@ def mend_garment(garment_id: int, user: CurrentUser, provider: ChosenProvider) -
         logger.exception("Mend gave no usable answer")
         raise HTTPException(status_code=502, detail="The AI couldn't fill these in. Nothing was saved; try again.")
     return MendOut(filled=result.filled, unanswered=result.unanswered)
+
+
+# --- rework (#74): an edited copy of a garment's photo -----
+def _require_owned_garment(user: User, garment_id: int) -> None:
+    if db.select_garment(DB_PATH, user.id, garment_id) is None:
+        raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
+
+
+@app.post("/api/garments/{garment_id}/reworks", status_code=201)
+def rework_garment(garment_id: int, body: ReworkIn, user: CurrentUser) -> ReworkOut:
+    """Edit the garment's front photo by the instruction and keep the result. Always OpenAI: Claude makes no images,
+    so the admin's LLM choice doesn't apply."""
+    _require_owned_garment(user, garment_id)
+    if user.is_demo and demo.reworks_used(REWORK_LOG_PATH, user.id) >= DEMO_DAILY_REWORK_LIMIT:
+        raise HTTPException(status_code=429, detail=f"The demo has used today's {DEMO_DAILY_REWORK_LIMIT} reworks. They reset overnight.")
+    client = _llm_client("openai")
+    try:
+        rework = reworks.rework_garment(DB_PATH, REWORKS_DIR, REWORK_LOG_PATH, user.id, garment_id, body.instruction, client)
+    except reworks.NoPhotos as error:
+        raise HTTPException(status_code=422, detail=str(error))
+    except ServiceError as error:
+        logger.exception("Rework call failed")
+        reworks.log_call(REWORK_LOG_PATH, user.id, garment_id, None, error=f"{error.kind}: {error.message}")
+        raise HTTPException(status_code=502, detail=f"The AI service failed: {error.message}. Nothing was saved; try again.")
+    except UnusableResponse:
+        logger.exception("Rework gave no image")
+        raise HTTPException(status_code=502, detail="The AI didn't send back an image. Nothing was saved; try again.")
+    return responses.to_rework_out(rework)
+
+
+@app.get("/api/garments/{garment_id}/reworks")
+def list_reworks(garment_id: int, user: CurrentUser) -> list[ReworkOut]:
+    """The garment's reworks, newest first."""
+    _require_owned_garment(user, garment_id)
+    return responses.list_reworks(DB_PATH, user.id, garment_id)
+
+
+@app.get("/api/reworks/allowance")
+def rework_allowance(user: CurrentUser) -> ReworkAllowanceOut:
+    """For the Rework panel's "2 of 3 left today" in the demo."""
+    if not user.is_demo:
+        return ReworkAllowanceOut(left=None)
+    return ReworkAllowanceOut(left=max(0, DEMO_DAILY_REWORK_LIMIT - demo.reworks_used(REWORK_LOG_PATH, user.id)))
+
+
+@app.delete("/api/reworks/{rework_id}", status_code=204)
+def delete_rework(rework_id: int, user: CurrentUser) -> None:
+    if not reworks.delete(DB_PATH, REWORKS_DIR, user.id, rework_id):
+        raise HTTPException(status_code=404, detail=f"Rework {rework_id} not found")
 
 
 EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id", "mended_on", "user_id", "weighed_on"}   # weigh has its own buy endpoint
@@ -626,7 +676,7 @@ FromParam = Annotated[datetime | None, Query(alias="from")]
 
 def _usage_logs() -> dict[str, Path]:
     return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH, "weigh": WEIGH_LOG_PATH,
-            "mimic": MIMIC_LOG_PATH}
+            "mimic": MIMIC_LOG_PATH, "rework": REWORK_LOG_PATH}
 
 
 @app.get("/api/usage")
@@ -695,6 +745,14 @@ def get_photo(garment_id: int, filename: str, user: CurrentUser) -> FileResponse
 def get_thumbnail(garment_id: int, filename: str, user: CurrentUser) -> FileResponse:
     _require_garment(user, garment_id)
     return _photo_response(photos.get_thumbnail(garment_id, filename))
+
+
+@app.get("/reworks/{rework_id}", include_in_schema=False)
+def get_rework_image(rework_id: int, user: CurrentUser) -> FileResponse:
+    if db.select_rework(DB_PATH, user.id, rework_id) is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    path = reworks.image_path(REWORKS_DIR, rework_id)
+    return _photo_response(path if path.is_file() else None)
 
 
 def _require_look(user: User, look_id: int) -> None:
