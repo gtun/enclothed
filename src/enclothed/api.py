@@ -25,7 +25,7 @@ from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
     OutfitSuggestIn, PreferencesImproveIn, PreferencesIn, PreferencesOut, ProfileOut, SetOut, UsageAllOut, UsageCall,
     User, UserOut, InsightsIn, InsightsOut, DraftOut, MendOut, WeighCreatedOut, WeighIn, WeighOut, blank_fields,
-    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut, LLMModelOut, LLMOut, ReworkIn, ReworkOut,
+    LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut, LLMModelOut, LLMOut, ReworkAllowanceOut, ReworkIn, ReworkOut,
 )
 from enclothed.insights import answer_question
 from enclothed.llm import Client, NotConfigured, ServiceError, UnusableResponse, active_provider, improve_preferences, make_client
@@ -246,6 +246,14 @@ def list_reworks(garment_id: int, user: CurrentUser) -> list[ReworkOut]:
     """The garment's reworks, newest first."""
     _require_owned_garment(user, garment_id)
     return responses.list_reworks(DB_PATH, user.id, garment_id)
+
+
+@app.get("/api/reworks/allowance")
+def rework_allowance(user: CurrentUser) -> ReworkAllowanceOut:
+    """For the Rework panel's "2 of 3 left today" in the demo."""
+    if not user.is_demo:
+        return ReworkAllowanceOut(left=None)
+    return ReworkAllowanceOut(left=max(0, DEMO_DAILY_REWORK_LIMIT - demo.reworks_used(REWORK_LOG_PATH, user.id)))
 
 
 @app.delete("/api/reworks/{rework_id}", status_code=204)

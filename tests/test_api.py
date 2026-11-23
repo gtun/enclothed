@@ -981,6 +981,17 @@ def test_real_wardrobes_have_no_rework_limit(client, rework_ready, monkeypatch):
     assert [client.post(url, json={"instruction": "Make it red"}).status_code for _ in range(2)] == [201, 201]
 
 
+def test_the_allowance_counts_down_in_the_demo_only(client, rework_ready, monkeypatch):
+    monkeypatch.setattr(api, "DEMO_DAILY_REWORK_LIMIT", 2)
+    assert client.get("/api/reworks/allowance").json() == {"left": None}
+    api.app.dependency_overrides[signed_in_user] = lambda: User(id=1, username="demo", is_demo=True)
+    lefts = []
+    for _ in range(3):
+        lefts.append(client.get("/api/reworks/allowance").json()["left"])
+        client.post(f"/api/garments/{rework_ready.garment_id}/reworks", json={"instruction": "Make it red"})
+    assert lefts == [2, 1, 0]
+
+
 def test_reworks_show_on_the_usage_page(client, rework_ready):
     client.post(f"/api/garments/{rework_ready.garment_id}/reworks", json={"instruction": "Make it red"})
     [call] = client.get("/api/usage").json()

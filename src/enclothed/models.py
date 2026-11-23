@@ -708,6 +708,10 @@ class ReworkOut(BaseModel):
     url: str
     created_at: str
 
+class ReworkAllowanceOut(BaseModel):
+    """How many reworks are left today: only the demo has a limit, so left is None everywhere else."""
+    left: int | None
+
 class ShareIn(BaseModel):
     """Make a share link to one of your garments or outfits."""
     kind: Literal["garment", "outfit"]

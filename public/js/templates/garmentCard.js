@@ -16,5 +16,5 @@ function gCard(g){
       <span class="sc">${esc(subcategoryName(g.subcategory))}</span>
       <span class="chips">${chips}</span>
       <span class="row">${gone ? `<span>Disowned ${esc(whenDay(g.disowned_on))}</span>` : `<span class="scales"><span>F${pips(g.formality||0,4)}</span><span>W${pips(g.warmth||0,5)}</span></span><span>${wearsAndOutfits(g, n)}</span>`}</span>
-    </div></a>${gone ? "" : `<span class="addlayer">${pickButton(g)}</span>`}</div>`;
+    </div></a>${gone ? "" : `<span class="addlayer">${g.photos.length ? reworkCardButton(g) : ""}${pickButton(g)}</span>`}</div>`;
 }
