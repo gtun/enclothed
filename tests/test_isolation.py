@@ -15,7 +15,7 @@ from enclothed import config
 from enclothed import api, photos
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
-from enclothed.db import init_db, insert_garment, insert_look, insert_outfits, insert_set, insert_share, insert_wear, insert_weigh, save_preferences, select_garment
+from enclothed.db import init_db, insert_garment, insert_look, insert_outfits, insert_rework, insert_set, insert_share, insert_wear, insert_weigh, save_preferences, select_garment
 from enclothed.intake import TEST_GARMENT
 from enclothed.models import Draft, LookPiece, LookTags, Outfit, OutfitGarment, User, WeighVerdict
 
@@ -44,7 +44,11 @@ def add_wardrobe(db_path, garments_dir, user_id):
     look_folder = photos.LOOKS_DIR / str(look_id)
     look_folder.mkdir(parents=True)
     Image.new("RGB", (20, 20)).save(look_folder / "00.jpg")
-    return {"garment": garment_id, "second": second_id, "set": set_id, "outfit": outfit_id, "candidate": candidate_id, "look": look_id}
+    rework_id = insert_rework(db_path, user_id, garment_id, "make it blue", "front_00.jpg", "gpt-image-2.5-sunburst", TIMESTAMP)
+    api.REWORKS_DIR.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (20, 20), "blue").save(api.REWORKS_DIR / f"{rework_id}.jpg")
+    return {"garment": garment_id, "second": second_id, "set": set_id, "outfit": outfit_id, "candidate": candidate_id, "look": look_id,
+            "rework": rework_id}
 
 
 @pytest.fixture
@@ -65,6 +69,8 @@ def db_path(tmp_path, monkeypatch):
     monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
     monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
     monkeypatch.setattr(photos, "LOOKS_DIR", tmp_path / "looks")
+    monkeypatch.setattr(api, "REWORKS_DIR", tmp_path / "reworks")
+    monkeypatch.setattr(api, "REWORK_LOG_PATH", tmp_path / "rework_log.jsonl")
     return path
 
 
@@ -103,6 +109,8 @@ TARGETED = [
     ("POST", "/api/weighs/{candidate}/buy", None),
     ("GET", "/looks/{look}/00.jpg", None),
     ("GET", "/looks/{look}/thumbs/00.jpg", None),
+    ("GET", "/api/garments/{garment}/reworks", None),
+    ("GET", "/reworks/{rework}", None),
 ]
 
 
@@ -139,6 +147,8 @@ COVERED_ELSEWHERE = {   # these don't answer 200, so they have their own tests b
     ("POST", "/api/looks/{}/recreations"),    # 201, after an AI call
     ("DELETE", "/api/looks/{}"),              # 204
     ("DELETE", "/api/shares/{}"),             # 204
+    ("POST", "/api/garments/{}/reworks"),     # 201, after an image call
+    ("DELETE", "/api/reworks/{}"),            # 204
     ("POST", "/api/shares/{}/extend"),        # needs a share token, not a wardrobe id
     # Share links: open to anyone with the link by design, and they never read a wardrobe (test_shares.py)
     ("GET", "/s/options/{}"),
@@ -203,6 +213,18 @@ def test_weighs_list_only_your_own(bob, alice_data, bob_data):
 def test_someone_elses_garment_cant_be_mended(bob, alice_data, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     assert bob.post(f"/api/garments/{alice_data['garment']}/mend").status_code == 404
+
+
+def test_someone_elses_garment_cant_be_reworked(bob, alice_data, monkeypatch):
+    monkeypatch.setattr(api, "_llm_client", lambda provider=None: pytest.fail("no AI call for someone else's garment"))
+    assert bob.post(f"/api/garments/{alice_data['garment']}/reworks", json={"instruction": "make it red"}).status_code == 404
+
+
+def test_someone_elses_rework_cant_be_deleted(bob, alice_data, bob_data, db_path, tmp_path):
+    assert bob.delete(f"/api/reworks/{alice_data['rework']}").status_code == 404
+    assert (tmp_path / "reworks" / f"{alice_data['rework']}.jpg").exists()
+    assert bob.delete(f"/api/reworks/{bob_data['rework']}").status_code == 204
+    assert not (tmp_path / "reworks" / f"{bob_data['rework']}.jpg").exists()
 
 
 def test_someone_elses_draft_cant_be_accepted_or_discarded(bob, db_path, tmp_path):

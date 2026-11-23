@@ -1,6 +1,6 @@
 """eval-previews: edit garments' photos with an image model, to see whether garment previews (#74) look right.
 
-Each garment's front photo (or its first, when it has no front one) goes to the image model with the instruction,
+Each garment's photo goes to the image model as Rework sends it (reworks.source_photo) with the instruction,
 and nothing from its record. This writes nothing to the wardrobe. It writes one folder per run under
 data/evals/previews/:
 
@@ -34,17 +34,12 @@ from PIL import Image, ImageOps
 from enclothed import config, db, photos
 from enclothed.llm import Client, NotConfigured, ServiceError, UnusableResponse, make_client, preview_garment
 from enclothed.models import Garment, ImageUsage
-from enclothed.tag_evals import choose_garments, saved_roles
+from enclothed.reworks import source_photo
+from enclothed.tag_evals import choose_garments
 from enclothed.usage import image_call_cost
 
 PREVIEW_EVALS_DIR = config.DATA_DIR / "evals" / "previews"
 QUALITIES = ["low", "medium", "high", "xhigh", "max", "auto"]
-
-
-def photo_to_send(paths: list[Path]) -> Path:
-    """The front photo, which shows the whole garment, or the first photo when there's no front one."""
-    roles = saved_roles(paths)
-    return paths[roles.index("front")] if "front" in roles else paths[0]
 
 
 def placeholder_preview(photo: Path) -> bytes:
@@ -117,7 +112,7 @@ def run(label: str, instruction: str, runs: int, user_id: int, db_path: Path, id
     rows: list[dict] = []
     with tempfile.TemporaryDirectory() as scratch:
         for number, garment in enumerate(chosen, start=1):
-            source = photo_to_send(photos.get_photo_paths(garment.id))
+            source = source_photo(photos.get_photo_paths(garment.id))
             sendable = photos.sendable_copies([source], Path(scratch))[0]
             sent = out_dir / f"{garment.id}_photo{sendable.suffix.lower()}"
             shutil.copyfile(sendable, sent)

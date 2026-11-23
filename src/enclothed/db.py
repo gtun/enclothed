@@ -623,3 +623,48 @@ def delete_expired_shares(db_path: Path, now: str) -> list[str]:
 def select_share_tokens(db_path: Path) -> set[str]:
     with closing(_connect(db_path)) as conn:
         return {r[0] for r in conn.execute("SELECT token FROM shares")}
+
+
+# --- reworks (#74) -----------------
+REWORK_COLUMNS = "id, garment_id, instruction, source_photo, model, created_at"
+
+
+def _rework(row: tuple) -> dict:
+    return dict(zip(["id", "garment_id", "instruction", "source_photo", "model", "created_at"], row))
+
+
+def insert_rework(db_path: Path, user_id: int, garment_id: int, instruction: str, source_photo: str, model: str, created_at: str) -> int:
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute(
+                "INSERT INTO reworks (user_id, garment_id, instruction, source_photo, model, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, garment_id, instruction, source_photo, model, created_at),
+            )
+    return cursor.lastrowid
+
+
+def select_rework(db_path: Path, user_id: int, rework_id: int) -> dict | None:
+    with closing(_connect(db_path)) as conn:
+        row = conn.execute(f"SELECT {REWORK_COLUMNS} FROM reworks WHERE id = ? AND user_id = ?", (rework_id, user_id)).fetchone()
+    return _rework(row) if row else None
+
+
+def select_garment_reworks(db_path: Path, user_id: int, garment_id: int) -> list[dict]:
+    """One garment's reworks, newest first."""
+    with closing(_connect(db_path)) as conn:
+        rows = conn.execute(f"SELECT {REWORK_COLUMNS} FROM reworks WHERE garment_id = ? AND user_id = ? ORDER BY id DESC",
+                            (garment_id, user_id)).fetchall()
+    return [_rework(r) for r in rows]
+
+
+def delete_rework(db_path: Path, user_id: int, rework_id: int) -> bool:
+    """False if there's no such rework of this user's."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            cursor = conn.execute("DELETE FROM reworks WHERE id = ? AND user_id = ?", (rework_id, user_id))
+    return cursor.rowcount == 1
+
+
+def select_rework_ids(db_path: Path) -> set[int]:
+    with closing(_connect(db_path)) as conn:
+        return {r[0] for r in conn.execute("SELECT id FROM reworks")}

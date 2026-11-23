@@ -120,4 +120,14 @@ CREATE TABLE IF NOT EXISTS shares (
     snapshot TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS reworks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    garment_id INTEGER NOT NULL REFERENCES garments(id) ON DELETE CASCADE,
+    instruction TEXT NOT NULL,
+    source_photo TEXT NOT NULL,
+    model TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 INSERT OR IGNORE INTO users (id, username, is_admin) VALUES (1, 'owner', 1);

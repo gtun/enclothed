@@ -696,6 +696,18 @@ class ImprovedPreferences(BaseModel):
     """What the LLM returns when rewriting the user's preferences."""
     text: str = Field(description="The rewritten preferences, ready to send with outfit requests.")
 
+class ReworkIn(BaseModel):
+    """What to change in a garment's photo, in the person's own words."""
+    instruction: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+
+class ReworkOut(BaseModel):
+    """An edited image of one of a garment's photos. It's a preview, never one of the garment's photos."""
+    id: int
+    garment_id: int
+    instruction: str
+    url: str
+    created_at: str
+
 class ShareIn(BaseModel):
     """Make a share link to one of your garments or outfits."""
     kind: Literal["garment", "outfit"]
