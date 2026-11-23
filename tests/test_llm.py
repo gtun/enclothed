@@ -1,4 +1,5 @@
 # The provider seams in llm.py: the client, its errors, and the insights conversation.
+import base64
 from types import SimpleNamespace
 
 import anthropic
@@ -363,3 +364,45 @@ def test_every_configured_model_has_a_display_name():
     models = {m for provider in config.MODELS_BY_PROVIDER.values() for m in provider.values()}
     assert models <= set(config.MODEL_NAMES)
     assert set(config.MODELS_BY_PROVIDER) <= set(config.PROVIDER_NAMES)
+
+
+# --- garment previews -----------------------------------------------------------------------
+
+def image_sdk(edit):
+    return SimpleNamespace(images=SimpleNamespace(edit=edit))
+
+
+def image_usage_reply(data):
+    usage = SimpleNamespace(input_tokens=1300, output_tokens=900, total_tokens=2200,
+                            input_tokens_details=SimpleNamespace(text_tokens=100, image_tokens=1200))
+    return SimpleNamespace(data=data, usage=usage)
+
+
+def test_a_preview_sends_the_photo_and_instruction_and_returns_the_image(tmp_path):
+    photo = tmp_path / "front_00.jpg"
+    photo.write_bytes(b"photo bytes")
+    sent = {}
+
+    def edit(**kwargs):
+        sent.update(kwargs, image=kwargs["image"].read())
+        return image_usage_reply([SimpleNamespace(b64_json=base64.b64encode(b"edited").decode())])
+
+    image, usage = llm.preview_garment(llm.Client("openai", image_sdk(edit)), photo, "Make it bright blue", "low")
+    assert image == b"edited"
+    assert sent["image"] == b"photo bytes"
+    assert "Make it bright blue" in sent["prompt"]
+    assert (sent["model"], sent["quality"], sent["n"]) == (config.PREVIEW_MODEL, "low", 1)
+    assert usage.model_dump() == {"model": config.PREVIEW_MODEL, "text_input_tokens": 100, "image_input_tokens": 1200, "output_tokens": 900}
+
+
+def test_a_preview_without_an_image_still_reports_its_tokens(tmp_path):
+    photo = tmp_path / "front_00.jpg"
+    photo.write_bytes(b"photo bytes")
+    with pytest.raises(llm.UnusableResponse) as raised:
+        llm.preview_garment(llm.Client("openai", image_sdk(lambda **kwargs: image_usage_reply([]))), photo, "Make it blue")
+    assert raised.value.usage.output_tokens == 900
+
+
+def test_previews_need_an_openai_client(tmp_path):
+    with pytest.raises(llm.NotConfigured):
+        llm.preview_garment(llm.Client("anthropic", sdk()), tmp_path / "front_00.jpg", "Make it blue")

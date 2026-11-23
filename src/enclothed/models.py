@@ -379,6 +379,13 @@ class TokenUsage(BaseModel):
     cache_creation_input_tokens: int = 0
     cache_read_input_tokens: int = 0
 
+class ImageUsage(BaseModel):
+    """One image-model call's tokens. Text and image input are priced apart, unlike TokenUsage's."""
+    model: str
+    text_input_tokens: int
+    image_input_tokens: int
+    output_tokens: int
+
 class OutfitGarment(BaseModel):
     garment_id: int = Field(description="The ID of the suggested garment.")
     styling_advice: str | None = Field(description="One short phrase advising how to wear the garment. Do not refer to the garment by name or description.", default=None)

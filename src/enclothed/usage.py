@@ -7,8 +7,8 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from enclothed.config import DEFAULT_USER_ID, MODEL_PRICES
-from enclothed.models import TokenUsage, UsageCall
+from enclothed.config import DEFAULT_USER_ID, IMAGE_MODEL_PRICES, MODEL_PRICES
+from enclothed.models import ImageUsage, TokenUsage, UsageCall
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,18 @@ def call_cost(usage: TokenUsage) -> float | None:
              + usage.output_tokens * price["output"]
              + usage.cache_creation_input_tokens * price["cache_write"]
              + usage.cache_read_input_tokens * price["cache_read"])
+    return total / TOKENS_PER_PRICE_UNIT
+
+
+def image_call_cost(usage: ImageUsage) -> float | None:
+    """Estimated dollars for one image-model call, or None when its model isn't in IMAGE_MODEL_PRICES. The usage
+    page doesn't count these yet (#74)."""
+    price = IMAGE_MODEL_PRICES.get(usage.model)
+    if price is None:
+        return None
+    total = (usage.text_input_tokens * price["text_input"]
+             + usage.image_input_tokens * price["image_input"]
+             + usage.output_tokens * price["output"])
     return total / TOKENS_PER_PRICE_UNIT
 
 

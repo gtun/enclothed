@@ -143,3 +143,17 @@ MODEL_PRICES = {
     "gpt-6.1-terra": {"input": 1.00, "output": 5.00, "cache_write": 1.25, "cache_read": 0.05},
     "gpt-6-luna": {"input": 0.10, "output": 0.50, "cache_write": 0.125, "cache_read": 0.01},
 }
+
+# Garment previews (#74): an image model edits a garment's photo from an instruction such as "make it bright blue".
+# Only eval-previews uses it so far, to compare models on real photos before the feature is built. Claude makes no
+# images, so this is OpenAI whatever LLM_PROVIDER says. OpenAI recommends GPT-Image-2.5 Sunburst "where editing
+# precision matters most"; 2.6 Sunburst ("image editing workflows") and 2.6 Flare ("fast iteration") cost the same.
+PREVIEW_MODEL = "gpt-image-2.5-sunburst"
+PREVIEW_QUALITY = "medium"   # low, medium, high, xhigh, max or auto: higher costs more output tokens
+# Dollars per million tokens. Image models price text and image input apart, so MODEL_PRICES can't hold them.
+# https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst (and the 2.6 pages), standard tier, 23 Nov 2026.
+# Cached input is cheaper, but OpenAI applies no cache to direct Images API edits, so it isn't listed.
+IMAGE_MODEL_PRICES = {
+    model: {"text_input": 5.00, "image_input": 8.00, "output": 30.00}
+    for model in ("gpt-image-2.5-sunburst", "gpt-image-2.6-sunburst", "gpt-image-2.6-flare")
+}
