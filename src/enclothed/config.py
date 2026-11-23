@@ -14,6 +14,8 @@ INSIGHTS_LOG_PATH = DATA_DIR / "insights_log.jsonl"
 PREFERENCES_LOG_PATH = DATA_DIR / "preferences_log.jsonl"
 WEIGH_LOG_PATH = DATA_DIR / "weigh_log.jsonl"
 MIMIC_LOG_PATH = DATA_DIR / "mimic_log.jsonl"
+REWORK_LOG_PATH = DATA_DIR / "rework_log.jsonl"   # image calls: the usage page doesn't read it yet (#74)
+REWORKS_DIR = DATA_DIR / "reworks"   # Rework's edited images, <id>.jpg, kept apart from garment photos
 LOOKS_DIR = DATA_DIR / "looks"          # photos of looks to recreate (mimic), one folder per look
 # Copies of a share link's photos, one folder per link. Under thumbs/ because the NAS backup skips it: shares
 # last a few days, and the pull never deletes, so they would pile up there forever.
@@ -144,9 +146,9 @@ MODEL_PRICES = {
     "gpt-6-luna": {"input": 0.10, "output": 0.50, "cache_write": 0.125, "cache_read": 0.01},
 }
 
-# Garment previews (#74): an image model edits a garment's photo from an instruction such as "make it bright blue".
-# Only eval-previews uses it so far, to compare models on real photos before the feature is built. Claude makes no
-# images, so this is OpenAI whatever LLM_PROVIDER says. OpenAI recommends GPT-Image-2.5 Sunburst "where editing
+# Rework (#74): an image model edits a garment's photo from an instruction such as "make it bright blue". Claude makes
+# no images, so this is OpenAI whatever LLM_PROVIDER says. 2.5 Sunburst looked as good as 2.6 Flare at half the cost
+# (eval-previews, 23 Nov 2026). OpenAI recommends GPT-Image-2.5 Sunburst "where editing
 # precision matters most"; 2.6 Sunburst ("image editing workflows") and 2.6 Flare ("fast iteration") cost the same.
 PREVIEW_MODEL = "gpt-image-2.5-sunburst"
 PREVIEW_QUALITY = "medium"   # low, medium, high, xhigh, max or auto: higher costs more output tokens

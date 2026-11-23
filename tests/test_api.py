@@ -1,10 +1,15 @@
+import io
 import json
+from types import SimpleNamespace
 from typing import get_args
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from enclothed import api, photos
+from enclothed import reworks as reworks_module
+from enclothed.llm import ServiceError
 from enclothed import outfit as outfit_module
 from enclothed.db import init_db, insert_garment, insert_outfits, insert_set, select_owned_garments
 from enclothed.fabrics import FABRIC_TYPES
@@ -12,7 +17,7 @@ from enclothed.models import Category, Color, FabricWeight, Fit, Hem, Outfit, Ou
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.auth import signed_in_user
 from enclothed.intake import TEST_GARMENT
-from enclothed.models import TokenUsage, User
+from enclothed.models import ImageUsage, TokenUsage, User
 
 
 @pytest.fixture
@@ -840,7 +845,8 @@ def test_every_endpoint_that_makes_an_llm_client_passes_the_pick_on():
     """So a new AI endpoint can't forget it: the page sends the header to all of them."""
     import inspect
     endpoints = [route.endpoint for route in api.app.routes
-                 if inspect.isfunction(getattr(route, "endpoint", None)) and "_llm_client(" in inspect.getsource(route.endpoint)]
+                 if inspect.isfunction(getattr(route, "endpoint", None)) and "_llm_client(" in inspect.getsource(route.endpoint)
+                 and '_llm_client("openai")' not in inspect.getsource(route.endpoint)]   # Rework: only OpenAI makes images
     assert len(endpoints) >= 9
     for endpoint in endpoints:
         assert inspect.signature(endpoint).parameters["provider"].annotation is api.ChosenProvider, endpoint.__name__
@@ -881,3 +887,93 @@ def test_only_an_admin_sees_the_llm_list(db_path):
         assert TestClient(api.app).get("/api/llms").status_code == 403
     finally:
         api.app.dependency_overrides.clear()
+
+
+# --- rework (#74) ----------------------------------------------------------------------------
+REWORK_USAGE = ImageUsage(model="gpt-image-2.5-sunburst", text_input_tokens=87, image_input_tokens=1452, output_tokens=386)
+
+
+def _png():
+    out = io.BytesIO()
+    Image.new("RGB", (30, 40), "blue").save(out, "PNG")
+    return out.getvalue()
+
+
+@pytest.fixture
+def rework_ready(db_path, tmp_path, monkeypatch):
+    """A garment with a front photo, an OpenAI key, a fake image model, and Rework's files in tmp_path."""
+    monkeypatch.setattr(api, "REWORKS_DIR", tmp_path / "reworks")
+    monkeypatch.setattr(api, "REWORK_LOG_PATH", tmp_path / "rework_log.jsonl")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    calls = []
+    def fake_preview(client, photo, instruction):
+        calls.append((client.provider, instruction))
+        return _png(), REWORK_USAGE
+    monkeypatch.setattr(reworks_module, "preview_garment", fake_preview)
+    garment_id = insert_garment(db_path, 1, TEST_GARMENT)
+    folder = tmp_path / "garments" / str(garment_id)
+    folder.mkdir(parents=True)
+    Image.new("RGB", (20, 20), "navy").save(folder / "front_00.jpg")
+    return SimpleNamespace(garment_id=garment_id, calls=calls)
+
+
+def test_a_rework_is_made_listed_shown_and_deleted(client, rework_ready):
+    url = f"/api/garments/{rework_ready.garment_id}/reworks"
+    made = client.post(url, json={"instruction": "  Make it bright blue  "})
+    assert made.status_code == 201
+    body = made.json()
+    assert (body["garment_id"], body["instruction"], body["url"]) == (rework_ready.garment_id, "Make it bright blue", f"/reworks/{body['id']}")
+    assert rework_ready.calls == [("openai", "Make it bright blue")]
+    assert [r["id"] for r in client.get(url).json()] == [body["id"]]
+    image = client.get(body["url"])
+    assert image.status_code == 200 and image.headers["content-type"] == "image/jpeg"
+    assert image.headers["cache-control"] == api.PHOTO_CACHING["Cache-Control"]
+    assert client.delete(f"/api/reworks/{body['id']}").status_code == 204
+    assert client.get(url).json() == [] and client.get(body["url"]).status_code == 404
+
+
+def test_rework_uses_openai_even_when_the_admin_picked_anthropic(client, rework_ready):
+    client.post(f"/api/garments/{rework_ready.garment_id}/reworks", json={"instruction": "Make it red"}, headers={"X-LLM-Provider": "anthropic"})
+    assert rework_ready.calls == [("openai", "Make it red")]
+
+
+@pytest.mark.parametrize("instruction", ["", "   ", "x" * 301])
+def test_a_blank_or_long_instruction_is_refused(client, rework_ready, instruction):
+    response = client.post(f"/api/garments/{rework_ready.garment_id}/reworks", json={"instruction": instruction})
+    assert response.status_code == 422 and rework_ready.calls == []
+
+
+def test_rework_without_an_openai_key_is_503(client, rework_ready, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY")
+    response = client.post(f"/api/garments/{rework_ready.garment_id}/reworks", json={"instruction": "Make it red"})
+    assert response.status_code == 503 and "OPENAI_API_KEY" in response.json()["detail"]
+
+
+def test_rework_of_a_garment_without_photos_is_422(client, db_path, rework_ready):
+    bare = insert_garment(db_path, 1, TEST_GARMENT)
+    assert client.post(f"/api/garments/{bare}/reworks", json={"instruction": "Make it red"}).status_code == 422
+    assert rework_ready.calls == []
+
+
+def test_a_refused_rework_is_502_logged_and_saves_nothing(client, rework_ready, monkeypatch, tmp_path):
+    def refused(client, photo, instruction):
+        raise ServiceError("Your request was rejected by the safety system", "BadRequestError")
+    monkeypatch.setattr(reworks_module, "preview_garment", refused)
+    url = f"/api/garments/{rework_ready.garment_id}/reworks"
+    response = client.post(url, json={"instruction": "Make it red"})
+    assert response.status_code == 502 and "safety system" in response.json()["detail"]
+    assert client.get(url).json() == []
+    [line] = [json.loads(l) for l in (tmp_path / "rework_log.jsonl").read_text().splitlines()]
+    assert line["error"].startswith("BadRequestError") and line["image_usage"] is None
+
+
+def test_the_demo_cant_rework_yet(client, rework_ready):
+    api.app.dependency_overrides[signed_in_user] = lambda: User(id=1, username="demo", is_demo=True)
+    response = client.post(f"/api/garments/{rework_ready.garment_id}/reworks", json={"instruction": "Make it red"})
+    assert response.status_code == 403 and rework_ready.calls == []
+
+
+def test_an_unknown_rework_is_404(client, rework_ready):
+    assert client.get("/reworks/999").status_code == 404
+    assert client.delete("/api/reworks/999").status_code == 404
+    assert client.get("/api/garments/999/reworks").status_code == 404
