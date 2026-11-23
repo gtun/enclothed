@@ -967,10 +967,25 @@ def test_a_refused_rework_is_502_logged_and_saves_nothing(client, rework_ready, 
     assert line["error"].startswith("BadRequestError") and line["image_usage"] is None
 
 
-def test_the_demo_cant_rework_yet(client, rework_ready):
+def test_the_demo_stops_at_its_daily_rework_limit(client, rework_ready, monkeypatch):
+    monkeypatch.setattr(api, "DEMO_DAILY_REWORK_LIMIT", 2)
     api.app.dependency_overrides[signed_in_user] = lambda: User(id=1, username="demo", is_demo=True)
-    response = client.post(f"/api/garments/{rework_ready.garment_id}/reworks", json={"instruction": "Make it red"})
-    assert response.status_code == 403 and rework_ready.calls == []
+    url = f"/api/garments/{rework_ready.garment_id}/reworks"
+    assert [client.post(url, json={"instruction": "Make it red"}).status_code for _ in range(3)] == [201, 201, 429]
+    assert len(rework_ready.calls) == 2
+
+
+def test_real_wardrobes_have_no_rework_limit(client, rework_ready, monkeypatch):
+    monkeypatch.setattr(api, "DEMO_DAILY_REWORK_LIMIT", 1)
+    url = f"/api/garments/{rework_ready.garment_id}/reworks"
+    assert [client.post(url, json={"instruction": "Make it red"}).status_code for _ in range(2)] == [201, 201]
+
+
+def test_reworks_show_on_the_usage_page(client, rework_ready):
+    client.post(f"/api/garments/{rework_ready.garment_id}/reworks", json={"instruction": "Make it red"})
+    [call] = client.get("/api/usage").json()
+    assert (call["kind"], call["model"], call["input_tokens"], call["output_tokens"]) == ("rework", REWORK_USAGE.model, 87 + 1452, 386)
+    assert call["cost_usd"] == pytest.approx((87 * 5 + 1452 * 8 + 386 * 30) / 1_000_000)
 
 
 def test_an_unknown_rework_is_404(client, rework_ready):

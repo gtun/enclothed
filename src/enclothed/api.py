@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from enclothed import db, demo, drafts, mend, mimic, photos, responses, reworks, shares, weigh
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 from enclothed.config import (
-    DB_PATH, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
+    DB_PATH, DEMO_DAILY_REWORK_LIMIT, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
     TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH,
     MIMIC_LOG_PATH, REWORK_LOG_PATH, REWORKS_DIR, SHARES_DIR, DEMO_SHARE_LIMIT, SHARE_MAX_LIFETIME_DAYS, MODEL_NAMES, MODELS_BY_PROVIDER, PROVIDER_NAMES
 )
@@ -223,9 +223,9 @@ def _require_owned_garment(user: User, garment_id: int) -> None:
 def rework_garment(garment_id: int, body: ReworkIn, user: CurrentUser) -> ReworkOut:
     """Edit the garment's front photo by the instruction and keep the result. Always OpenAI: Claude makes no images,
     so the admin's LLM choice doesn't apply."""
-    if user.is_demo:   # image calls aren't counted in the demo's daily allowance yet
-        raise HTTPException(status_code=403, detail="Rework isn't available in the demo yet.")
     _require_owned_garment(user, garment_id)
+    if user.is_demo and demo.reworks_used(REWORK_LOG_PATH, user.id) >= DEMO_DAILY_REWORK_LIMIT:
+        raise HTTPException(status_code=429, detail=f"The demo has used today's {DEMO_DAILY_REWORK_LIMIT} reworks. They reset overnight.")
     client = _llm_client("openai")
     try:
         rework = reworks.rework_garment(DB_PATH, REWORKS_DIR, REWORK_LOG_PATH, user.id, garment_id, body.instruction, client)
@@ -668,7 +668,7 @@ FromParam = Annotated[datetime | None, Query(alias="from")]
 
 def _usage_logs() -> dict[str, Path]:
     return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH, "weigh": WEIGH_LOG_PATH,
-            "mimic": MIMIC_LOG_PATH}
+            "mimic": MIMIC_LOG_PATH, "rework": REWORK_LOG_PATH}
 
 
 @app.get("/api/usage")

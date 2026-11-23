@@ -516,11 +516,14 @@ body.with-builder .wrap{margin-right:max(392px,calc((100% - 1180px)/2))}
 .ukey-insights{background:var(--series-insights)}
 .ukey-weigh{background:var(--series-weigh)}
 .ukey-mimic{background:var(--series-mimic)}
+.ukey-rework{background:var(--series-rework)}
 .useg-tagging{fill:var(--series-tagging)}
 .useg-outfits{fill:var(--series-outfits)}
 .useg-style{fill:var(--series-style)}
 .useg-insights{fill:var(--series-insights)}
 .useg-weigh{fill:var(--series-weigh)}
+.useg-mimic{fill:var(--series-mimic)}
+.useg-rework{fill:var(--series-rework)}
 .uchart{position:relative}
 .uchart svg{display:block;width:100%;height:auto}
 .ugrid{stroke:var(--line);stroke-width:1}

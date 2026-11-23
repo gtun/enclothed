@@ -668,3 +668,12 @@ def delete_rework(db_path: Path, user_id: int, rework_id: int) -> bool:
 def select_rework_ids(db_path: Path) -> set[int]:
     with closing(_connect(db_path)) as conn:
         return {r[0] for r in conn.execute("SELECT id FROM reworks")}
+
+
+def delete_user_reworks(db_path: Path, user_id: int) -> list[int]:
+    """Delete all of one user's reworks (the demo's, at its reset), and return their ids."""
+    with closing(_connect(db_path)) as conn:
+        with conn:
+            ids = [r[0] for r in conn.execute("SELECT id FROM reworks WHERE user_id = ?", (user_id,))]
+            conn.execute("DELETE FROM reworks WHERE user_id = ?", (user_id,))
+    return ids

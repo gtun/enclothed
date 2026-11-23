@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import get_args
 
-from enclothed import config, db, photos
+from enclothed import config, db, photos, reworks
 from enclothed.models import Category, Garment, Outfit, OutfitGarment, User
 from enclothed.usage import read_calls
 
@@ -133,6 +133,8 @@ def reset_wardrobe(db_path: Path, demo_id: int, template_dir: Path, timestamp: s
     keep = {entry["demo_id"] for entry in template["garments"] if "demo_id" in entry}
 
     look_ids = db.select_look_ids(db_path, demo_id)   # before they're deleted with the rest
+    for rework_id in db.delete_user_reworks(db_path, demo_id):   # visitors' reworks of the kept garments too
+        reworks.image_path(config.REWORKS_DIR, rework_id).unlink(missing_ok=True)
     for garment_id in db.delete_demo_wardrobe(db_path, demo_id, keep):
         shutil.rmtree(photos.GARMENTS_DIR / str(garment_id), ignore_errors=True)
         shutil.rmtree(photos.THUMBS_DIR / str(garment_id), ignore_errors=True)
@@ -201,7 +203,14 @@ def seed(db_path: Path, owner_id: int, per_category: int, max_outfits: int) -> d
 
 # --- the daily token limit --------------------------------------------------------------
 def tokens_used(logs: dict[str, Path], demo_id: int, now: datetime | None = None) -> int:
-    """Tokens the demo has spent since the last reset. Cache reads are nearly free, so they don't count."""
+    """Tokens the demo has spent since the last reset. Cache reads are nearly free, so they don't count. Rework's
+    image calls don't either: they're priced per image, and reworks_used counts them."""
     since = last_reset_time(now or _utc_now())
-    calls = [call for call in read_calls(logs, since) if call.user_id == demo_id]
+    calls = [call for call in read_calls(logs, since) if call.user_id == demo_id and call.kind != "rework"]
     return sum(c.input_tokens + c.output_tokens + c.cache_write_tokens for c in calls)
+
+
+def reworks_used(log_path: Path, demo_id: int, now: datetime | None = None) -> int:
+    """Image calls the demo has paid for since the last reset, including ones that sent back no usable image."""
+    since = last_reset_time(now or _utc_now())
+    return sum(1 for call in read_calls({"rework": log_path}, since) if call.user_id == demo_id)
