@@ -135,7 +135,7 @@ app.addEventListener("input", e => {
 });
 addEventListener("keydown", e => {
   if (e.key === "Escape" && e.target.closest(".notecheck")){ e.target.closest(".notecheck").querySelector('[data-nc="no"]').click(); return; }
-  if (!galleryGo || e.target.closest("input,textarea,[role=combobox]")) return;
+  if (!galleryGo || anyOverlayOpen() || e.target.closest("input,textarea,[role=combobox]")) return;   // a dialog is in front of the photos
   if (e.key === "ArrowRight"){ e.preventDefault(); galleryGo(1); }
   if (e.key === "ArrowLeft"){ e.preventDefault(); galleryGo(-1); }
 });

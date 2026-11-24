@@ -29,23 +29,20 @@ async function openLLMPicker(returnFocus){
   try { llmList ||= await api("/api/llms"); }
   catch (e) { toast(e.message, true); return; }
   if (pickedLLM() && !llmList.some(l => l.provider === pickedLLM())){ try { sessionStorage.removeItem(LLM_PICK_KEY); } catch (e) {} }
-  let ov = document.getElementById("llm-picker");
-  if (!ov){
-    ov = document.createElement("div"); ov.id = "llm-picker"; ov.className = "overlay"; document.body.appendChild(ov);
+  const ov = dialogOverlay("llm-picker", ov => {
     ov.addEventListener("click", e => { if (e.target === ov || e.target.closest("[data-llm-close]")) closeLLMPicker(); });
     ov.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape") closeLLMPicker(); });
     ov.addEventListener("submit", e => { e.preventDefault(); chooseLLM(new FormData(e.target).get("llm")); });
-  }
+  });
   ov.innerHTML = llmDialog(llmList, pickedLLM());
-  ov.hidden = false; document.body.style.overflow = "hidden";
+  showOverlay(ov);
   ov.querySelector("input[name=llm]:checked").focus();
 }
 
 function closeLLMPicker(){
   const ov = document.getElementById("llm-picker");
   if (!ov || ov.hidden) return;
-  ov.hidden = true; ov.innerHTML = ""; document.body.style.overflow = "";
-  if (llmReturnFocus && document.contains(llmReturnFocus)) llmReturnFocus.focus();
+  hideOverlay(ov, llmReturnFocus);
 }
 
 function chooseLLM(provider){

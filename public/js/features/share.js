@@ -4,24 +4,19 @@
 "use strict";
 
 let shareBusy = false;
-function shareOverlay(){
-  let ov = document.getElementById("share");
-  if (!ov){ ov = document.createElement("div"); ov.id = "share"; ov.className = "overlay"; document.body.appendChild(ov);
-    ov.addEventListener("click", shareClick);
-    ov.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape") closeShare(); }); }
-  return ov;
-}
 function closeShare(){
   const ov = document.getElementById("share"); if (!ov || ov.hidden) return;
-  ov.hidden = true; ov.innerHTML = ""; document.body.style.overflow = "";
-  document.querySelector("[data-share]")?.focus();
+  hideOverlay(ov, document.querySelector("[data-share]"));
 }
 async function openShare(kind, id){
   if (shareBusy) return;
   shareBusy = true;
-  const ov = shareOverlay();
+  const ov = dialogOverlay("share", ov => {
+    ov.addEventListener("click", shareClick);
+    ov.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape") closeShare(); });
+  });
   ov.innerHTML = shareDialog(kind, null);
-  ov.hidden = false; document.body.style.overflow = "hidden";
+  showOverlay(ov);
   ov.querySelector("[data-share-close]").focus();
   try {
     const made = await api("/api/shares", {method: "POST", body: {kind, id}});
