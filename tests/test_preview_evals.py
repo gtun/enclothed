@@ -5,7 +5,7 @@ import json
 import pytest
 from PIL import Image
 
-from enclothed import config, db, photos, preview_evals
+from enclothed import config, db, preview_evals
 from enclothed.intake import TEST_GARMENT
 from enclothed.llm import ServiceError, UnusableResponse
 from enclothed.models import ImageUsage
@@ -14,7 +14,7 @@ from enclothed.models import ImageUsage
 @pytest.fixture
 def garments_dir(tmp_path, monkeypatch):
     folder = tmp_path / "garments"
-    monkeypatch.setattr(photos, "GARMENTS_DIR", folder)
+    monkeypatch.setattr(config, "GARMENTS_DIR", folder)
     return folder
 
 

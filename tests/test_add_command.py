@@ -21,9 +21,6 @@ def db_path(tmp_path, monkeypatch):
     touches the real data/ folder."""
     path = tmp_path / "test.db"
     monkeypatch.setattr(config, "DB_PATH", path)
-    monkeypatch.setattr(config, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(config, "INTAKE_DIR", tmp_path / "intake")
-    monkeypatch.setattr(config, "TAGGING_LOG_PATH", tmp_path / "tagging_log.jsonl")
     db.init_db(path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     return path
 

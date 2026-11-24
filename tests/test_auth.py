@@ -37,7 +37,6 @@ def client(tmp_path, monkeypatch):
         with conn:
             conn.execute("UPDATE users SET email = ? WHERE id = 1", (OWNER_EMAIL,))
     monkeypatch.setattr(config, "DB_PATH", path)
-    monkeypatch.setattr(api, "DB_PATH", path)
     monkeypatch.delenv("ENCLOTHED_DEV_USER", raising=False)
     monkeypatch.setenv("ACCESS_TEAM_NAME", TEAM)
     monkeypatch.setenv("AUD_TAG", AUD)

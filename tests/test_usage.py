@@ -103,11 +103,11 @@ def logged(tmp_path, monkeypatch):
             conn.execute("INSERT INTO users (id, username) VALUES (2, 'bob')")
             conn.execute("INSERT INTO users (id, username) VALUES (3, 'carol')")
     tagging, outfits, style = tmp_path / "tagging.jsonl", tmp_path / "outfit.jsonl", tmp_path / "style.jsonl"
-    monkeypatch.setattr(api, "DB_PATH", path)
+    monkeypatch.setattr(config, "DB_PATH", path)
     monkeypatch.setattr(config, "DB_PATH", path)   # auth.current_user reads it from config
-    monkeypatch.setattr(api, "TAGGING_LOG_PATH", tagging)
-    monkeypatch.setattr(api, "OUTFIT_LOG_PATH", outfits)
-    monkeypatch.setattr(api, "PREFERENCES_LOG_PATH", style)
+    monkeypatch.setattr(config, "TAGGING_LOG_PATH", tagging)
+    monkeypatch.setattr(config, "OUTFIT_LOG_PATH", outfits)
+    monkeypatch.setattr(config, "PREFERENCES_LOG_PATH", style)
     write_log(tagging, line(user_id=1, prompt_message="alice's secret prompt"))
     write_log(outfits, line(user_id=2, context="bob's secret wardrobe"), line("2026-11-01T00:00:00+00:00", user_id=2))
     write_log(style, line(user_id=1, input="alice's secret style"))

@@ -132,9 +132,7 @@ def client(tmp_path, monkeypatch):
     db.init_db(path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     bob_id = db.insert_user(path, "bob", "bob@example.com")
     assert bob_id == 2
-    monkeypatch.setattr(api, "DB_PATH", path)
     monkeypatch.setattr(config, "DB_PATH", path)
-    monkeypatch.setattr(api, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
     api.app.dependency_overrides[signed_in_user] = lambda: db.select_user(path, 1)
     yield TestClient(api.app)
     api.app.dependency_overrides.clear()
@@ -152,14 +150,14 @@ def test_unknown_language_is_rejected(client):
 
 
 def test_viewing_as_someone_uses_and_changes_their_language(client):
-    db.set_language(api.DB_PATH, 2, "ja-JP")
+    db.set_language(config.DB_PATH, 2, "ja-JP")
     client.put("/api/act-as", json={"user_id": 2})
     assert client.get("/api/profile").json()["language"] == "ja-JP"
     assert client.get("/api/options").json()["color_labels"]["black"] == "ブラック"
 
     client.put("/api/language", json={"language": "zh-TW"})
-    assert db.select_user(api.DB_PATH, 2).language == "zh-TW"
-    assert db.select_user(api.DB_PATH, 1).language == "en-US"
+    assert db.select_user(config.DB_PATH, 2).language == "zh-TW"
+    assert db.select_user(config.DB_PATH, 1).language == "en-US"
 
 
 def test_suggestions_are_written_in_the_wardrobe_owners_language(client, monkeypatch):
@@ -169,7 +167,7 @@ def test_suggestions_are_written_in_the_wardrobe_owners_language(client, monkeyp
         return OutfitResult(outfits=[]), None
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
     monkeypatch.setattr(outfit_module, "recommend_outfits", fake_recommend)
-    db.set_language(api.DB_PATH, 2, "zh-TW")
+    db.set_language(config.DB_PATH, 2, "zh-TW")
     client.put("/api/act-as", json={"user_id": 2})
     client.post("/api/outfits/suggestions", json={"details": "dinner"})
     assert seen["language"] == "zh-TW"

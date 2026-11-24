@@ -14,12 +14,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 
-from enclothed import db, demo, drafts, mend, mimic, photos, responses, reworks, shares, weigh
+from enclothed import config, db, demo, drafts, mend, mimic, photos, responses, reworks, shares, weigh
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
+# Paths are read as config.NAME when used, not imported here, so a test can move them all by patching config alone.
 from enclothed.config import (
-    DB_PATH, DEMO_DAILY_REWORK_LIMIT, DEMO_DAILY_TOKEN_LIMIT, GARMENTS_DIR, INTAKE_DIR, MANUAL_OUTFIT_REQUEST, OUTFIT_LOG_PATH, PREFERENCES_LOG_PATH, PUBLIC_DIR,
-    TAGGING_LOG_PATH, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, MIGRATIONS_DIR, SCHEMA_PATH, INSIGHTS_LOG_PATH, THUMBS_DIR, WEIGH_LOG_PATH,
-    MIMIC_LOG_PATH, REWORK_LOG_PATH, REWORKS_DIR, SHARES_DIR, DEMO_SHARE_LIMIT, SHARE_MAX_LIFETIME_DAYS, MODEL_NAMES, MODELS_BY_PROVIDER, PROVIDER_NAMES
+    DEMO_DAILY_REWORK_LIMIT, DEMO_DAILY_TOKEN_LIMIT, MANUAL_OUTFIT_REQUEST, UPLOAD_MAX_BYTES, UPLOAD_MAX_PHOTOS, DEMO_SHARE_LIMIT,
+    SHARE_MAX_LIFETIME_DAYS, MODEL_NAMES, MODELS_BY_PROVIDER, PROVIDER_NAMES,
 )
 from enclothed.models import (
     ActAsIn, Garment, GarmentOut, LanguageIn, OptionsOut, Outfit, OutfitCreateIn, OutfitDescribeIn, OutfitDescription, OutfitGarment, OutfitLikedIn, OutfitOut, WearIn,
@@ -41,10 +41,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Runs once when the server starts: create the DB if it's new, apply any pending migrations."""
-    db.init_db(DB_PATH, SCHEMA_PATH, MIGRATIONS_DIR)
-    shares.purge_expired(DB_PATH, SHARES_DIR, datetime.now(timezone.utc))
-    shares.remove_orphaned_photos(DB_PATH, SHARES_DIR)
-    reworks.remove_orphaned_files(DB_PATH, REWORKS_DIR)
+    db.init_db(config.DB_PATH, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
+    shares.purge_expired(config.DB_PATH, config.SHARES_DIR, datetime.now(timezone.utc))
+    shares.remove_orphaned_photos(config.DB_PATH, config.SHARES_DIR)
+    reworks.remove_orphaned_files(config.DB_PATH, config.REWORKS_DIR)
     yield
 
 
@@ -59,11 +59,11 @@ class RevalidatedStaticFiles(StaticFiles):
         return response
 
 
-GARMENTS_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="static")  # the page's CSS
+config.GARMENTS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", RevalidatedStaticFiles(directory=config.PUBLIC_DIR), name="static")  # the page's CSS
 # The same files for share links. Everything a shared page loads is under /s/, so Cloudflare Access needs
 # only one path open to everyone. Mounted before the routes, so /s/static/... never reaches /s/{token}/...
-app.mount("/s/static", RevalidatedStaticFiles(directory=PUBLIC_DIR), name="share-static")
+app.mount("/s/static", RevalidatedStaticFiles(directory=config.PUBLIC_DIR), name="share-static")
 
 
 def _llm_client(provider: str | None = None) -> Client:
@@ -108,23 +108,23 @@ def _blank_to_none(text: str | None) -> str | None:
 # --- garments -----------------------
 @app.get("/api/garments")
 def list_garments(user: CurrentUser) -> list[GarmentOut]:
-    return responses.list_garments(DB_PATH, user.id)
+    return responses.list_garments(config.DB_PATH, user.id)
 
 
 @app.get("/api/garments/{garment_id}")
 def get_garment(garment_id: int, user: CurrentUser) -> GarmentOut:
-    garment = responses.get_garment(DB_PATH, user.id, garment_id)
+    garment = responses.get_garment(config.DB_PATH, user.id, garment_id)
     if garment is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
     return garment
 
 
 def _drafts_dir() -> Path:
-    return INTAKE_DIR / "drafts"
+    return config.INTAKE_DIR / "drafts"
 
 
 def _saved_preferences(user: User) -> str | None:
-    saved = db.select_preferences(DB_PATH, user.id)
+    saved = db.select_preferences(config.DB_PATH, user.id)
     return saved[0] if saved else None
 
 
@@ -161,13 +161,13 @@ def tag_new_garment(
     client = _llm_client(provider)
 
     _drafts_dir().mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="upload-", ignore_cleanup_errors=True) as tmp:
+    with tempfile.TemporaryDirectory(dir=config.INTAKE_DIR, prefix="upload-", ignore_cleanup_errors=True) as tmp:
         paths = _stage_uploads(photos_in, Path(tmp))
         try:
-            draft = drafts.create_draft(_drafts_dir(), user.id, paths, TAGGING_LOG_PATH, client, _blank_to_none(prompt_message),
+            draft = drafts.create_draft(_drafts_dir(), user.id, paths, config.TAGGING_LOG_PATH, client, _blank_to_none(prompt_message),
                                         _blank_to_none(notes), user.language, _saved_preferences(user))
         except ServiceError as error:
-            raise _llm_failed(error, TAGGING_LOG_PATH, user)
+            raise _llm_failed(error, config.TAGGING_LOG_PATH, user)
         except UnusableResponse:
             logger.exception("Tagging gave no usable answer")
             raise HTTPException(status_code=502, detail="The AI couldn't tag these photos. Nothing was saved; try again.")
@@ -178,10 +178,10 @@ def tag_new_garment(
 @app.post("/api/garments/drafts/{draft_id}", status_code=201)
 def accept_draft(draft_id: str, garment: Garment, user: CurrentUser) -> GarmentOut:
     """Add a reviewed garment to the wardrobe, with any changes the owner made."""
-    garment_id = drafts.confirm_draft(_drafts_dir(), DB_PATH, GARMENTS_DIR, TAGGING_LOG_PATH, user.id, draft_id, garment)
+    garment_id = drafts.confirm_draft(_drafts_dir(), config.DB_PATH, config.GARMENTS_DIR, config.TAGGING_LOG_PATH, user.id, draft_id, garment)
     if garment_id is None:
         raise HTTPException(status_code=404, detail="That garment is no longer waiting for review. Add it again.")
-    return responses.get_garment(DB_PATH, user.id, garment_id)
+    return responses.get_garment(config.DB_PATH, user.id, garment_id)
 
 
 @app.delete("/api/garments/drafts/{draft_id}", status_code=204)
@@ -194,7 +194,7 @@ def discard_draft(draft_id: str, user: CurrentUser) -> None:
 def mend_garment(garment_id: int, user: CurrentUser, provider: ChosenProvider) -> MendOut:
     """Ask the LLM for this garment's blank fields, for the owner to review. Saves none of its answers."""
     _require_demo_tokens(user)
-    garment = db.select_garment(DB_PATH, user.id, garment_id)
+    garment = db.select_garment(config.DB_PATH, user.id, garment_id)
     if garment is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
     if not blank_fields(garment):
@@ -202,11 +202,11 @@ def mend_garment(garment_id: int, user: CurrentUser, provider: ChosenProvider) -
     client = _llm_client(provider)
 
     try:
-        result = mend.mend_garment(DB_PATH, TAGGING_LOG_PATH, user.id, garment, client, user.language, _saved_preferences(user))
+        result = mend.mend_garment(config.DB_PATH, config.TAGGING_LOG_PATH, user.id, garment, client, user.language, _saved_preferences(user))
     except mend.NoPhotos as error:
         raise HTTPException(status_code=422, detail=str(error))
     except ServiceError as error:
-        raise _llm_failed(error, TAGGING_LOG_PATH, user)
+        raise _llm_failed(error, config.TAGGING_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Mend gave no usable answer")
         raise HTTPException(status_code=502, detail="The AI couldn't fill these in. Nothing was saved; try again.")
@@ -215,7 +215,7 @@ def mend_garment(garment_id: int, user: CurrentUser, provider: ChosenProvider) -
 
 # --- rework (#74): an edited copy of a garment's photo -----
 def _require_owned_garment(user: User, garment_id: int) -> None:
-    if db.select_garment(DB_PATH, user.id, garment_id) is None:
+    if db.select_garment(config.DB_PATH, user.id, garment_id) is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
 
 
@@ -224,16 +224,16 @@ def rework_garment(garment_id: int, body: ReworkIn, user: CurrentUser) -> Rework
     """Edit the garment's front photo by the instruction and keep the result. Always OpenAI: Claude makes no images,
     so the admin's LLM choice doesn't apply."""
     _require_owned_garment(user, garment_id)
-    if user.is_demo and demo.reworks_used(REWORK_LOG_PATH, user.id) >= DEMO_DAILY_REWORK_LIMIT:
+    if user.is_demo and demo.reworks_used(config.REWORK_LOG_PATH, user.id) >= DEMO_DAILY_REWORK_LIMIT:
         raise HTTPException(status_code=429, detail=f"The demo has used today's {DEMO_DAILY_REWORK_LIMIT} reworks. They reset overnight.")
     client = _llm_client("openai")
     try:
-        rework = reworks.rework_garment(DB_PATH, REWORKS_DIR, REWORK_LOG_PATH, user.id, garment_id, body.instruction, client)
+        rework = reworks.rework_garment(config.DB_PATH, config.REWORKS_DIR, config.REWORK_LOG_PATH, user.id, garment_id, body.instruction, client)
     except reworks.NoPhotos as error:
         raise HTTPException(status_code=422, detail=str(error))
     except ServiceError as error:
         logger.exception("Rework call failed")
-        reworks.log_call(REWORK_LOG_PATH, user.id, garment_id, None, error=f"{error.kind}: {error.message}")
+        reworks.log_call(config.REWORK_LOG_PATH, user.id, garment_id, None, error=f"{error.kind}: {error.message}")
         raise HTTPException(status_code=502, detail=f"The AI service failed: {error.message}. Nothing was saved; try again.")
     except UnusableResponse:
         logger.exception("Rework gave no image")
@@ -245,7 +245,7 @@ def rework_garment(garment_id: int, body: ReworkIn, user: CurrentUser) -> Rework
 def list_reworks(garment_id: int, user: CurrentUser) -> list[ReworkOut]:
     """The garment's reworks, newest first."""
     _require_owned_garment(user, garment_id)
-    return responses.list_reworks(DB_PATH, user.id, garment_id)
+    return responses.list_reworks(config.DB_PATH, user.id, garment_id)
 
 
 @app.get("/api/reworks/allowance")
@@ -253,12 +253,12 @@ def rework_allowance(user: CurrentUser) -> ReworkAllowanceOut:
     """For the Rework panel's "2 of 3 left today" in the demo."""
     if not user.is_demo:
         return ReworkAllowanceOut(left=None)
-    return ReworkAllowanceOut(left=max(0, DEMO_DAILY_REWORK_LIMIT - demo.reworks_used(REWORK_LOG_PATH, user.id)))
+    return ReworkAllowanceOut(left=max(0, DEMO_DAILY_REWORK_LIMIT - demo.reworks_used(config.REWORK_LOG_PATH, user.id)))
 
 
 @app.delete("/api/reworks/{rework_id}", status_code=204)
 def delete_rework(rework_id: int, user: CurrentUser) -> None:
-    if not reworks.delete(DB_PATH, REWORKS_DIR, user.id, rework_id):
+    if not reworks.delete(config.DB_PATH, config.REWORKS_DIR, user.id, rework_id):
         raise HTTPException(status_code=404, detail=f"Rework {rework_id} not found")
 
 
@@ -266,7 +266,7 @@ EDITABLE_FIELDS = set(Garment.model_fields) - {"id", "date_added", "set_id", "me
 
 @app.patch("/api/garments/{garment_id}")
 def edit_garment(garment_id: int, changes: dict[str, Any], user: CurrentUser) -> GarmentOut:
-    garment = db.select_garment(DB_PATH, user.id, garment_id)
+    garment = db.select_garment(config.DB_PATH, user.id, garment_id)
     if garment is None:
         raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
 
@@ -279,7 +279,7 @@ def edit_garment(garment_id: int, changes: dict[str, Any], user: CurrentUser) ->
     except ValidationError as error:
         raise RequestValidationError(error.errors(include_url=False, include_input=False))
 
-    db.update_garment(DB_PATH, user.id, edited)
+    db.update_garment(config.DB_PATH, user.id, edited)
     return responses.to_garment_out(edited)
 
 
@@ -292,40 +292,40 @@ def weigh_garment(body: WeighIn, user: CurrentUser, provider: ChosenProvider) ->
     client = _llm_client(provider)
     try:
         saved, garment_id, outfit_ids = weigh.weigh_draft(
-            DB_PATH, _drafts_dir(), GARMENTS_DIR, TAGGING_LOG_PATH, WEIGH_LOG_PATH, user.id, body.draft_id, body.garment, client,
+            config.DB_PATH, _drafts_dir(), config.GARMENTS_DIR, config.TAGGING_LOG_PATH, config.WEIGH_LOG_PATH, user.id, body.draft_id, body.garment, client,
             _saved_preferences(user), user.language)
     except weigh.DraftGone:
         raise HTTPException(status_code=404, detail="That garment is no longer waiting. Photograph it again.")
     except ServiceError as error:
-        raise _llm_failed(error, WEIGH_LOG_PATH, user)
+        raise _llm_failed(error, config.WEIGH_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Weigh gave no usable answer")
         raise HTTPException(status_code=502, detail="The AI couldn't weigh this garment. Nothing was saved; try again.")
-    return WeighCreatedOut(weigh=saved, candidate=responses.get_garment(DB_PATH, user.id, garment_id),
-                           outfits=responses.get_outfits(DB_PATH, user.id, outfit_ids))
+    return WeighCreatedOut(weigh=saved, candidate=responses.get_garment(config.DB_PATH, user.id, garment_id),
+                           outfits=responses.get_outfits(config.DB_PATH, user.id, outfit_ids))
 
 
 @app.get("/api/weighs")
 def list_weighs(user: CurrentUser) -> list[WeighOut]:
     """Verdicts for garments still being weighed. The garments and outfits come with the usual lists."""
-    return db.select_weighs(DB_PATH, user.id)
+    return db.select_weighs(config.DB_PATH, user.id)
 
 
 @app.post("/api/weighs/{garment_id}/buy")
 def buy_weighed(garment_id: int, user: CurrentUser) -> GarmentOut:
     """I bought it: the candidate joins the wardrobe as it is, photos and outfits included."""
-    if not db.buy_candidate(DB_PATH, user.id, garment_id):
+    if not db.buy_candidate(config.DB_PATH, user.id, garment_id):
         raise HTTPException(status_code=404, detail=f"No garment {garment_id} is being weighed")
-    return responses.get_garment(DB_PATH, user.id, garment_id)
+    return responses.get_garment(config.DB_PATH, user.id, garment_id)
 
 
 @app.delete("/api/weighs/{garment_id}", status_code=204)
 def discard_weighed(garment_id: int, user: CurrentUser) -> None:
     """Not buying: delete the candidate, its photos, its verdict and the outfits suggested with it."""
-    if not db.delete_candidate(DB_PATH, user.id, garment_id):
+    if not db.delete_candidate(config.DB_PATH, user.id, garment_id):
         raise HTTPException(status_code=404, detail=f"No garment {garment_id} is being weighed")
-    shutil.rmtree(GARMENTS_DIR / str(garment_id), ignore_errors=True)
-    shutil.rmtree(THUMBS_DIR / str(garment_id), ignore_errors=True)
+    shutil.rmtree(config.GARMENTS_DIR / str(garment_id), ignore_errors=True)
+    shutil.rmtree(config.THUMBS_DIR / str(garment_id), ignore_errors=True)
 
 
 # --- mimic: recreate a photographed look (#5) -------
@@ -348,29 +348,29 @@ def create_look(
     _require_demo_tokens(user)
     client = _llm_client(provider)
 
-    INTAKE_DIR.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=INTAKE_DIR, prefix="look-", ignore_cleanup_errors=True) as tmp:
+    config.INTAKE_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=config.INTAKE_DIR, prefix="look-", ignore_cleanup_errors=True) as tmp:
         paths = _stage_uploads(photos_in, Path(tmp))
         try:
-            look_id, _ = mimic.create_look(DB_PATH, user.id, paths, _blank_to_none(note), client, user.language, MIMIC_LOG_PATH)
+            look_id, _ = mimic.create_look(config.DB_PATH, user.id, paths, _blank_to_none(note), client, user.language, config.MIMIC_LOG_PATH)
         except ServiceError as error:
-            raise _llm_failed(error, MIMIC_LOG_PATH, user)
+            raise _llm_failed(error, config.MIMIC_LOG_PATH, user)
         except UnusableResponse:
             logger.exception("Tagging a look gave no usable answer")
             raise HTTPException(status_code=502, detail="The AI couldn't make out the look in these photos. Nothing was saved; try again.")
-    return responses.get_look(DB_PATH, user.id, look_id)
+    return responses.get_look(config.DB_PATH, user.id, look_id)
 
 
 @app.get("/api/looks")
 def list_looks(user: CurrentUser) -> list[LookOut]:
-    return responses.list_looks(DB_PATH, user.id)
+    return responses.list_looks(config.DB_PATH, user.id)
 
 
 @app.post("/api/looks/{look_id}/recreations", status_code=201)
 def recreate_look(look_id: int, user: CurrentUser, provider: ChosenProvider) -> MimicCreatedOut:
     """Step 2: recreate a saved look from the wardrobe, as up to two outfits, closest first, each with the owned
     stand-in for every piece and how close it is. Text only. Refused once the look has recreations."""
-    look = db.select_look(DB_PATH, user.id, look_id)
+    look = db.select_look(config.DB_PATH, user.id, look_id)
     if look is None:
         raise HTTPException(status_code=404, detail=f"Look {look_id} not found")
     if look["recreations"]:
@@ -378,21 +378,21 @@ def recreate_look(look_id: int, user: CurrentUser, provider: ChosenProvider) -> 
     _require_demo_tokens(user)
     client = _llm_client(provider)
     try:
-        _, outfit_ids = mimic.recreate(DB_PATH, user.id, look_id, mimic.look_tags(look), look["note"], client, MIMIC_LOG_PATH,
+        _, outfit_ids = mimic.recreate(config.DB_PATH, user.id, look_id, mimic.look_tags(look), look["note"], client, config.MIMIC_LOG_PATH,
                                        _saved_preferences(user), user.language)
     except ServiceError as error:
-        raise _llm_failed(error, MIMIC_LOG_PATH, user)
+        raise _llm_failed(error, config.MIMIC_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Matching a look gave no usable answer")
         raise HTTPException(status_code=502, detail=MATCH_FAILED)
-    return MimicCreatedOut(look=responses.get_look(DB_PATH, user.id, look_id),
-                           outfits=responses.get_outfits(DB_PATH, user.id, outfit_ids))
+    return MimicCreatedOut(look=responses.get_look(config.DB_PATH, user.id, look_id),
+                           outfits=responses.get_outfits(config.DB_PATH, user.id, outfit_ids))
 
 
 @app.delete("/api/looks/{look_id}", status_code=204)
 def delete_look(look_id: int, user: CurrentUser) -> None:
     """Delete a look and its photos. Its outfits stay, as ordinary outfits."""
-    if not db.delete_look(DB_PATH, user.id, look_id):
+    if not db.delete_look(config.DB_PATH, user.id, look_id):
         raise HTTPException(status_code=404, detail=f"Look {look_id} not found")
     photos.delete_look_photos(look_id)
 
@@ -400,12 +400,12 @@ def delete_look(look_id: int, user: CurrentUser) -> None:
 # --- outfits -------------------------
 @app.get("/api/outfits")
 def list_outfits(user: CurrentUser) -> list[OutfitOut]:
-    return responses.list_outfits(DB_PATH, user.id)
+    return responses.list_outfits(config.DB_PATH, user.id)
 
 
 @app.get("/api/outfits/{outfit_id}")
 def get_outfit(outfit_id: int, user: CurrentUser) -> OutfitOut:
-    outfit = responses.get_outfit(DB_PATH, user.id, outfit_id)
+    outfit = responses.get_outfit(config.DB_PATH, user.id, outfit_id)
     if outfit is None:
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
     return outfit
@@ -415,10 +415,10 @@ def _styling_wardrobe(user: User, ids: list[int]) -> dict[int, Garment]:
     """Garments an outfit can use: everything owned, plus any garment being weighed that the request names.
     A weigh verdict's outfit links open the candidate with owned pieces in the builder, which then generates,
     describes or saves around it. The candidate only joins when named, so outfits never pull it in uninvited."""
-    wardrobe = {g.id: g for g in db.select_owned_garments(DB_PATH, user.id)}
+    wardrobe = {g.id: g for g in db.select_owned_garments(config.DB_PATH, user.id)}
     for garment_id in ids:
         if garment_id not in wardrobe:
-            garment = db.select_garment(DB_PATH, user.id, garment_id)
+            garment = db.select_garment(config.DB_PATH, user.id, garment_id)
             if garment and garment.weighed_on and not garment.disowned_on:
                 wardrobe[garment_id] = garment
     return wardrobe
@@ -440,14 +440,14 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser, provider: ChosenPr
     _require_demo_tokens(user)
     client = _llm_client(provider)
     try:
-        saved = db.select_preferences(DB_PATH, user.id)
-        _, new_ids = generate_outfits(DB_PATH, user.id, wardrobe, anchors or None, OUTFIT_LOG_PATH, client,
+        saved = db.select_preferences(config.DB_PATH, user.id)
+        _, new_ids = generate_outfits(config.DB_PATH, user.id, wardrobe, anchors or None, config.OUTFIT_LOG_PATH, client,
                                       details or "everyday wear", False, preferences=saved[0] if saved else None,
                                       language=user.language, count=body.count, riskiness=body.riskiness,
                                       silhouette=body.silhouette)
     except ServiceError as error:
-        raise _llm_failed(error, OUTFIT_LOG_PATH, user)
-    return responses.get_outfits(DB_PATH, user.id, new_ids)
+        raise _llm_failed(error, config.OUTFIT_LOG_PATH, user)
+    return responses.get_outfits(config.DB_PATH, user.id, new_ids)
 
 
 @app.post("/api/outfits", status_code=201)
@@ -468,8 +468,8 @@ def create_outfit(body: OutfitCreateIn, user: CurrentUser) -> OutfitOut:
         garments=[OutfitGarment(garment_id=g.garment_id, styling_advice=_blank_to_none(g.styling_advice)) for g in body.garments],
     )
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    [outfit_id] = db.insert_outfits(DB_PATH, user.id, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp, source="own")
-    return responses.get_outfit(DB_PATH, user.id, outfit_id)
+    [outfit_id] = db.insert_outfits(config.DB_PATH, user.id, [outfit], None, _blank_to_none(body.details) or MANUAL_OUTFIT_REQUEST, timestamp, source="own")
+    return responses.get_outfit(config.DB_PATH, user.id, outfit_id)
 
 
 @app.post("/api/outfits/describe")
@@ -488,10 +488,10 @@ def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser, provider: Cho
     _require_demo_tokens(user)
     client = _llm_client(provider)
     try:
-        return fill_description(OUTFIT_LOG_PATH, user.id, {i: wardrobe[i] for i in ids}, client, _blank_to_none(body.details),
+        return fill_description(config.OUTFIT_LOG_PATH, user.id, {i: wardrobe[i] for i in ids}, client, _blank_to_none(body.details),
                                 aesthetic, explanation, _saved_preferences(user), user.language)
     except ServiceError as error:
-        raise _llm_failed(error, OUTFIT_LOG_PATH, user)
+        raise _llm_failed(error, config.OUTFIT_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Outfit description gave no usable answer")
         raise HTTPException(status_code=502, detail="The AI couldn't describe this outfit. Try again, or write it yourself.")
@@ -499,9 +499,9 @@ def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser, provider: Cho
 
 @app.patch("/api/outfits/{outfit_id}")
 def edit_outfit_liked(outfit_id: int, body: OutfitLikedIn, user: CurrentUser) -> OutfitOut:
-    if not db.set_outfit_liked(DB_PATH, user.id, outfit_id, body.liked):
+    if not db.set_outfit_liked(config.DB_PATH, user.id, outfit_id, body.liked):
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
-    return responses.get_outfit(DB_PATH, user.id, outfit_id)
+    return responses.get_outfit(config.DB_PATH, user.id, outfit_id)
 
 
 @app.post("/api/outfits/{outfit_id}/wears", status_code=201)
@@ -510,17 +510,17 @@ def log_wear(outfit_id: int, body: WearIn, user: CurrentUser) -> OutfitOut:
     day = body.worn_on or date.today()
     if day > date.today() + timedelta(days=1):   # a day of slack: the browser's today can be ahead of the server's
         raise HTTPException(status_code=422, detail="That date hasn't happened yet.")
-    if db.insert_wear(DB_PATH, user.id, outfit_id, day, _blank_to_none(body.notes)) is None:
+    if db.insert_wear(config.DB_PATH, user.id, outfit_id, day, _blank_to_none(body.notes)) is None:
         raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
-    return responses.get_outfit(DB_PATH, user.id, outfit_id)
+    return responses.get_outfit(config.DB_PATH, user.id, outfit_id)
 
 
 @app.delete("/api/outfits/{outfit_id}/wears/{wear_id}")
 def remove_wear(outfit_id: int, wear_id: int, user: CurrentUser) -> OutfitOut:
     """Undo a wear logged by mistake. Returns the outfit with its remaining wears."""
-    if not db.delete_wear(DB_PATH, user.id, outfit_id, wear_id):
+    if not db.delete_wear(config.DB_PATH, user.id, outfit_id, wear_id):
         raise HTTPException(status_code=404, detail=f"Wear {wear_id} not found on outfit {outfit_id}")
-    return responses.get_outfit(DB_PATH, user.id, outfit_id)
+    return responses.get_outfit(config.DB_PATH, user.id, outfit_id)
 
 
 # --- share links ---------------------
@@ -530,7 +530,7 @@ def create_share(body: ShareIn, user: CurrentUser) -> ShareCreatedOut:
     make = shares.share_garment if body.kind == "garment" else shares.share_outfit
     limit = DEMO_SHARE_LIMIT if user.is_demo else None
     try:
-        made = make(DB_PATH, SHARES_DIR, user.id, body.id, user.language, datetime.now(timezone.utc), limit)
+        made = make(config.DB_PATH, config.SHARES_DIR, user.id, body.id, user.language, datetime.now(timezone.utc), limit)
     except shares.ShareLimitReached:
         raise HTTPException(status_code=409, detail=f"The demo already has {DEMO_SHARE_LIMIT} live share links. "
                                                     "Try again once one expires or is revoked.")
@@ -543,7 +543,7 @@ def create_share(body: ShareIn, user: CurrentUser) -> ShareCreatedOut:
 @app.delete("/api/shares/{token}", status_code=204)
 def revoke_share(token: str, user: CurrentUser) -> None:
     """End one of your live links now. Someone else's, or one that has expired, is a 404 like a wrong token."""
-    if not shares.revoke(DB_PATH, SHARES_DIR, user.id, token, datetime.now(timezone.utc)):
+    if not shares.revoke(config.DB_PATH, config.SHARES_DIR, user.id, token, datetime.now(timezone.utc)):
         raise HTTPException(status_code=404, detail="That link has expired or doesn't exist.")
 
 
@@ -552,11 +552,11 @@ def extend_share(token: str, user: CurrentUser) -> ShareOut:
     """Make one of your live links last 72 hours from now, up to 12 days after it was made."""
     now = datetime.now(timezone.utc)
     try:
-        extended = shares.extend(DB_PATH, user.id, token, now)
+        extended = shares.extend(config.DB_PATH, user.id, token, now)
     except shares.ShareAtMaxLifetime:
         raise HTTPException(status_code=409, detail=f"This link already lasts the longest a link can: "
                                                     f"{SHARE_MAX_LIFETIME_DAYS} days from when it was made.")
-    share = responses.get_share(DB_PATH, user.id, token, now.isoformat(timespec="seconds")) if extended else None
+    share = responses.get_share(config.DB_PATH, user.id, token, now.isoformat(timespec="seconds")) if extended else None
     if share is None:
         raise HTTPException(status_code=404, detail="That link has expired or doesn't exist.")
     return share
@@ -565,7 +565,7 @@ def extend_share(token: str, user: CurrentUser) -> ShareOut:
 @app.get("/api/shares")
 def list_shares(user: CurrentUser) -> list[ShareOut]:
     """Your live share links, newest first. In the demo, every visitor's links."""
-    return responses.list_shares(DB_PATH, user.id, _now())
+    return responses.list_shares(config.DB_PATH, user.id, _now())
 
 
 # --- preferences ---------------------
@@ -575,14 +575,14 @@ def _now() -> str:
 
 @app.get("/api/preferences")
 def get_preferences(user: CurrentUser) -> PreferencesOut:
-    saved = db.select_preferences(DB_PATH, user.id)
+    saved = db.select_preferences(config.DB_PATH, user.id)
     return PreferencesOut(text=saved[0], updated_at=saved[1]) if saved else PreferencesOut()
 
 
 @app.put("/api/preferences")
 def put_preferences(body: PreferencesIn, user: CurrentUser) -> PreferencesOut:
     """Save the user's style preferences (sent with every outfit request). Empty text clears them."""
-    db.save_preferences(DB_PATH, user.id, _blank_to_none(body.text), _now())
+    db.save_preferences(config.DB_PATH, user.id, _blank_to_none(body.text), _now())
     return get_preferences(user)
 
 
@@ -594,11 +594,11 @@ def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser, prov
     try:
         text, usage = improve_preferences(client, body.text)
     except ServiceError as error:
-        raise _llm_failed(error, PREFERENCES_LOG_PATH, user)
+        raise _llm_failed(error, config.PREFERENCES_LOG_PATH, user)
     except UnusableResponse as error:
-        log_failed_call(PREFERENCES_LOG_PATH, user.id, error.usage, str(error))
+        log_failed_call(config.PREFERENCES_LOG_PATH, user.id, error.usage, str(error))
         raise
-    with PREFERENCES_LOG_PATH.open("a", encoding="utf-8") as log:
+    with config.PREFERENCES_LOG_PATH.open("a", encoding="utf-8") as log:
         log.write(json.dumps({"timestamp": _now(), "user_id": user.id, "usage": usage.model_dump(), "input": body.text, "output": text}, ensure_ascii=False) + "\n")
     return PreferencesIn(text=text)
 
@@ -609,13 +609,13 @@ def ask_insights(body: InsightsIn, user: CurrentUser, provider: ChosenProvider) 
     """Answer a question about this wardrobe. The browser keeps the conversation and sends it as history."""
     _require_demo_tokens(user)
     client = _llm_client(provider)
-    saved = db.select_preferences(DB_PATH, user.id)
+    saved = db.select_preferences(config.DB_PATH, user.id)
     history = [message.model_dump() for message in body.history]
     try:
-        result = answer_question(client, DB_PATH, user.id, body.question, history, user.language,
-                                 saved[0] if saved else None, INSIGHTS_LOG_PATH)
+        result = answer_question(client, config.DB_PATH, user.id, body.question, history, user.language,
+                                 saved[0] if saved else None, config.INSIGHTS_LOG_PATH)
     except ServiceError as error:
-        raise _llm_failed(error, INSIGHTS_LOG_PATH, user)
+        raise _llm_failed(error, config.INSIGHTS_LOG_PATH, user)
     except UnusableResponse:
         logger.exception("Insights gave no usable answer")
         raise HTTPException(status_code=502, detail="I couldn't work that out. Try asking it a different way.")
@@ -625,7 +625,7 @@ def ask_insights(body: InsightsIn, user: CurrentUser, provider: ChosenProvider) 
 # --- sets ----------------------------
 @app.get("/api/sets")
 def list_sets(user: CurrentUser) -> list[SetOut]:
-    return responses.list_sets(DB_PATH, user.id)
+    return responses.list_sets(config.DB_PATH, user.id)
 
 
 # --- options -------------------------
@@ -653,7 +653,7 @@ def list_llms(me: SignedInUser) -> list[LLMOut]:
 @app.get("/api/profile")
 def get_profile(user: CurrentUser, me: SignedInUser) -> ProfileOut:
     """Whose wardrobe is showing, and what the page should offer the person looking at it."""
-    demo_user = db.select_demo_user(DB_PATH)
+    demo_user = db.select_demo_user(config.DB_PATH)
     return ProfileOut(name=user.username, language=user.language, is_admin=me.is_admin,
                       signed_in_as=me.username if me.id != user.id else None,
                       is_demo=user.is_demo,
@@ -666,7 +666,7 @@ def put_language(body: LanguageIn, user: CurrentUser, me: SignedInUser) -> None:
 
     In the shared demo this is your own setting, since the demo uses each visitor's language.
     """
-    db.set_language(DB_PATH, me.id if user.is_demo else user.id, body.language)
+    db.set_language(config.DB_PATH, me.id if user.is_demo else user.id, body.language)
 
 
 # --- usage ---------------------------
@@ -675,8 +675,8 @@ FromParam = Annotated[datetime | None, Query(alias="from")]
 
 
 def _usage_logs() -> dict[str, Path]:
-    return {"tagging": TAGGING_LOG_PATH, "outfits": OUTFIT_LOG_PATH, "style": PREFERENCES_LOG_PATH, "insights": INSIGHTS_LOG_PATH, "weigh": WEIGH_LOG_PATH,
-            "mimic": MIMIC_LOG_PATH, "rework": REWORK_LOG_PATH}
+    return {"tagging": config.TAGGING_LOG_PATH, "outfits": config.OUTFIT_LOG_PATH, "style": config.PREFERENCES_LOG_PATH, "insights": config.INSIGHTS_LOG_PATH, "weigh": config.WEIGH_LOG_PATH,
+            "mimic": config.MIMIC_LOG_PATH, "rework": config.REWORK_LOG_PATH}
 
 
 @app.get("/api/usage")
@@ -701,7 +701,7 @@ def _require_admin(me: User) -> None:
 @app.get("/api/users")
 def list_users(me: SignedInUser) -> list[UserOut]:
     _require_admin(me)
-    return [UserOut(id=user.id, username=user.username) for user in db.select_all_users(DB_PATH)]
+    return [UserOut(id=user.id, username=user.username) for user in db.select_all_users(config.DB_PATH)]
 
 
 @app.put("/api/act-as", status_code=204)
@@ -711,7 +711,7 @@ def act_as(body: ActAsIn, me: SignedInUser, response: Response) -> None:
     if body.user_id is None or body.user_id == me.id:
         response.delete_cookie(ACT_AS_COOKIE)
         return
-    target = db.select_user(DB_PATH, body.user_id)
+    target = db.select_user(config.DB_PATH, body.user_id)
     if target is None or not target.is_demo:
         _require_admin(me)
     if target is None:
@@ -731,7 +731,7 @@ def _photo_response(path: Path | None) -> FileResponse:
 
 
 def _require_garment(user: User, garment_id: int) -> None:
-    if db.select_garment(DB_PATH, user.id, garment_id) is None:
+    if db.select_garment(config.DB_PATH, user.id, garment_id) is None:
         raise HTTPException(status_code=404, detail="Photo not found")
 
 
@@ -749,14 +749,14 @@ def get_thumbnail(garment_id: int, filename: str, user: CurrentUser) -> FileResp
 
 @app.get("/reworks/{rework_id}", include_in_schema=False)
 def get_rework_image(rework_id: int, user: CurrentUser) -> FileResponse:
-    if db.select_rework(DB_PATH, user.id, rework_id) is None:
+    if db.select_rework(config.DB_PATH, user.id, rework_id) is None:
         raise HTTPException(status_code=404, detail="Photo not found")
-    path = reworks.image_path(REWORKS_DIR, rework_id)
+    path = reworks.image_path(config.REWORKS_DIR, rework_id)
     return _photo_response(path if path.is_file() else None)
 
 
 def _require_look(user: User, look_id: int) -> None:
-    if db.select_look(DB_PATH, user.id, look_id) is None:
+    if db.select_look(config.DB_PATH, user.id, look_id) is None:
         raise HTTPException(status_code=404, detail="Photo not found")
 
 
@@ -789,13 +789,13 @@ def get_share_options(language: Language) -> OptionsOut:
 @app.get("/s/{token}", include_in_schema=False)
 def share_page(token: str) -> FileResponse:
     """The shared page. It loads its copy from /s/{token}/data, and says so itself when the link has expired."""
-    live = shares.load(DB_PATH, token, datetime.now(timezone.utc)) is not None
-    return FileResponse(PUBLIC_DIR / "share.html", status_code=200 if live else 404, headers=SHARE_HEADERS)
+    live = shares.load(config.DB_PATH, token, datetime.now(timezone.utc)) is not None
+    return FileResponse(config.PUBLIC_DIR / "share.html", status_code=200 if live else 404, headers=SHARE_HEADERS)
 
 
 @app.get("/s/{token}/data", include_in_schema=False)
 def share_data(token: str, response: Response) -> dict:
-    snapshot = shares.load(DB_PATH, token, datetime.now(timezone.utc))
+    snapshot = shares.load(config.DB_PATH, token, datetime.now(timezone.utc))
     if snapshot is None:
         raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
     response.headers.update(SHARE_HEADERS)
@@ -803,7 +803,7 @@ def share_data(token: str, response: Response) -> dict:
 
 
 def _share_photo(token: str, garment: int, filename: str, small: bool) -> FileResponse:
-    path = shares.photo(DB_PATH, SHARES_DIR, token, garment, filename, small, datetime.now(timezone.utc))
+    path = shares.photo(config.DB_PATH, config.SHARES_DIR, token, garment, filename, small, datetime.now(timezone.utc))
     if path is None:
         raise HTTPException(status_code=404, detail="Photo not found")
     return FileResponse(path, headers=SHARE_PHOTO_HEADERS)
@@ -822,4 +822,4 @@ def share_thumbnail(token: str, garment: int, filename: str) -> FileResponse:
 # --- front end -----------------------
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
-    return FileResponse(PUBLIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
+    return FileResponse(config.PUBLIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})

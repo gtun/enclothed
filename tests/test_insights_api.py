@@ -6,7 +6,7 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
-from enclothed import api, db, llm
+from enclothed import api, config, db, llm
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.intake import TEST_GARMENT
@@ -46,10 +46,7 @@ class FakeClient(llm.Client):
 def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
     db.init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
-    monkeypatch.setattr(api, "DB_PATH", path)
-    monkeypatch.setattr(api, "INSIGHTS_LOG_PATH", tmp_path / "insights_log.jsonl")
-    for name in ("TAGGING_LOG_PATH", "OUTFIT_LOG_PATH", "PREFERENCES_LOG_PATH"):
-        monkeypatch.setattr(api, name, tmp_path / f"{name}.jsonl")
+    monkeypatch.setattr(config, "DB_PATH", path)
     return path
 
 
@@ -120,7 +117,7 @@ def test_each_person_only_queries_their_own_wardrobe(db_path, as_user, llm):
 def test_a_question_is_logged_and_shows_on_the_usage_page(client, db_path, llm):
     llm.responses = [turn(text("Done"))]
     client.post("/api/insights", json={"question": "Secret?"})
-    assert log_lines(api.INSIGHTS_LOG_PATH)[0]["question"] == "Secret?"
+    assert log_lines(config.INSIGHTS_LOG_PATH)[0]["question"] == "Secret?"
     calls = client.get("/api/usage").json()
     assert [(c["kind"], c["input_tokens"]) for c in calls] == [("insights", 10)]
 
@@ -154,7 +151,7 @@ def test_an_api_failure_is_a_502_and_still_logged(client, llm):
     llm.responses = [turn(tool("a", "SELECT 1"), stop="tool_use"), failure]
     response = client.post("/api/insights", json={"question": "Hi"})
     assert response.status_code == 502
-    assert log_lines(api.INSIGHTS_LOG_PATH)[0]["error"] == "APIConnectionError"
+    assert log_lines(config.INSIGHTS_LOG_PATH)[0]["error"] == "APIConnectionError"
 
 
 def test_an_unusable_answer_is_a_502_with_a_plain_message(client, llm):
@@ -162,7 +159,7 @@ def test_an_unusable_answer_is_a_502_with_a_plain_message(client, llm):
     response = client.post("/api/insights", json={"question": "Hi"})
     assert response.status_code == 502
     assert "different way" in response.json()["detail"]
-    assert log_lines(api.INSIGHTS_LOG_PATH)[0]["error"] == "UnusableResponse"
+    assert log_lines(config.INSIGHTS_LOG_PATH)[0]["error"] == "UnusableResponse"
 
 
 def test_no_api_key_is_a_503(client, monkeypatch):

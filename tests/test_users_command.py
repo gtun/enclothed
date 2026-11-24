@@ -8,8 +8,6 @@ from enclothed import config, db, main
 @pytest.fixture
 def run(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DB_PATH", tmp_path / "test.db")
-    monkeypatch.setattr(config, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(config, "INTAKE_DIR", tmp_path / "intake")
 
     def run_command(*args):
         monkeypatch.setattr(sys, "argv", ["enclothed", *args])

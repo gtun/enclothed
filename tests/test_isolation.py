@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from enclothed import config
-from enclothed import api, photos
+from enclothed import api
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.db import init_db, insert_garment, insert_look, insert_outfits, insert_rework, insert_set, insert_share, insert_wear, insert_weigh, save_preferences, select_garment
@@ -41,12 +41,12 @@ def add_wardrobe(db_path, garments_dir, user_id):
     candidate_id = insert_garment(db_path, user_id, TEST_GARMENT.model_copy(update={"weighed_on": date(2026, 11, 8)}))
     insert_weigh(db_path, user_id, candidate_id, VERDICT, TIMESTAMP)
     look_id = insert_look(db_path, user_id, LOOK, None, TIMESTAMP)
-    look_folder = photos.LOOKS_DIR / str(look_id)
+    look_folder = config.LOOKS_DIR / str(look_id)
     look_folder.mkdir(parents=True)
     Image.new("RGB", (20, 20)).save(look_folder / "00.jpg")
     rework_id = insert_rework(db_path, user_id, garment_id, "make it blue", "front_00.jpg", "gpt-image-2.5-sunburst", TIMESTAMP)
-    api.REWORKS_DIR.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", (20, 20), "blue").save(api.REWORKS_DIR / f"{rework_id}.jpg")
+    config.REWORKS_DIR.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (20, 20), "blue").save(config.REWORKS_DIR / f"{rework_id}.jpg")
     return {"garment": garment_id, "second": second_id, "set": set_id, "outfit": outfit_id, "candidate": candidate_id, "look": look_id,
             "rework": rework_id}
 
@@ -59,18 +59,7 @@ def db_path(tmp_path, monkeypatch):
         with conn:
             conn.execute("UPDATE users SET username = 'alice' WHERE id = 1")
             conn.execute("INSERT INTO users (id, username) VALUES (2, 'bob')")
-    monkeypatch.setattr(api, "DB_PATH", path)
     monkeypatch.setattr(config, "DB_PATH", path)
-    monkeypatch.setattr(api, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(api, "THUMBS_DIR", tmp_path / "thumbs")
-    monkeypatch.setattr(api, "INTAKE_DIR", tmp_path / "intake")
-    monkeypatch.setattr(api, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
-    monkeypatch.setattr(api, "PREFERENCES_LOG_PATH", tmp_path / "preferences_log.jsonl")
-    monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
-    monkeypatch.setattr(photos, "LOOKS_DIR", tmp_path / "looks")
-    monkeypatch.setattr(api, "REWORKS_DIR", tmp_path / "reworks")
-    monkeypatch.setattr(api, "REWORK_LOG_PATH", tmp_path / "rework_log.jsonl")
     return path
 
 

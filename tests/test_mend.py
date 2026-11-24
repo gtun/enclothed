@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from enclothed import api, config, db, llm, main, mend, photos
+from enclothed import api, config, db, llm, main, mend
 from enclothed.auth import signed_in_user
 from enclothed.db import init_db, insert_garment, select_garment
 from enclothed.llm import UnusableResponse
@@ -24,8 +24,6 @@ def bare(**fields) -> Garment:
 def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
     init_db(path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
-    monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
     return path
 
 
@@ -305,8 +303,7 @@ def test_a_failed_garment_is_tried_again_next_run(db_path, log_path, tmp_path, m
 
 @pytest.fixture
 def client(db_path, tmp_path, monkeypatch):
-    monkeypatch.setattr(api, "DB_PATH", db_path)
-    monkeypatch.setattr(api, "TAGGING_LOG_PATH", tmp_path / "tagging_log.jsonl")
+    monkeypatch.setattr(config, "DB_PATH", db_path)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     api.app.dependency_overrides[signed_in_user] = lambda: User(id=1, username="owner", is_admin=True)
     yield TestClient(api.app)
@@ -359,9 +356,6 @@ def test_mended_on_cant_be_edited(client, db_path, tmp_path):
 def test_the_command_runs_on_the_chosen_wardrobe(db_path, tmp_path, llm_answers, monkeypatch, capsys):
     garment_id = add(db_path, tmp_path)
     monkeypatch.setattr(config, "DB_PATH", db_path)
-    monkeypatch.setattr(config, "TAGGING_LOG_PATH", tmp_path / "tagging_log.jsonl")
-    monkeypatch.setattr(config, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(config, "INTAKE_DIR", tmp_path / "intake")
     monkeypatch.setattr(main, "make_client", lambda: None)
     monkeypatch.setattr("sys.argv", ["enclothed", "mend", "--limit", "1"])
 

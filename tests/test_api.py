@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from enclothed import api, photos
+from enclothed import api, config
 from enclothed import reworks as reworks_module
 from enclothed.llm import ServiceError
 from enclothed import outfit as outfit_module
@@ -33,14 +33,7 @@ def db_path(tmp_path, monkeypatch):
     """A fresh test DB, and the API pointed at it instead of the real one."""
     path = tmp_path / "test.db"
     init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
-    monkeypatch.setattr(api, "DB_PATH", path)
-    monkeypatch.setattr(api, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(api, "INTAKE_DIR", tmp_path / "intake")
-    monkeypatch.setattr(api, "TAGGING_LOG_PATH", tmp_path / "tagging_log.jsonl")
-    monkeypatch.setattr(api, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
-    monkeypatch.setattr(api, "PREFERENCES_LOG_PATH", tmp_path / "preferences_log.jsonl")
-    monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
+    monkeypatch.setattr(config, "DB_PATH", path)
     return path
 
 
@@ -665,7 +658,7 @@ def test_clearing_disowned_on_puts_a_garment_back(client, db_path):
 # --- startup -----------------------------------------------------------------------------
 def test_server_start_creates_the_db(tmp_path, monkeypatch, signed_in):
     path = tmp_path / "new.db"
-    monkeypatch.setattr(api, "DB_PATH", path)
+    monkeypatch.setattr(config, "DB_PATH", path)
     assert not path.exists()
     with TestClient(api.app) as client:   # "with" runs the startup code
         assert client.get("/api/garments").json() == []
@@ -902,8 +895,6 @@ def _png():
 @pytest.fixture
 def rework_ready(db_path, tmp_path, monkeypatch):
     """A garment with a front photo, an OpenAI key, a fake image model, and Rework's files in tmp_path."""
-    monkeypatch.setattr(api, "REWORKS_DIR", tmp_path / "reworks")
-    monkeypatch.setattr(api, "REWORK_LOG_PATH", tmp_path / "rework_log.jsonl")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     calls = []
     def fake_preview(client, photo, instruction):
