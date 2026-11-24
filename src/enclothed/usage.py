@@ -1,11 +1,12 @@
-"""Token use and estimated cost, read from the LLM call logs.
+"""The LLM call logs: writing each call's line (write_entry), and reading token use and estimated cost back.
 
-This is the only code that reads the logs for usage, so moving to a DB table later changes one file.
+This is the only code that writes or reads the logs for usage, so moving to a DB table later changes one file.
 """
 import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from enclothed.config import DEFAULT_USER_ID, IMAGE_MODEL_PRICES, MODEL_PRICES
 from enclothed.models import ImageUsage, TokenUsage, UsageCall
@@ -93,16 +94,16 @@ def read_calls(logs: dict[str, Path], start: datetime | None = None, end: dateti
     return sorted(calls, key=lambda c: c.timestamp)
 
 
+def write_entry(log_path: Path, user_id: int, timestamp: str | None = None, **fields: Any) -> None:
+    """Append one call to an LLM call log, as a JSON line: its timestamp (now, unless given), user_id, then fields.
+    Every log line goes through here, so each one has the timestamp and user_id that reading it depends on."""
+    entry = {"timestamp": timestamp or datetime.now(timezone.utc).isoformat(timespec="seconds"), "user_id": user_id, **fields}
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 def log_failed_call(log_path: Path, user_id: int, usage: TokenUsage | None, error: str, request_id: str | None = None) -> None:
     """Record a call that failed. With usage, tokens were spent on an unusable answer, so the cost still shows.
     Without it, the API refused or never answered: nothing was billed, but the failure is on record."""
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "user_id": user_id,
-        "usage": usage.model_dump() if usage else None,
-        "error": error,
-    }
-    if request_id:
-        entry["request_id"] = request_id   # what the provider's support asks for
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    extra = {"request_id": request_id} if request_id else {}   # what the provider's support asks for
+    write_entry(log_path, user_id, usage=usage.model_dump() if usage else None, error=error, **extra)

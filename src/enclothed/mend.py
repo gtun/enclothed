@@ -1,9 +1,8 @@
 """Mend: ask the LLM for a garment's blank fields, from its saved photos and record. It only
 ever fills blanks. The web app reviews the answers first, and the CLI saves them directly."""
-import json
 import logging
 import tempfile
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
@@ -11,7 +10,7 @@ from pydantic import BaseModel, ValidationError
 from enclothed import config, db, photos
 from enclothed.llm import Client, ServiceError, UnusableResponse, fill_blanks
 from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, blank_fields
-from enclothed.usage import call_cost, log_failed_call
+from enclothed.usage import call_cost, log_failed_call, write_entry
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +47,8 @@ def usable_answers(garment: Garment, answers: dict) -> dict:
 
 def log_mend(log_path: Path, user_id: int, garment_id: int, usage: TokenUsage, filled: dict, unanswered: list[str]) -> None:
     """Goes in the tagging log, so it shows up with tagging on the usage page."""
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "user_id": user_id,
-        "garment_id": garment_id,
-        "mend": True,
-        "usage": usage.model_dump(),
-        "result": filled,
-        "unanswered": unanswered,
-    }
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    write_entry(log_path, user_id, garment_id=garment_id, mend=True, usage=usage.model_dump(), result=filled,
+                unanswered=unanswered)
 
 
 def mend_garment(db_path: Path, log_path: Path, user_id: int, garment: Garment, client: Client,

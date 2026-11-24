@@ -20,7 +20,7 @@ from enclothed.llm import WEIGH_INSTRUCTIONS, Client, UnusableResponse, weigh_ca
 from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, OutfitResult, TokenUsage, WeighOut, WeighResult
 from enclothed.outfit import options_text, tier_plan, validate_outfits, wardrobe_block, wardrobe_for_prompt
 from enclothed.similarity import similar_garments
-from enclothed.usage import log_failed_call
+from enclothed.usage import log_failed_call, write_entry
 
 logger = logging.getLogger(__name__)
 
@@ -64,17 +64,8 @@ def with_real_id(outfit: Outfit, garment_id: int) -> Outfit:
 
 def log_weigh(log_path: Path, user_id: int, garment_id: int, result: WeighResult, usage: TokenUsage, context: list[dict],
               problems: list[str], timestamp: str) -> None:
-    entry = {
-        "timestamp": timestamp,
-        "user_id": user_id,
-        "garment_id": garment_id,
-        "usage": usage.model_dump(),
-        "result": result.model_dump(mode="json"),
-        "context": "\n".join(block["text"] for block in context),
-        "problems": problems,
-    }
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    write_entry(log_path, user_id, timestamp, garment_id=garment_id, usage=usage.model_dump(),
+                result=result.model_dump(mode="json"), context="\n".join(block["text"] for block in context), problems=problems)
 
 
 def weigh_draft(db_path: Path, drafts_dir: Path, garments_dir: Path, tagging_log: Path, weigh_log: Path, user_id: int,

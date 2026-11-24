@@ -3,13 +3,11 @@ from pathlib import Path
 import mimetypes
 import requests
 import shutil
-import json
 import time
-from datetime import datetime, timezone
 from urllib.parse import urlparse
 from enclothed.db import insert_garment
 from enclothed.llm import Client, UnusableResponse, tag_garment
-from enclothed.usage import log_failed_call
+from enclothed.usage import log_failed_call, write_entry
 from collections import defaultdict
 import logging
 import tempfile
@@ -145,14 +143,5 @@ def photo_filenames(staged: list[Path], tagged: list[PhotoTag]) -> list[str]:
     return filenames
 
 def log_tagging(log_path: Path, user_id: int, garment_id: int | None, result: TaggingResult, usage: TokenUsage | None, prompt_message: str | None, draft_id: str | None = None) -> None:
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "user_id": user_id,
-        "garment_id": garment_id,
-        "draft_id": draft_id,
-        "usage": usage.model_dump() if usage else None,
-        "result": result.model_dump(mode="json"),
-        "prompt_message": prompt_message,
-    }
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    write_entry(log_path, user_id, garment_id=garment_id, draft_id=draft_id, usage=usage.model_dump() if usage else None,
+                result=result.model_dump(mode="json"), prompt_message=prompt_message)
