@@ -14,7 +14,7 @@ from enclothed.config import DEFAULT_USER_ID, MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.db import init_db
 from enclothed.llm import Client, UnusableResponse, improve_preferences, recommend_outfits, tag_garment
 from enclothed.models import ImageUsage, TokenUsage, User
-from enclothed.usage import call_cost, image_call_cost, log_failed_call, read_calls
+from enclothed.usage import call_cost, image_call_cost, log_failed_call, read_calls, write_entry
 
 SONNET = "claude-sonnet-5-5"
 ALICE = User(id=1, username="alice", is_admin=True)
@@ -180,6 +180,34 @@ def test_a_failed_call_is_counted(tmp_path):
     log_failed_call(log, 2, TokenUsage(model=SONNET, input_tokens=1000, output_tokens=0), "No garment in response")
     [call] = read_calls({"tagging": log})
     assert (call.user_id, call.input_tokens) == (2, 1000)
+
+
+def test_an_entry_starts_with_its_time_and_user_then_its_fields(tmp_path):
+    log = tmp_path / "t"
+    write_entry(log, 3, "2026-11-04T12:00:00+00:00", usage=usage_dict(), note="日本の店")
+    write_entry(log, 4, kind="describe")
+    first, second = log.read_text().splitlines()
+    assert "日本の店" in first   # written as is, not escaped
+    assert list(json.loads(first).items()) == [("timestamp", "2026-11-04T12:00:00+00:00"), ("user_id", 3),
+                                               ("usage", usage_dict()), ("note", "日本の店")]
+    entry = json.loads(second)
+    assert datetime.fromisoformat(entry["timestamp"]).tzinfo is not None   # now, in UTC, when not given
+    assert (entry["user_id"], entry["kind"]) == (4, "describe")
+
+
+def test_an_entry_is_read_back_for_the_usage_page(tmp_path):
+    log = tmp_path / "t"
+    write_entry(log, 2, "2026-11-04T12:00:00+00:00", usage=usage_dict(input_tokens=700))
+    [call] = read_calls({"outfits": log})
+    assert (call.kind, call.user_id, call.input_tokens) == ("outfits", 2, 700)
+
+
+def test_a_failed_calls_request_id_is_kept_only_when_there_is_one(tmp_path):
+    log = tmp_path / "t"
+    log_failed_call(log, 2, None, "Overloaded", "req_1")
+    log_failed_call(log, 2, None, "Overloaded")
+    with_id, without = [json.loads(line) for line in log.read_text().splitlines()]
+    assert with_id["request_id"] == "req_1" and "request_id" not in without
 
 
 def test_add_garment_logs_a_refused_tagging_call(tmp_path, monkeypatch):

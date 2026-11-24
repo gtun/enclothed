@@ -24,7 +24,7 @@ from enclothed.models import (
 )
 from enclothed.outfit import validate_outfit, wardrobe_block, wardrobe_for_prompt
 from enclothed.similarity import similar_garments
-from enclothed.usage import log_failed_call
+from enclothed.usage import log_failed_call, write_entry
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +53,6 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _log(log_path: Path, entry: dict) -> None:
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-
-
 # --- step 1: the look --------------------------------------------------------------------------
 def create_look(db_path: Path, user_id: int, photo_paths: list[Path], note: str | None, client: Client | None,
                 language: Language, log_path: Path, is_test: bool = False) -> tuple[int | None, LookTags]:
@@ -74,8 +69,8 @@ def create_look(db_path: Path, user_id: int, photo_paths: list[Path], note: str 
     created_at = _now()
     look_id = db.insert_look(db_path, user_id, tags, note, created_at)
     photos.save_look_photos(look_id, photo_paths)
-    _log(log_path, {"timestamp": created_at, "user_id": user_id, "kind": "tag-look", "look_id": look_id,
-                    "usage": usage.model_dump(), "result": tags.model_dump(mode="json"), "note": note})
+    write_entry(log_path, user_id, created_at, kind="tag-look", look_id=look_id, usage=usage.model_dump(),
+                result=tags.model_dump(mode="json"), note=note)
     logger.info("Look %s: %d piece(s) tagged", look_id, len(tags.pieces))
     return look_id, tags
 
@@ -234,8 +229,7 @@ def recreate(db_path: Path, user_id: int, look_id: int | None, tags: LookTags, n
         for outfit_id, (_, matches) in zip(outfit_ids, kept):
             db.insert_look_matches(db_path, outfit_id, matches)
     if not is_test:
-        _log(log_path, {"timestamp": timestamp, "user_id": user_id, "kind": "match-look", "look_id": look_id,
-                        "outfit_ids": outfit_ids, "usage": usage.model_dump() if usage else None,
-                        "result": result.model_dump(mode="json"), "context": "\n".join(block["text"] for block in context),
-                        "problems": problems})
+        write_entry(log_path, user_id, timestamp, kind="match-look", look_id=look_id, outfit_ids=outfit_ids,
+                    usage=usage.model_dump() if usage else None, result=result.model_dump(mode="json"),
+                    context="\n".join(block["text"] for block in context), problems=problems)
     return kept, outfit_ids

@@ -3,9 +3,9 @@ from pathlib import Path
 from enclothed.models import DEFAULT_LANGUAGE, InsightAnswer, Language, QueryResult, TokenUsage
 from enclothed.llm import Client, InsightsChat, ServiceError, ToolResult, UnusableResponse, model_for
 from enclothed.sandbox import build_snapshot, run_select
+from enclothed.usage import write_entry
 from enclothed import config
 import json
-from datetime import datetime, timezone
 
 
 def add_usage(total: TokenUsage, usage: TokenUsage) -> TokenUsage:
@@ -31,18 +31,8 @@ def tool_text(result: QueryResult) -> str:
 def log_insight(log_path: Path, user_id: int, usage: TokenUsage, message_count: int, question: str,
                 answer: str | None, queries: list[str], error: str | None) -> None:
     """One line per question, including failed ones, so their tokens still count."""
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "user_id": user_id,
-        "usage": usage.model_dump(),
-        "messages": message_count,
-        "question": question,
-        "answer": answer,
-        "sql": queries,
-        "error": error,
-    }
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    write_entry(log_path, user_id, usage=usage.model_dump(), messages=message_count, question=question, answer=answer,
+                sql=queries, error=error)
 
 
 def answer_question(client: Client, db_path: Path, user_id: int, question: str, history: list[dict], language: Language = DEFAULT_LANGUAGE, preferences: str | None = None, log_path: Path | None = None) -> InsightAnswer:

@@ -1,6 +1,6 @@
 from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, TokenUsage, Outfit, OutfitDescription, OutfitResult, Category, RiskTier, Silhouette, layer_for
 from enclothed.llm import Client, UnusableResponse, describe_outfit, recommend_outfits
-from enclothed.usage import log_failed_call
+from enclothed.usage import log_failed_call, write_entry
 from enclothed import config
 from enclothed.db import insert_outfits
 import logging
@@ -184,17 +184,8 @@ def wardrobe_for_prompt(wardrobe: dict[int, Garment]) -> dict:
     return records
 
 def log_outfit(log_path: Path, user_id: int, anchors: list[int] | None, result: OutfitResult, usage: TokenUsage | None, context: str, problems: list[str], timestamp: str) -> None:
-    entry = {
-        "timestamp": timestamp,
-        "user_id": user_id,
-        "anchors": anchors,
-        "usage": usage.model_dump() if usage else None,
-        "result": result.model_dump(mode="json"),
-        "context": context,
-        "problems": problems,
-    }
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    write_entry(log_path, user_id, timestamp, anchors=anchors, usage=usage.model_dump() if usage else None,
+                result=result.model_dump(mode="json"), context=context, problems=problems)
 
 def fill_description(log_path: Path, user_id: int, pieces: dict[int, Garment], client: Client, details: str | None,
                      aesthetic: str | None, explanation: str | None, preferences: str | None = None,
@@ -224,17 +215,8 @@ def fill_description(log_path: Path, user_id: int, pieces: dict[int, Garment], c
         log_failed_call(log_path, user_id, usage, "Blank name or explanation in description")
         raise UnusableResponse("Blank name or explanation in description", usage)
 
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "user_id": user_id,
-        "kind": "describe",
-        "garment_ids": list(pieces),
-        "usage": usage.model_dump(),
-        "given": given,
-        "result": filled.model_dump(),
-    }
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    write_entry(log_path, user_id, kind="describe", garment_ids=list(pieces), usage=usage.model_dump(), given=given,
+                result=filled.model_dump())
     return filled
 
 def validate_outfits(result: OutfitResult, wardrobe: dict[int, Garment], anchors: list[int] | None, plan: dict[RiskTier, int] | None = None) -> tuple[list[str], list[Outfit]]:

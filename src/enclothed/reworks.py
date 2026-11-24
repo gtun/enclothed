@@ -4,7 +4,6 @@ Only the photo and the instruction go to the image model: nothing from the garme
 saved as REWORKS_DIR/<id>.jpg, apart from the garment's photos, so it's never mistaken for one.
 """
 import io
-import json
 import logging
 import tempfile
 from datetime import datetime, timezone
@@ -15,6 +14,7 @@ from PIL import Image
 from enclothed import config, db, photos
 from enclothed.llm import Client, UnusableResponse, preview_garment
 from enclothed.models import ImageUsage
+from enclothed.usage import write_entry
 
 logger = logging.getLogger(__name__)
 
@@ -47,17 +47,9 @@ def log_call(log_path: Path, user_id: int, garment_id: int, usage: ImageUsage | 
              error: str | None = None) -> None:
     """One line per image call, kept apart from the token logs because its usage has a different shape. The
     instruction isn't logged: it's the person's own words, and the database already keeps it."""
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "user_id": user_id,
-        "garment_id": garment_id,
-        "rework_id": rework_id,
-        "image_usage": usage.model_dump() if usage else None,
-    }
-    if error:
-        entry["error"] = error
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    extra = {"error": error} if error else {}
+    write_entry(log_path, user_id, garment_id=garment_id, rework_id=rework_id,
+                image_usage=usage.model_dump() if usage else None, **extra)
 
 
 def rework_garment(db_path: Path, reworks_dir: Path, log_path: Path, user_id: int, garment_id: int, instruction: str,
