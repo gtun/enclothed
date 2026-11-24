@@ -4,6 +4,9 @@
 
 let review = {open: false};
 let mendingId = null;
+/* The AI's mend answers not yet saved, by garment ID. They were paid for, so closing the review keeps them, and the
+   garment page's Review mend button shows them again without another call. Accepting clears them; so does a reload. */
+const mendAnswers = {};
 
 function openReview(details){
   review = {open: true, busy: false, confirming: false, error: "", ...details};
@@ -11,7 +14,7 @@ function openReview(details){
     ov.addEventListener("click", reviewClick);
     ov.addEventListener("keydown", e => {
       if (e.key !== "Escape" || review.busy || e.target.closest(".cb, .multi, .mats, textarea")) return;
-      askToCancel();
+      if (review.mode !== "mend") askToCancel();   // a mend review closes only through Cancel (see reviewClick)
     });
   });
   showOverlay(ov);
@@ -19,9 +22,11 @@ function openReview(details){
   ov.querySelector("[data-r-accept]").focus();
 }
 function closeReview(){
+  const mending = review.mode === "mend";
   if (review.mode === "new" || review.mode === "weigh") review.photos.forEach(url => URL.revokeObjectURL(url));
   review = {open: false};
   hideOverlay(document.getElementById("review"));
+  if (mending) refresh();   // the garment page's button: Mend, or Review mend while answers are kept
 }
 function renderReview(){
   const ov = document.getElementById("review");
@@ -30,7 +35,6 @@ function renderReview(){
   ov.querySelector(".bbody").scrollTop = top;
 }
 function askToCancel(){
-  if (review.mode === "mend") return closeReview();
   review.confirming = true; renderReview();
   review.open && document.querySelector("#review [data-r-keep]").focus();
 }
@@ -52,9 +56,9 @@ async function acceptReview(){
     } else {
       const changes = Object.fromEntries(review.fields.filter(f => hasValue(review.g[f])).map(f => [f, review.g[f]]));
       if (Object.keys(changes).length) adoptGarment(await api(`/api/garments/${review.g.id}`, {method: "PATCH", body: changes}));
+      delete mendAnswers[review.g.id];
       closeReview();
       toast("Saved.");
-      refresh();
     }
   } catch (e) {
     review.busy = false; review.error = e.message; renderReview();
@@ -62,6 +66,10 @@ async function acceptReview(){
 }
 const hasValue = v => Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined && v !== "";
 async function discardReview(){
+  if (review.mode === "mend"){   // nothing on the server to delete, and the AI's answers stay in mendAnswers
+    closeReview();
+    return toast("Not saved. Review mend shows the AI's answers again.");
+  }
   review.busy = true; renderReview();
   try {
     await api(`/api/garments/drafts/${review.draftId}`, {method: "DELETE"});
@@ -71,9 +79,11 @@ async function discardReview(){
     review.busy = false; review.confirming = false; review.error = e.message; renderReview();
   }
 }
+/* A click on the backdrop asks before closing a new garment, and does nothing in a mend review: that closes only
+   through Cancel (or ×) and then "Yes, close", so a stray click or Escape can't close it. */
 function reviewClick(e){
   if (review.busy) return;
-  if (e.target.id === "review") return askToCancel();
+  if (e.target.id === "review"){ if (review.mode !== "mend") askToCancel(); return; }
   const ed = e.target.closest("[data-edit]");
   if (ed) return openEditor(ed.dataset.edit);
   if (e.target.closest("[data-r-accept]")) acceptReview();
@@ -81,13 +91,25 @@ function reviewClick(e){
   else if (e.target.closest("[data-r-keep]")){ review.confirming = false; renderReview(); }
   else if (e.target.closest("[data-r-discard]")) discardReview();
 }
+/* The kept answers for blanks the garment still has, or null. Blanks filled in on the page since are left out. */
+function mendAnswersFor(g){
+  const kept = Object.entries(mendAnswers[g.id] || {}).filter(([field]) => g.blank_fields.includes(field));
+  return kept.length ? Object.fromEntries(kept) : null;
+}
+function reviewMend(g, filled){
+  openReview({mode: "mend", g: {...structuredClone(g), ...filled}, fields: g.blank_fields, photos: g.photos.map(p => p.thumb_url)});
+}
+/* The garment page's Mend button. With answers kept from an earlier mend, it shows those again and calls nothing. */
 async function startMend(g){
   if (mendingId) return;
+  const kept = mendAnswersFor(g);
+  if (kept) return reviewMend(g, kept);
   mendingId = g.id; refresh();
   try {
     const {filled} = await api(`/api/garments/${g.id}/mend`, {method: "POST"});
     if (!Object.keys(filled).length) return toast("The AI couldn't fill in anything else from the photos.");
-    openReview({mode: "mend", g: {...structuredClone(g), ...filled}, fields: g.blank_fields, photos: g.photos.map(p => p.thumb_url)});
+    mendAnswers[g.id] = filled;
+    reviewMend(g, filled);
   } catch (e) {
     toast(e.message, true);
   } finally {
