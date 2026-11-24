@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from enclothed import llm
+from enclothed import llm, prompts
 from enclothed.fabrics import FABRIC_TYPES
 from enclothed.intake import photo_filenames, add_garment
 from enclothed.models import PhotoTag, TaggingReply, TaggingResult
@@ -138,13 +138,13 @@ def texts(sent):
 
 def test_the_tagging_prompt_lists_every_fabric_and_field():
     for fabric in FABRIC_TYPES - {"other"}:
-        assert fabric in llm.TAG_SYSTEM_PROMPT
+        assert fabric in prompts.TAG_SYSTEM_PROMPT
     for field in ("fabric_type:", "shape:", "hem:", "fabric_weight:", "sleeve:", "statement:"):
-        assert field in llm.TAG_SYSTEM_PROMPT
+        assert field in prompts.TAG_SYSTEM_PROMPT
 
 
 def test_a_translated_tagging_prompt_keeps_the_new_fields_in_english():
-    assert "fabric_type, shape, hem, fabric_weight, sleeve, statement and photo roles" in llm.tag_system_prompt("ja-JP")
+    assert "fabric_type, shape, hem, fabric_weight, sleeve, statement and photo roles" in prompts.tag_system_prompt("ja-JP")
 
 
 def test_saved_preferences_reach_the_tagger(tmp_path):

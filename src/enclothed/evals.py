@@ -31,7 +31,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from enclothed import config, db
-from enclothed.llm import PROVIDER_VARIABLE, active_provider, make_client, model_for, outfit_system_prompt
+from enclothed.llm import PROVIDER_VARIABLE, active_provider, make_client, model_for
+from enclothed.prompts import outfit_system_prompt
 from enclothed.models import Garment, RiskTier, TokenUsage
 from enclothed.outfit import generate_outfits, tier_plan
 from enclothed.usage import call_cost

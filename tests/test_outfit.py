@@ -512,7 +512,7 @@ def test_options_text_names_the_silhouette(silhouette, article):
 
 def test_every_silhouette_is_defined_for_the_llm():
     from typing import get_args
-    from enclothed.llm import SILHOUETTE_SECTION
+    from enclothed.prompts import SILHOUETTE_SECTION
     from enclothed.models import Silhouette
     for letter in get_args(Silhouette):
         assert f"- {letter}-line:" in SILHOUETTE_SECTION

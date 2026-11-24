@@ -5,7 +5,7 @@ from typing import get_args
 import pytest
 from fastapi.testclient import TestClient
 
-from enclothed import api, config, db, i18n, intake, llm, responses
+from enclothed import api, config, db, i18n, intake, llm, prompts, responses
 from enclothed import outfit as outfit_module
 from enclothed.auth import signed_in_user
 from enclothed.fabrics import FABRIC_TYPES
@@ -92,15 +92,15 @@ def test_options_list_the_languages_to_choose_from():
 
 # --- prompts -------------------------------------------------------------------------
 def test_english_prompts_are_unchanged():
-    assert llm.tag_system_prompt("en-US") == llm.TAG_SYSTEM_PROMPT
-    assert llm.outfit_system_prompt("en-US") == llm.OUTFIT_SYSTEM_PROMPT
+    assert prompts.tag_system_prompt("en-US") == prompts.TAG_SYSTEM_PROMPT
+    assert prompts.outfit_system_prompt("en-US") == prompts.OUTFIT_SYSTEM_PROMPT
 
 
 @pytest.mark.parametrize("language", TRANSLATED)
 def test_tagging_prompt_names_the_translated_fields_and_keeps_fixed_values_english(language):
-    prompt = llm.tag_system_prompt(language)
-    assert prompt.startswith(llm.TAG_SYSTEM_PROMPT)
-    assert llm.LANGUAGE_DESCRIPTIONS[language] in prompt
+    prompt = prompts.tag_system_prompt(language)
+    assert prompt.startswith(prompts.TAG_SYSTEM_PROMPT)
+    assert prompts.LANGUAGE_DESCRIPTIONS[language] in prompt
     for field in ["styling_notes", "style_tags", "pattern", "country_of_origin", "materials"]:
         assert field in prompt.split("Language:")[1].split("\n")[1]
     assert "exact English values" in prompt
@@ -108,21 +108,21 @@ def test_tagging_prompt_names_the_translated_fields_and_keeps_fixed_values_engli
 
 @pytest.mark.parametrize("language", TRANSLATED)
 def test_outfit_prompt_names_every_written_field(language):
-    rule = llm.outfit_system_prompt(language).split("Language:")[1].split("\n")[1]
+    rule = prompts.outfit_system_prompt(language).split("Language:")[1].split("\n")[1]
     for field in ["aesthetic", "explanation", "styling_advice", "missing"]:
         assert field in rule
-    assert llm.LANGUAGE_DESCRIPTIONS[language] in rule
+    assert prompts.LANGUAGE_DESCRIPTIONS[language] in rule
 
 
 @pytest.mark.parametrize("language", TRANSLATED)
 def test_prompts_carry_the_same_words_as_the_labels(language):
     word = i18n.terms(language)["subcategories"]["varsity jacket"]
-    assert f"varsity jacket = {word}" in llm.outfit_system_prompt(language)
-    assert f"varsity jacket = {word}" in llm.tag_system_prompt(language)
+    assert f"varsity jacket = {word}" in prompts.outfit_system_prompt(language)
+    assert f"varsity jacket = {word}" in prompts.tag_system_prompt(language)
 
 
 def test_every_translated_language_has_a_description():
-    assert set(llm.LANGUAGE_DESCRIPTIONS) == set(TRANSLATED)
+    assert set(prompts.LANGUAGE_DESCRIPTIONS) == set(TRANSLATED)
 
 
 # --- the API -------------------------------------------------------------------------

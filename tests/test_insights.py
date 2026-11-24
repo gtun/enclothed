@@ -13,7 +13,8 @@ import pytest
 from enclothed import config, db, insights, llm
 from enclothed.usage import read_calls
 from enclothed.insights import add_usage, answer_question, tool_text
-from enclothed.llm import InsightsChat, ServiceError, UnusableResponse, insights_system_prompt
+from enclothed.llm import InsightsChat, ServiceError, UnusableResponse
+from enclothed.prompts import insights_system_prompt
 from enclothed.models import QueryResult, TokenUsage
 from enclothed.sandbox import insights_schema_text
 
