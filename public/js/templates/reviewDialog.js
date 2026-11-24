@@ -9,9 +9,12 @@ function reviewDialog(){
   const rows = FIELDS.filter(f => shows(f.key) && fieldApplies(g, f.key)).map(f => fieldRow(g, f)).join("");
   const blocks = [shows("styling_notes") && stylingNotesBlock(g), shows("style_tags") && tagsBlock(g),
     shows("label_text") && labelBlock(g), isNew && notesBlock(g)].filter(Boolean).join("");
+  const ask = isNew
+    ? ["Discard this garment? Its photos and tags will be deleted.", "Yes, discard"]
+    : ["Close without saving? Your changes here are lost, but the AI's answers are kept: Review mend shows them again until you reload the page.", "Yes, close"];
   const foot = confirming
-    ? `<p class="dnote">Discard this garment? Its photos and tags will be deleted.</p>
-       <div class="dbtns"><button type="button" class="btn primary" data-r-discard ${busy ? "disabled" : ""}>Yes, discard</button><button type="button" class="btn" data-r-keep ${busy ? "disabled" : ""}>Keep reviewing</button></div>`
+    ? `<p class="dnote">${ask[0]}</p>
+       <div class="dbtns"><button type="button" class="btn primary" data-r-discard ${busy ? "disabled" : ""}>${ask[1]}</button><button type="button" class="btn" data-r-keep ${busy ? "disabled" : ""}>Keep reviewing</button></div>`
     : `<div class="dbtns"><button type="button" class="btn primary" data-r-accept ${busy ? "disabled" : ""}>${busy ? (weighing ? "Weighing…" : "Saving…") : weighing ? "Weigh it" : "Accept all"}</button><button type="button" class="btn" data-r-cancel ${busy ? "disabled" : ""}>Cancel</button></div>`;
   return `<div class="dialog review-dialog" role="dialog" aria-modal="true" aria-labelledby="r-title">
     <div class="bhead"><h2 id="r-title">${weighing ? "Review before weighing" : isNew ? "Review this garment" : "Review the blank details"}</h2><button type="button" class="iconbtn" data-r-cancel aria-label="Close" ${busy ? "disabled" : ""}>×</button></div>

@@ -70,7 +70,13 @@ const stylingNotesBlock = g => `<div data-field="styling_notes">${g.styling_note
 const labelBlock = g => `<div data-field="label_text">${evButton("label_text", "label text", g.label_text ? `<div class="label">${esc(g.label_text)}</div>` : `<span class="addnote">+ Add label text</span>`, "block")}</div>`;
 /* Makes a share link (features/share.js). */
 const SHARE_BUTTON = `<button type="button" class="btn" data-share title="Make a link anyone can open for a few days">Share</button>`;
-const mendButton = g => g.blank_fields.length ? `<button type="button" class="btn llm-action" data-mend title="Fills blank details only. Uses AI (spends tokens)" ${mendingId === g.id ? "disabled" : ""}>${mendingId === g.id ? "Mending…" : "Mend blank details"}</button>` : "";
+/* Mend asks the AI for the blank details. Once it has answered, and until those answers are saved or the page reloads,
+   it's Review mend instead: a plain button, since showing them again spends nothing (features/review.js). */
+function mendButton(g){
+  if (!g.blank_fields.length) return "";
+  if (mendAnswersFor(g)) return `<button type="button" class="btn" data-mend title="Shows the AI's answers for the blank details again. Spends no tokens">Review mend</button>`;
+  return `<button type="button" class="btn llm-action" data-mend title="Fills blank details only. Uses AI (spends tokens)" ${mendingId === g.id ? "disabled" : ""}>${mendingId === g.id ? "Mending…" : "Mend blank details"}</button>`;
+}
 
 function garmentPage(g){
   const s = setById[g.set_id];
