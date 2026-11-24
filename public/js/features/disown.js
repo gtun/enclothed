@@ -5,19 +5,18 @@
 
 let disowning = false;
 function openDisown(g){
-  let ov = document.getElementById("disown");
-  if (!ov){ ov = document.createElement("div"); ov.id = "disown"; ov.className = "overlay"; document.body.appendChild(ov);
+  const ov = dialogOverlay("disown", ov => {
     ov.addEventListener("click", disownClick);
-    ov.addEventListener("keydown", e => { if (e.key === "Escape") closeDisown(); }); }
+    ov.addEventListener("keydown", e => { if (e.key === "Escape") closeDisown(); });
+  });
   ov.dataset.id = g.id;
   ov.innerHTML = disownDialog(g);
-  ov.hidden = false; document.body.style.overflow = "hidden";
+  showOverlay(ov);
   ov.querySelector("[data-d-no]").focus();
 }
 function closeDisown(){
   if (disowning) return;
-  const ov = document.getElementById("disown"); ov.hidden = true; ov.innerHTML = ""; document.body.style.overflow = "";
-  document.querySelector("[data-disown]")?.focus();
+  hideOverlay(document.getElementById("disown"), document.querySelector("[data-disown]"));
 }
 async function reown(g){
   if (disowning) return;

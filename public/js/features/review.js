@@ -7,21 +7,21 @@ let mendingId = null;
 
 function openReview(details){
   review = {open: true, busy: false, confirming: false, error: "", ...details};
-  let ov = document.getElementById("review");
-  if (!ov){ ov = document.createElement("div"); ov.id = "review"; ov.className = "overlay"; document.body.appendChild(ov);
+  const ov = dialogOverlay("review", ov => {
     ov.addEventListener("click", reviewClick);
     ov.addEventListener("keydown", e => {
       if (e.key !== "Escape" || review.busy || e.target.closest(".cb, .multi, .mats, textarea")) return;
       askToCancel();
-    }); }
-  ov.hidden = false; document.body.style.overflow = "hidden";
+    });
+  });
+  showOverlay(ov);
   renderReview();
   ov.querySelector("[data-r-accept]").focus();
 }
 function closeReview(){
   if (review.mode === "new" || review.mode === "weigh") review.photos.forEach(url => URL.revokeObjectURL(url));
   review = {open: false};
-  const ov = document.getElementById("review"); ov.hidden = true; ov.innerHTML = ""; document.body.style.overflow = "";
+  hideOverlay(document.getElementById("review"));
 }
 function renderReview(){
   const ov = document.getElementById("review");

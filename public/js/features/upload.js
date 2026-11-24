@@ -6,22 +6,22 @@ let upload = {files: [], busy: false};
    photos the same way and part at review; mimic sends them to the looks endpoint instead (features/mimic.js). */
 function openUpload(purpose = "add"){
   upload = {files: [], busy: false, prompt: "", notes: "", purpose};
-  let ov = document.getElementById("upload");
-  if (!ov){ ov = document.createElement("div"); ov.id = "upload"; ov.className = "overlay"; document.body.appendChild(ov);
+  const ov = dialogOverlay("upload", ov => {
     ov.addEventListener("click", uploadClick); ov.addEventListener("change", uploadChange); ov.addEventListener("input", e => {
       if (e.target.id === "u-prompt") upload.prompt = e.target.value; if (e.target.id === "u-notes") upload.notes = e.target.value; });
     ov.addEventListener("keydown", e => { if (e.key === "Escape" && !upload.busy) closeUpload(); });
     ov.addEventListener("dragover", e => { if (!hasDraggedFiles(e) || upload.busy) return; e.preventDefault(); ov.classList.add("dropping"); });
     ov.addEventListener("dragleave", e => { if (!ov.contains(e.relatedTarget)) ov.classList.remove("dropping"); });
     ov.addEventListener("drop", e => { ov.classList.remove("dropping"); if (!hasDraggedFiles(e)) return; e.preventDefault();
-      if (!upload.busy) addUploadFiles(e.dataTransfer.files); }); }
-  ov.hidden = false; document.body.style.overflow = "hidden";
+      if (!upload.busy) addUploadFiles(e.dataTransfer.files); });
+  });
+  showOverlay(ov);
   renderUpload();
   ov.querySelector("[data-u-close]").focus();
 }
 function closeUpload(keepPhotos = false){
   if (!keepPhotos) upload.files.forEach(f => URL.revokeObjectURL(f.url));
-  const ov = document.getElementById("upload"); ov.hidden = true; ov.innerHTML = ""; document.body.style.overflow = "";
+  hideOverlay(document.getElementById("upload"));
 }
 function renderUpload(){
   const ov = document.getElementById("upload");
@@ -63,8 +63,8 @@ document.addEventListener("paste", e => {
   // Copying from a spreadsheet or document puts text *and* a picture of it on the clipboard: in a text field, the text wins.
   if (isTextField(e.target) && e.clipboardData.types.includes("text/plain")) return;
   const ov = document.getElementById("upload");
-  if (ov && !ov.hidden){ e.preventDefault(); if (!upload.busy) addUploadFiles(images); return; }
-  if ([...document.querySelectorAll(".overlay")].some(o => !o.hidden)) return;   // another dialog is open
+  if (ov && topOverlay() === ov){ e.preventDefault(); if (!upload.busy) addUploadFiles(images); return; }
+  if (anyOverlayOpen()) return;   // another dialog is open, or is in front of this one
   e.preventDefault();
   openUpload(location.hash.startsWith("#weigh") ? "weigh" : location.hash.startsWith("#look") ? "mimic" : "add");
   addUploadFiles(images);
