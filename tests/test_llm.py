@@ -1,4 +1,4 @@
-# The provider seams in llm.py: the client, its errors, and the insights conversation.
+# The provider seams in llm.py: the client, its errors, the content it sends, and the insights conversation.
 import base64
 from types import SimpleNamespace
 
@@ -216,6 +216,17 @@ def test_content_blocks_are_sent_in_openais_shape(tmp_path):
         {"type": "input_text", "text": "<wardrobe>", "prompt_cache_breakpoint": {"mode": "explicit"}},
         {"type": "input_image", "image_url": "data:image/jpeg;base64,anBlZw==", "detail": config.OPENAI_IMAGE_DETAIL},
     ]
+
+
+def test_photos_are_numbered_in_order_so_the_reply_can_name_them(tmp_path):
+    paths = [tmp_path / "a.jpg", tmp_path / "b.png"]
+    for path in paths:
+        path.write_bytes(b"photo")
+    blocks = llm.photo_blocks(paths)
+    assert [block.get("text") for block in blocks[::2]] == ["Image 0:", "Image 1:"]
+    assert blocks[1::2] == [llm.image_block(path) for path in paths]
+    assert [block["source"]["media_type"] for block in blocks[1::2]] == ["image/jpeg", "image/png"]
+    assert llm.photo_blocks([]) == []
 
 
 def test_caching_is_explicit_so_calls_without_a_breakpoint_write_nothing():

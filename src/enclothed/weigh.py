@@ -16,7 +16,8 @@ from pathlib import Path
 
 
 from enclothed import config, db, drafts
-from enclothed.llm import WEIGH_INSTRUCTIONS, Client, UnusableResponse, weigh_candidate
+from enclothed.llm import Client, UnusableResponse, weigh_candidate
+from enclothed.prompts import WEIGH_INSTRUCTIONS
 from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, OutfitResult, TokenUsage, WeighOut, WeighResult
 from enclothed.outfit import options_text, tier_plan, validate_outfits, wardrobe_block, wardrobe_for_prompt
 from enclothed.similarity import similar_garments

@@ -707,7 +707,8 @@ def test_server_start_creates_the_db(tmp_path, monkeypatch, signed_in):
 
 
 # --- describe: AI fills a blank name or explanation for your own outfit ---
-from enclothed.llm import UnusableResponse, describe_system_prompt
+from enclothed.llm import UnusableResponse
+from enclothed.prompts import describe_system_prompt
 from enclothed.models import OutfitDescription
 
 

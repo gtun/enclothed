@@ -17,7 +17,8 @@ from pathlib import Path
 
 
 from enclothed import config, db, photos
-from enclothed.llm import MIMIC_INSTRUCTIONS, Client, UnusableResponse, match_look, tag_look
+from enclothed.llm import Client, UnusableResponse, match_look, tag_look
+from enclothed.prompts import MIMIC_INSTRUCTIONS
 from enclothed.models import (
     DEFAULT_LANGUAGE, Garment, Language, LookMatchOut, LookPiece, LookTags, MimicOutfit, MimicResult, Outfit,
     OutfitGarment, TokenUsage, layer_for,

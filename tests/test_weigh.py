@@ -286,7 +286,7 @@ def test_resetting_the_demo_clears_its_weighs(db_path):
 
 def test_weigh_names_garments_and_outfits_as_links_not_bare_ids():
     # The page turns [description](ID) into a garment link and [description](outfit: ID, ID) into a builder link (garmentRefs in shared.js)
-    from enclothed.llm import WEIGH_INSTRUCTIONS
+    from enclothed.prompts import WEIGH_INSTRUCTIONS
     assert "[short description](ID)" in WEIGH_INSTRUCTIONS
     assert "never write a bare ID" in WEIGH_INSTRUCTIONS
     assert "[short description](outfit: ID, ID)" in WEIGH_INSTRUCTIONS

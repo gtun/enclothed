@@ -93,7 +93,7 @@ STATEMENT_LABELS: dict[Statement, str] = {
 }
 RiskTier = Literal["safe", "stretch", "bold"]
 RISK_TIER_LABELS: dict[RiskTier, str] = {"safe": "Safe", "stretch": "Stretch", "bold": "Bold"}
-# The letter shapes an outfit can be asked to form (llm.SILHOUETTE_SECTION says what each means). None: any shape.
+# The letter shapes an outfit can be asked to form (prompts.SILHOUETTE_SECTION says what each means). None: any shape.
 Silhouette = Literal["I", "H", "A", "Y", "O", "X"]
 Recommendation = Literal["worth_it", "maybe", "pass"]
 RECOMMENDATION_LABELS: dict[Recommendation, str] = {"worth_it": "Worth it", "maybe": "Maybe", "pass": "Pass"}

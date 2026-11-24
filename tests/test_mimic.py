@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from enclothed import api, config, db, llm, mimic
+from enclothed import api, config, db, mimic, prompts
 from enclothed.auth import signed_in_user
 from enclothed.cli_display import format_look
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
@@ -108,8 +108,8 @@ def test_the_wardrobe_is_first_and_cached_and_the_pieces_are_numbered_from_one(o
 
 def test_mimic_shares_the_outfit_system_prompt_so_the_wardrobe_cache_is_shared():
     # The cache covers the system prompt and the wardrobe block; mimic sends its own rules in the message.
-    assert "<mimic>" not in llm.OUTFIT_SYSTEM_PROMPT
-    assert llm.MIMIC_INSTRUCTIONS.startswith("<mimic>")
+    assert "<mimic>" not in prompts.OUTFIT_SYSTEM_PROMPT
+    assert prompts.MIMIC_INSTRUCTIONS.startswith("<mimic>")
 
 
 # --- checking the matches -----------------------------------------------------------------
@@ -357,14 +357,14 @@ def test_resetting_the_demo_clears_its_looks(db_path):
 # --- the prompts --------------------------------------------------------------------------
 
 def test_the_look_prompt_uses_the_wardrobe_field_rules_and_judges_pieces_as_worn():
-    assert llm.CUT_AND_CLOTH_RULES in llm.LOOK_TAG_SYSTEM_PROMPT
-    assert llm.CUT_AND_CLOTH_RULES in llm.TAG_SYSTEM_PROMPT
-    assert llm.SILHOUETTE_LETTERS in llm.LOOK_TAG_SYSTEM_PROMPT
-    assert "not on an average adult" in llm.LOOK_TAG_SYSTEM_PROMPT
+    assert prompts.CUT_AND_CLOTH_RULES in prompts.LOOK_TAG_SYSTEM_PROMPT
+    assert prompts.CUT_AND_CLOTH_RULES in prompts.TAG_SYSTEM_PROMPT
+    assert prompts.SILHOUETTE_LETTERS in prompts.LOOK_TAG_SYSTEM_PROMPT
+    assert "not on an average adult" in prompts.LOOK_TAG_SYSTEM_PROMPT
 
 
 def test_in_another_language_the_fixed_values_stay_english():
-    prompt = llm.look_tag_system_prompt("ja-JP")
+    prompt = prompts.look_tag_system_prompt("ja-JP")
     assert "silhouette are fixed values" in prompt
     assert "Japanese" in prompt
-    assert llm.look_tag_system_prompt("en-US") == llm.LOOK_TAG_SYSTEM_PROMPT
+    assert prompts.look_tag_system_prompt("en-US") == prompts.LOOK_TAG_SYSTEM_PROMPT
