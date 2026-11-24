@@ -1,10 +1,9 @@
-import json
 import logging
 import shutil
 import tempfile
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Iterator
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Response, UploadFile
@@ -12,9 +11,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 
-from enclothed import config, db, demo, drafts, mend, mimic, photos, responses, reworks, shares, weigh
+from enclothed import config, db, demo, drafts, mend, mimic, photos, preferences, responses, reworks, shares, weigh
 from enclothed.auth import ACT_AS_COOKIE, current_user, signed_in_user
 # Paths are read as config.NAME when used, not imported here, so a test can move them all by patching config alone.
 from enclothed.config import (
@@ -28,7 +27,7 @@ from enclothed.models import (
     LookOut, MimicCreatedOut, Language, ShareCreatedOut, ShareIn, ShareOut, LLMModelOut, LLMOut, ReworkAllowanceOut, ReworkIn, ReworkOut,
 )
 from enclothed.insights import answer_question
-from enclothed.llm import Client, NotConfigured, ServiceError, UnusableResponse, active_provider, improve_preferences, make_client
+from enclothed.llm import Client, NotConfigured, ServiceError, UnusableResponse, active_provider, make_client
 from enclothed.outfit import fill_description, generate_outfits
 from enclothed.usage import log_failed_call, read_calls
 
@@ -93,11 +92,20 @@ def _require_demo_tokens(user: User) -> None:
         raise HTTPException(status_code=429, detail="The demo has used up today's AI allowance. It resets overnight.")
 
 
-def _llm_failed(error: ServiceError, log_path: Path, user: User) -> HTTPException:
-    """The API refused the call or never answered. Logged to that feature's log, so it's on record outside docker logs."""
-    logger.exception("LLM call failed")
-    log_failed_call(log_path, user.id, None, f"{error.kind}: {error.message}", error.request_id)
-    return HTTPException(status_code=502, detail=f"The AI service failed: {error.message}. Nothing was saved; try again.")
+@contextmanager
+def _ai_errors(user: User, log_path: Path, unusable: str) -> Iterator[None]:
+    """Turn a failed AI call inside the block into a 502 for the page, with unusable as its message when the AI
+    answered with nothing usable. A refused or unanswered call is logged here, to that feature's log, so it's on
+    record outside docker logs. An unusable answer was billed, so the feature logs it itself, with its tokens."""
+    try:
+        yield
+    except ServiceError as error:
+        logger.exception("LLM call failed")
+        log_failed_call(log_path, user.id, None, f"{error.kind}: {error.message}", error.request_id)
+        raise HTTPException(status_code=502, detail=f"The AI service failed: {error.message}. Nothing was saved; try again.")
+    except UnusableResponse:
+        logger.exception("LLM gave no usable answer")
+        raise HTTPException(status_code=502, detail=unusable)
 
 
 def _blank_to_none(text: str | None) -> str | None:
@@ -163,14 +171,9 @@ def tag_new_garment(
     _drafts_dir().mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=config.INTAKE_DIR, prefix="upload-", ignore_cleanup_errors=True) as tmp:
         paths = _stage_uploads(photos_in, Path(tmp))
-        try:
+        with _ai_errors(user, config.TAGGING_LOG_PATH, "The AI couldn't tag these photos. Nothing was saved; try again."):
             draft = drafts.create_draft(_drafts_dir(), user.id, paths, config.TAGGING_LOG_PATH, client, _blank_to_none(prompt_message),
                                         _blank_to_none(notes), user.language, _saved_preferences(user))
-        except ServiceError as error:
-            raise _llm_failed(error, config.TAGGING_LOG_PATH, user)
-        except UnusableResponse:
-            logger.exception("Tagging gave no usable answer")
-            raise HTTPException(status_code=502, detail="The AI couldn't tag these photos. Nothing was saved; try again.")
 
     return DraftOut(id=draft.id, garment=draft.garment)
 
@@ -202,14 +205,10 @@ def mend_garment(garment_id: int, user: CurrentUser, provider: ChosenProvider) -
     client = _llm_client(provider)
 
     try:
-        result = mend.mend_garment(config.DB_PATH, config.TAGGING_LOG_PATH, user.id, garment, client, user.language, _saved_preferences(user))
+        with _ai_errors(user, config.TAGGING_LOG_PATH, "The AI couldn't fill these in. Nothing was saved; try again."):
+            result = mend.mend_garment(config.DB_PATH, config.TAGGING_LOG_PATH, user.id, garment, client, user.language, _saved_preferences(user))
     except mend.NoPhotos as error:
         raise HTTPException(status_code=422, detail=str(error))
-    except ServiceError as error:
-        raise _llm_failed(error, config.TAGGING_LOG_PATH, user)
-    except UnusableResponse:
-        logger.exception("Mend gave no usable answer")
-        raise HTTPException(status_code=502, detail="The AI couldn't fill these in. Nothing was saved; try again.")
     return MendOut(filled=result.filled, unanswered=result.unanswered)
 
 
@@ -291,16 +290,12 @@ def weigh_garment(body: WeighIn, user: CurrentUser, provider: ChosenProvider) ->
     _require_demo_tokens(user)
     client = _llm_client(provider)
     try:
-        saved, garment_id, outfit_ids = weigh.weigh_draft(
-            config.DB_PATH, _drafts_dir(), config.GARMENTS_DIR, config.TAGGING_LOG_PATH, config.WEIGH_LOG_PATH, user.id, body.draft_id, body.garment, client,
-            _saved_preferences(user), user.language)
+        with _ai_errors(user, config.WEIGH_LOG_PATH, "The AI couldn't weigh this garment. Nothing was saved; try again."):
+            saved, garment_id, outfit_ids = weigh.weigh_draft(
+                config.DB_PATH, _drafts_dir(), config.GARMENTS_DIR, config.TAGGING_LOG_PATH, config.WEIGH_LOG_PATH, user.id, body.draft_id, body.garment, client,
+                _saved_preferences(user), user.language)
     except weigh.DraftGone:
         raise HTTPException(status_code=404, detail="That garment is no longer waiting. Photograph it again.")
-    except ServiceError as error:
-        raise _llm_failed(error, config.WEIGH_LOG_PATH, user)
-    except UnusableResponse:
-        logger.exception("Weigh gave no usable answer")
-        raise HTTPException(status_code=502, detail="The AI couldn't weigh this garment. Nothing was saved; try again.")
     return WeighCreatedOut(weigh=saved, candidate=responses.get_garment(config.DB_PATH, user.id, garment_id),
                            outfits=responses.get_outfits(config.DB_PATH, user.id, outfit_ids))
 
@@ -351,13 +346,8 @@ def create_look(
     config.INTAKE_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=config.INTAKE_DIR, prefix="look-", ignore_cleanup_errors=True) as tmp:
         paths = _stage_uploads(photos_in, Path(tmp))
-        try:
+        with _ai_errors(user, config.MIMIC_LOG_PATH, "The AI couldn't make out the look in these photos. Nothing was saved; try again."):
             look_id, _ = mimic.create_look(config.DB_PATH, user.id, paths, _blank_to_none(note), client, user.language, config.MIMIC_LOG_PATH)
-        except ServiceError as error:
-            raise _llm_failed(error, config.MIMIC_LOG_PATH, user)
-        except UnusableResponse:
-            logger.exception("Tagging a look gave no usable answer")
-            raise HTTPException(status_code=502, detail="The AI couldn't make out the look in these photos. Nothing was saved; try again.")
     return responses.get_look(config.DB_PATH, user.id, look_id)
 
 
@@ -377,14 +367,9 @@ def recreate_look(look_id: int, user: CurrentUser, provider: ChosenProvider) -> 
         raise HTTPException(status_code=409, detail="This look already has its recreations.")
     _require_demo_tokens(user)
     client = _llm_client(provider)
-    try:
+    with _ai_errors(user, config.MIMIC_LOG_PATH, MATCH_FAILED):
         _, outfit_ids = mimic.recreate(config.DB_PATH, user.id, look_id, mimic.look_tags(look), look["note"], client, config.MIMIC_LOG_PATH,
                                        _saved_preferences(user), user.language)
-    except ServiceError as error:
-        raise _llm_failed(error, config.MIMIC_LOG_PATH, user)
-    except UnusableResponse:
-        logger.exception("Matching a look gave no usable answer")
-        raise HTTPException(status_code=502, detail=MATCH_FAILED)
     return MimicCreatedOut(look=responses.get_look(config.DB_PATH, user.id, look_id),
                            outfits=responses.get_outfits(config.DB_PATH, user.id, outfit_ids))
 
@@ -439,14 +424,11 @@ def suggest_outfits(body: OutfitSuggestIn, user: CurrentUser, provider: ChosenPr
 
     _require_demo_tokens(user)
     client = _llm_client(provider)
-    try:
-        saved = db.select_preferences(config.DB_PATH, user.id)
+    with _ai_errors(user, config.OUTFIT_LOG_PATH, "The AI couldn't suggest outfits. Nothing was saved; try again."):
         _, new_ids = generate_outfits(config.DB_PATH, user.id, wardrobe, anchors or None, config.OUTFIT_LOG_PATH, client,
-                                      details or "everyday wear", False, preferences=saved[0] if saved else None,
+                                      details or "everyday wear", False, preferences=_saved_preferences(user),
                                       language=user.language, count=body.count, riskiness=body.riskiness,
                                       silhouette=body.silhouette)
-    except ServiceError as error:
-        raise _llm_failed(error, config.OUTFIT_LOG_PATH, user)
     return responses.get_outfits(config.DB_PATH, user.id, new_ids)
 
 
@@ -487,14 +469,9 @@ def describe_own_outfit(body: OutfitDescribeIn, user: CurrentUser, provider: Cho
 
     _require_demo_tokens(user)
     client = _llm_client(provider)
-    try:
+    with _ai_errors(user, config.OUTFIT_LOG_PATH, "The AI couldn't describe this outfit. Try again, or write it yourself."):
         return fill_description(config.OUTFIT_LOG_PATH, user.id, {i: wardrobe[i] for i in ids}, client, _blank_to_none(body.details),
                                 aesthetic, explanation, _saved_preferences(user), user.language)
-    except ServiceError as error:
-        raise _llm_failed(error, config.OUTFIT_LOG_PATH, user)
-    except UnusableResponse:
-        logger.exception("Outfit description gave no usable answer")
-        raise HTTPException(status_code=502, detail="The AI couldn't describe this outfit. Try again, or write it yourself.")
 
 
 @app.patch("/api/outfits/{outfit_id}")
@@ -591,15 +568,8 @@ def improve_preferences_text(body: PreferencesImproveIn, user: CurrentUser, prov
     """Ask the LLM to rewrite the text into a clearer brief. Returns the rewrite; saves nothing."""
     _require_demo_tokens(user)
     client = _llm_client(provider)
-    try:
-        text, usage = improve_preferences(client, body.text)
-    except ServiceError as error:
-        raise _llm_failed(error, config.PREFERENCES_LOG_PATH, user)
-    except UnusableResponse as error:
-        log_failed_call(config.PREFERENCES_LOG_PATH, user.id, error.usage, str(error))
-        raise
-    with config.PREFERENCES_LOG_PATH.open("a", encoding="utf-8") as log:
-        log.write(json.dumps({"timestamp": _now(), "user_id": user.id, "usage": usage.model_dump(), "input": body.text, "output": text}, ensure_ascii=False) + "\n")
+    with _ai_errors(user, config.PREFERENCES_LOG_PATH, "The AI couldn't rewrite this. Nothing was saved; try again."):
+        text = preferences.rewrite(client, config.PREFERENCES_LOG_PATH, user.id, body.text)
     return PreferencesIn(text=text)
 
 
@@ -609,16 +579,10 @@ def ask_insights(body: InsightsIn, user: CurrentUser, provider: ChosenProvider) 
     """Answer a question about this wardrobe. The browser keeps the conversation and sends it as history."""
     _require_demo_tokens(user)
     client = _llm_client(provider)
-    saved = db.select_preferences(config.DB_PATH, user.id)
     history = [message.model_dump() for message in body.history]
-    try:
+    with _ai_errors(user, config.INSIGHTS_LOG_PATH, "I couldn't work that out. Try asking it a different way."):
         result = answer_question(client, config.DB_PATH, user.id, body.question, history, user.language,
-                                 saved[0] if saved else None, config.INSIGHTS_LOG_PATH)
-    except ServiceError as error:
-        raise _llm_failed(error, config.INSIGHTS_LOG_PATH, user)
-    except UnusableResponse:
-        logger.exception("Insights gave no usable answer")
-        raise HTTPException(status_code=502, detail="I couldn't work that out. Try asking it a different way.")
+                                 _saved_preferences(user), config.INSIGHTS_LOG_PATH)
     return InsightsOut(answer=result.answer, queries=result.queries)
 
 

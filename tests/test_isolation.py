@@ -13,6 +13,7 @@ from PIL import Image
 
 from enclothed import config
 from enclothed import api
+from enclothed import preferences as preferences_module
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.db import init_db, insert_garment, insert_look, insert_outfits, insert_rework, insert_set, insert_share, insert_wear, insert_weigh, save_preferences, select_garment
@@ -331,7 +332,7 @@ def test_photos_need_sign_in(tmp_path, db_path, alice_data, monkeypatch):
 def test_preference_rewrites_log_the_user(bob, monkeypatch, tmp_path):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
     usage = SimpleNamespace(model_dump=lambda: {})
-    monkeypatch.setattr(api, "improve_preferences", lambda client, text: ("better", usage))
+    monkeypatch.setattr(preferences_module, "improve_preferences", lambda client, text: ("better", usage))
     bob.post("/api/preferences/improve", json={"text": "tidy this"})
     entry = json.loads((tmp_path / "preferences_log.jsonl").read_text().splitlines()[0])
     assert entry["user_id"] == 2

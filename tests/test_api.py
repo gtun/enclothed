@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from enclothed import api, config
+from enclothed import preferences as preferences_module
 from enclothed import reworks as reworks_module
 from enclothed.llm import ServiceError
 from enclothed import outfit as outfit_module
@@ -534,7 +535,7 @@ def test_improve_returns_rewrite_without_saving(client, monkeypatch, tmp_path):
     def fake_improve(client_, text):
         seen["text"] = text
         return "Needs:\n- glasses in every outfit", TokenUsage(model="m", input_tokens=10, output_tokens=5)
-    monkeypatch.setattr(api, "improve_preferences", fake_improve)
+    monkeypatch.setattr(preferences_module, "improve_preferences", fake_improve)
     response = client.post("/api/preferences/improve", json={"text": "i need my glasses"})
     assert response.status_code == 200
     assert response.json() == {"text": "Needs:\n- glasses in every outfit"}
@@ -546,6 +547,47 @@ def test_improve_returns_rewrite_without_saving(client, monkeypatch, tmp_path):
 def test_improve_needs_text(client, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     assert client.post("/api/preferences/improve", json={"text": "  "}).status_code == 422
+
+
+def test_an_unusable_rewrite_is_a_502_and_its_tokens_are_logged(client, monkeypatch, tmp_path):
+    """It was a 500: the route let UnusableResponse through."""
+    from enclothed.llm import UnusableResponse
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    def unusable(client_, text):
+        raise UnusableResponse("No rewrite in response", TokenUsage(model="m", input_tokens=10, output_tokens=5))
+    monkeypatch.setattr(preferences_module, "improve_preferences", unusable)
+    response = client.post("/api/preferences/improve", json={"text": "navy"})
+    assert response.status_code == 502
+    assert "couldn't rewrite" in response.json()["detail"]
+    [line] = [json.loads(line) for line in (tmp_path / "preferences_log.jsonl").read_text().splitlines()]
+    assert line["usage"]["input_tokens"] == 10 and line["error"] == "No rewrite in response"
+
+
+def test_a_refused_rewrite_is_a_502_and_logged(client, monkeypatch, tmp_path):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    def refused(client_, text):
+        raise ServiceError("Overloaded", "OverloadedError", "req_9")
+    monkeypatch.setattr(preferences_module, "improve_preferences", refused)
+    response = client.post("/api/preferences/improve", json={"text": "navy"})
+    assert response.status_code == 502
+    assert "Overloaded" in response.json()["detail"]
+    [line] = [json.loads(line) for line in (tmp_path / "preferences_log.jsonl").read_text().splitlines()]
+    assert line["usage"] is None and line["request_id"] == "req_9"
+
+
+def test_unusable_suggestions_are_a_502_and_save_nothing(client, basics, monkeypatch, tmp_path):
+    """It was a 500: generate_outfits logs and re-raises UnusableResponse, and the route didn't catch it."""
+    from enclothed.llm import UnusableResponse
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    def unusable(client_, context, language="en-US"):
+        raise UnusableResponse("No outfits in response", TokenUsage(model="m", input_tokens=10, output_tokens=5))
+    monkeypatch.setattr(outfit_module, "recommend_outfits", unusable)
+    response = client.post("/api/outfits/suggestions", json={"details": "dinner"})
+    assert response.status_code == 502
+    assert "couldn't suggest outfits" in response.json()["detail"]
+    assert client.get("/api/outfits").json() == []
+    [line] = [json.loads(line) for line in (tmp_path / "outfit_log.jsonl").read_text().splitlines()]
+    assert line["usage"]["input_tokens"] == 10
 
 
 def test_suggestions_include_saved_preferences(client, basics, llm):
@@ -800,7 +842,7 @@ def picked(monkeypatch):
         providers.append(provider)
         return None
     monkeypatch.setattr(api, "_llm_client", client_for)
-    monkeypatch.setattr(api, "improve_preferences", lambda client_, text: ("tidy", TokenUsage(model="m", input_tokens=1, output_tokens=1)))
+    monkeypatch.setattr(preferences_module, "improve_preferences", lambda client_, text: ("tidy", TokenUsage(model="m", input_tokens=1, output_tokens=1)))
     return providers
 
 
