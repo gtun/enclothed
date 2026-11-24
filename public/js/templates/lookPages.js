@@ -2,7 +2,6 @@
    beside the garment of yours standing in for it, and the list of looks (#looks). */
 "use strict";
 
-let lookConfirm = false;   // true while "Delete look" waits for its second click
 const closenessLabel = c => choiceLabel(OPT.closeness || [], c);
 const closenessBadge = c => `<span class="closeness closeness-${esc(c)}">${esc(closenessLabel(c))}</span>`;
 const RECREATION_NAMES = ["Closest recreation", "Another way"];
