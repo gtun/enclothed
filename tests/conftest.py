@@ -5,24 +5,25 @@ import pytest
 
 from enclothed import api, config
 
-# The names in api (and config) of every log the usage page reads, found from _usage_logs itself so a log
-# added there later is covered without touching this file.
-USAGE_LOG_NAMES = [name for name, value in vars(api).items()
-                   if isinstance(value, Path) and value in api._usage_logs().values()]
+# Every path in config under data/ or backups/, as config first had it. The app reads these as config.NAME when
+# it uses them, so patching config moves them for every module at once.
+REAL_DATA_DIR, REAL_BACKUPS_DIR = config.DATA_DIR, config.BACKUPS_DIR
+REAL_DATA_PATHS = {name: value for name, value in vars(config).items()
+                   if isinstance(value, Path) and (value.is_relative_to(REAL_DATA_DIR) or value.is_relative_to(REAL_BACKUPS_DIR))}
 
 
 @pytest.fixture(autouse=True)
-def private_logs(tmp_path, monkeypatch):
-    """Every test gets its own LLM logs, so the usage tests never read a real one in data/,
-    and its own folder for share links' photos, so none land in data/."""
-    for name in USAGE_LOG_NAMES:
-        path = tmp_path / f"{name.lower()}.jsonl"
-        monkeypatch.setattr(api, name, path)
-        if hasattr(config, name):   # the CLI reads them from config
-            monkeypatch.setattr(config, name, path)
+def private_data(tmp_path, monkeypatch):
+    """Every test gets its own data folder: data/ becomes tmp_path, and backups/ becomes tmp_path/backups. So the
+    database, photos, logs, shares and reworks a test touches are its own, and none of them land in data/."""
+    for name, real in REAL_DATA_PATHS.items():
+        if real.is_relative_to(REAL_DATA_DIR):
+            moved = tmp_path / real.relative_to(REAL_DATA_DIR)
+        else:
+            moved = tmp_path / "backups" / real.relative_to(REAL_BACKUPS_DIR)
+        monkeypatch.setattr(config, name, moved)
     leaked = [str(p) for p in api._usage_logs().values() if not p.is_relative_to(tmp_path)]
     assert not leaked, f"_usage_logs() still points outside tmp_path, so tests would read data/: {leaked}"
-    monkeypatch.setattr(api, "SHARES_DIR", tmp_path / "thumbs" / "shares")
 
 
 @pytest.fixture(autouse=True)

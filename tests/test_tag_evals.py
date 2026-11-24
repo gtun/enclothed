@@ -5,7 +5,7 @@ import json
 import pytest
 from PIL import Image
 
-from enclothed import config, db, photos, tag_evals
+from enclothed import config, db, tag_evals
 from enclothed.intake import TEST_GARMENT
 from enclothed.llm import ServiceError, UnusableResponse
 from enclothed.models import Fiber, MaterialPart, PhotoTag, TaggingResult, TokenUsage
@@ -14,7 +14,7 @@ from enclothed.models import Fiber, MaterialPart, PhotoTag, TaggingResult, Token
 @pytest.fixture
 def garments_dir(tmp_path, monkeypatch):
     folder = tmp_path / "garments"
-    monkeypatch.setattr(photos, "GARMENTS_DIR", folder)
+    monkeypatch.setattr(config, "GARMENTS_DIR", folder)
     return folder
 
 

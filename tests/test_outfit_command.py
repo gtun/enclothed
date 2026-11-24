@@ -17,9 +17,6 @@ def received(tmp_path, monkeypatch):
     fake get_outfits. Returns a dict that will hold the anchors main() passed in."""
     path = tmp_path / "test.db"
     monkeypatch.setattr(config, "DB_PATH", path)
-    monkeypatch.setattr(config, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(config, "INTAKE_DIR", tmp_path / "intake")
-    monkeypatch.setattr(config, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
     db.init_db(path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     for _ in range(3):
         db.insert_garment(path, 1, TEST_GARMENT.model_copy())

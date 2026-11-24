@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from enclothed import api, config, photos, shares
+from enclothed import api, config, shares
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, PUBLIC_DIR, SCHEMA_PATH
 from enclothed.config import DEMO_SHARE_LIMIT
@@ -25,10 +25,8 @@ GARMENT_KEYS = {"category", "subcategory", "brand", "primary_color", "secondary_
 def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
     init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
-    monkeypatch.setattr(api, "DB_PATH", path)
+    monkeypatch.setattr(config, "DB_PATH", path)
     monkeypatch.setattr(config, "DB_PATH", path)          # auth.current_user reads it, for acting as someone
-    monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
     return path
 
 
@@ -72,7 +70,7 @@ def stranger(db_path, monkeypatch):
 
 
 def add_photo(garment_id, name="front_00.jpg", gps=False):
-    folder = photos.GARMENTS_DIR / str(garment_id)
+    folder = config.GARMENTS_DIR / str(garment_id)
     folder.mkdir(parents=True, exist_ok=True)
     image = Image.new("RGB", (2400, 3200), "navy")
     exif = Image.Exif()
@@ -146,7 +144,7 @@ def test_a_share_is_a_copy_so_later_edits_never_reach_it(owner, stranger, db_pat
     path = make(owner, "garment", garment_id)["path"]
     garment = select_garment(db_path, 1, garment_id)
     update_garment(db_path, 1, garment.model_copy(update={"brand": "Changed", "disowned_on": datetime(2026, 11, 3).date()}))
-    for photo in (photos.GARMENTS_DIR / str(garment_id)).iterdir():
+    for photo in (config.GARMENTS_DIR / str(garment_id)).iterdir():
         photo.unlink()
 
     data = stranger.get(path + "/data").json()
@@ -381,7 +379,7 @@ def test_a_revoked_link_stops_working_and_its_photos_are_deleted(owner, stranger
 
     for url in (link["path"], f"{link['path']}/data", photo):
         assert stranger.get(url).status_code == 404, url
-    assert not (api.SHARES_DIR / token_of(link)).exists()
+    assert not (config.SHARES_DIR / token_of(link)).exists()
     assert owner.get("/api/shares").json() == []
 
 

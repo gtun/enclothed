@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from enclothed import api, config, db, demo, main, photos
+from enclothed import api, config, db, demo, main
 from enclothed import outfit as outfit_module
 from enclothed.auth import signed_in_user
 from enclothed.intake import TEST_GARMENT
@@ -21,7 +21,7 @@ def add_garment(db_path, user_id, category="top", subcategory="t-shirt", photo=T
     garment = TEST_GARMENT.model_copy(update={"category": category, "subcategory": subcategory, **fields})
     garment_id = db.insert_garment(db_path, user_id, garment)
     if photo:
-        folder = photos.GARMENTS_DIR / str(garment_id)
+        folder = config.GARMENTS_DIR / str(garment_id)
         folder.mkdir(parents=True)
         Image.new("RGB", (20, 20)).save(folder / "front_00.jpg")
     return garment_id
@@ -40,16 +40,7 @@ def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
     db.init_db(path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     assert db.insert_user(path, "bob", "bob@example.com", False, "zh-TW") == 2
-    monkeypatch.setattr(api, "DB_PATH", path)
     monkeypatch.setattr(config, "DB_PATH", path)
-    monkeypatch.setattr(config, "DEMO_TEMPLATE_DIR", tmp_path / "demo-template")
-    monkeypatch.setattr(api, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(api, "INTAKE_DIR", tmp_path / "intake")
-    monkeypatch.setattr(api, "TAGGING_LOG_PATH", tmp_path / "tagging_log.jsonl")
-    monkeypatch.setattr(api, "OUTFIT_LOG_PATH", tmp_path / "outfit_log.jsonl")
-    monkeypatch.setattr(api, "PREFERENCES_LOG_PATH", tmp_path / "preferences_log.jsonl")
-    monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
     (tmp_path / "garments").mkdir()
     return path
 
@@ -142,7 +133,7 @@ def test_the_demo_is_a_copy_with_its_own_ids(seeded, db_path):
     garments = db.select_all_garments(db_path, demo_id)
     assert real_ids.isdisjoint(g.id for g in garments)
     assert all(g.user_id == demo_id for g in garments)
-    assert all((photos.GARMENTS_DIR / str(g.id) / "front_00.jpg").exists() for g in garments)
+    assert all((config.GARMENTS_DIR / str(g.id) / "front_00.jpg").exists() for g in garments)
 
 
 def test_sets_and_liked_outfits_come_across(seeded, db_path):
@@ -194,17 +185,16 @@ def expire(db_path, demo_id):
 def test_reset_removes_what_visitors_added(seeded, db_path, bob_in_demo):
     demo_id = seeded["demo"].id
     extra = add_garment(db_path, demo_id, "shoes", "tabi")
-    Image.new("RGB", (5, 5)).save(photos.GARMENTS_DIR / str(extra) / "other_00.jpg")
+    Image.new("RGB", (5, 5)).save(config.GARMENTS_DIR / str(extra) / "other_00.jpg")
     db.save_preferences(db_path, demo_id, "visitor text", "2026-11-05T12:00:00+00:00")
     expire(db_path, demo_id)
 
     assert len(bob_in_demo.get("/api/garments").json()) == 5   # opening it triggers the reset
-    assert not (photos.GARMENTS_DIR / str(extra)).exists()
+    assert not (config.GARMENTS_DIR / str(extra)).exists()
     assert db.select_preferences(db_path, demo_id) is None
 
 
 def test_reset_deletes_the_demos_reworks_but_no_one_elses(seeded, db_path, tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "REWORKS_DIR", tmp_path / "reworks")
     (tmp_path / "reworks").mkdir()
     demo_id = seeded["demo"].id
     kept_garment = db.select_all_garments(db_path, demo_id)[0].id   # a template garment, which the reset keeps
@@ -229,7 +219,7 @@ def test_reset_never_touches_real_wardrobes(seeded, db_path):
     assert db.select_all_outfits(db_path, 1) == outfits_before
     assert db.select_preferences(db_path, 1)[0] == "I never wear green"
     assert db.select_garment(db_path, 2, bob_garment) is not None
-    assert all((photos.GARMENTS_DIR / str(g["id"]) / "front_00.jpg").exists() for g in before)
+    assert all((config.GARMENTS_DIR / str(g["id"]) / "front_00.jpg").exists() for g in before)
 
 
 @pytest.mark.parametrize("user_id", [1, 2, 99])
@@ -250,7 +240,7 @@ def test_reset_keeps_ids_and_photo_folders_but_undoes_edits(seeded, db_path, bob
     after = db.select_all_garments(db_path, demo_id)
     assert [g.id for g in after] == [g.id for g in before]
     assert after[0].brand == client_garment.brand and after[0].disowned_on is None
-    assert all((photos.GARMENTS_DIR / str(g.id) / "front_00.jpg").exists() for g in after)
+    assert all((config.GARMENTS_DIR / str(g.id) / "front_00.jpg").exists() for g in after)
 
 
 def test_seeding_again_replaces_the_old_sample(seeded, db_path):
@@ -258,14 +248,14 @@ def test_seeding_again_replaces_the_old_sample(seeded, db_path):
     demo_id = seeded["demo"].id
     demo.seed(db_path, 1, per_category=1, max_outfits=0)
     rows = {g.id for user_id in (1, demo_id) for g in db.select_all_garments(db_path, user_id)}
-    assert {int(folder.name) for folder in photos.GARMENTS_DIR.iterdir()} == rows
+    assert {int(folder.name) for folder in config.GARMENTS_DIR.iterdir()} == rows
     assert db.select_all_outfits(db_path, demo_id) == []
 
 
 def test_leftover_photos_are_kept_and_stay_out_of_the_demo(db_path):
     """A folder can outlive its garment's row, and SQLite then hands that id to the next garment."""
     garment = add_garment(db_path, 1, "shoes", "loafers")
-    leftover = photos.GARMENTS_DIR / str(garment + 1)
+    leftover = config.GARMENTS_DIR / str(garment + 1)
     leftover.mkdir()
     Image.new("RGB", (5, 5)).save(leftover / "private.jpg")
 
@@ -273,8 +263,8 @@ def test_leftover_photos_are_kept_and_stay_out_of_the_demo(db_path):
 
     [copy] = db.select_all_garments(db_path, db.select_demo_user(db_path).id)
     assert copy.id == garment + 1
-    assert [p.name for p in (photos.GARMENTS_DIR / str(copy.id)).iterdir()] == ["front_00.jpg"]
-    [kept] = (photos.GARMENTS_DIR.parent / "orphaned-photos").iterdir()
+    assert [p.name for p in (config.GARMENTS_DIR / str(copy.id)).iterdir()] == ["front_00.jpg"]
+    [kept] = (config.GARMENTS_DIR.parent / "orphaned-photos").iterdir()
     assert (kept / "private.jpg").exists()
 
 

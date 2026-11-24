@@ -3,25 +3,18 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-import pytest
 from PIL import Image
 
 from enclothed import config, photos
 
 
-@pytest.fixture
-def folders(tmp_path, monkeypatch):
-    monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
-
-
 def add_photo(garment_id, size=(100, 100)):
-    folder = photos.GARMENTS_DIR / str(garment_id)
+    folder = config.GARMENTS_DIR / str(garment_id)
     folder.mkdir(parents=True)
     Image.new("RGB", size, "navy").save(folder / "front_00.jpg")
 
 
-def test_thumbnails_are_made_one_at_a_time(folders, monkeypatch):
+def test_thumbnails_are_made_one_at_a_time(monkeypatch):
     real = photos._upright_rgb
     lock = threading.Lock()
     running, peak = [0], [0]
@@ -45,7 +38,7 @@ def test_thumbnails_are_made_one_at_a_time(folders, monkeypatch):
     assert all(path.suffix == ".jpg" and path.parent.parent.name == "thumbs" for path in results)
 
 
-def test_many_requests_for_one_photo_make_one_thumbnail(folders, monkeypatch):
+def test_many_requests_for_one_photo_make_one_thumbnail(monkeypatch):
     real = photos._upright_rgb
     calls = []
 
@@ -60,7 +53,7 @@ def test_many_requests_for_one_photo_make_one_thumbnail(folders, monkeypatch):
     assert len(calls) == 1
 
 
-def test_a_large_jpeg_is_decoded_at_a_reduced_size(folders, monkeypatch):
+def test_a_large_jpeg_is_decoded_at_a_reduced_size(monkeypatch):
     real = photos._upright_rgb
     seen = {}
 
@@ -76,8 +69,8 @@ def test_a_large_jpeg_is_decoded_at_a_reduced_size(folders, monkeypatch):
         assert result.size == (600, 450)
 
 
-def test_a_failed_thumbnail_doesnt_block_the_next(folders):
-    folder = photos.GARMENTS_DIR / "1"
+def test_a_failed_thumbnail_doesnt_block_the_next():
+    folder = config.GARMENTS_DIR / "1"
     folder.mkdir(parents=True)
     bad = folder / "front_00.jpg"
     bad.write_bytes(b"not an image")

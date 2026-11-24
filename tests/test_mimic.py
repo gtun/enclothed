@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from enclothed import api, db, llm, mimic, photos
+from enclothed import api, config, db, llm, mimic
 from enclothed.auth import signed_in_user
 from enclothed.cli_display import format_look
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
@@ -173,12 +173,7 @@ def test_offline_mode_matches_the_top_of_each_shortlist(owned):
 def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
     db.init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
-    monkeypatch.setattr(api, "DB_PATH", path)
-    monkeypatch.setattr(api, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(api, "INTAKE_DIR", tmp_path / "intake")
-    monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
-    monkeypatch.setattr(photos, "LOOKS_DIR", tmp_path / "looks")
+    monkeypatch.setattr(config, "DB_PATH", path)
     return path
 
 

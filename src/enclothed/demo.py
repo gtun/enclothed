@@ -70,7 +70,7 @@ def choose_sample(garments: list[Garment], outfits: list[dict], per_category: in
 
 
 def _has_photos(garment_id: int) -> bool:
-    folder = photos.GARMENTS_DIR / str(garment_id)
+    folder = config.GARMENTS_DIR / str(garment_id)
     return folder.is_dir() and any(folder.iterdir())
 
 
@@ -101,7 +101,7 @@ def build_template(db_path: Path, owner_id: int, template_dir: Path, per_categor
     shutil.rmtree(template_dir, ignore_errors=True)
     (template_dir / "garments").mkdir(parents=True)
     for garment in sample:
-        shutil.copytree(photos.GARMENTS_DIR / str(garment.id), template_dir / "garments" / str(garment.id))
+        shutil.copytree(config.GARMENTS_DIR / str(garment.id), template_dir / "garments" / str(garment.id))
     (template_dir / TEMPLATE_FILE).write_text(json.dumps(template, ensure_ascii=False, indent=1), encoding="utf-8")
     return template
 
@@ -113,9 +113,9 @@ def _set_aside_leftover_photos(garment_id: int, timestamp: str) -> None:
     SQLite reuses the highest id once its row is gone, but the row's photos can outlive it.
     These aren't the demo's, so they must not show up in it or be deleted by a reset.
     """
-    folder = photos.GARMENTS_DIR / str(garment_id)
+    folder = config.GARMENTS_DIR / str(garment_id)
     if folder.exists():
-        destination = photos.GARMENTS_DIR.parent / "orphaned-photos" / f"{garment_id}-{timestamp.replace(':', '')}"
+        destination = config.GARMENTS_DIR.parent / "orphaned-photos" / f"{garment_id}-{timestamp.replace(':', '')}"
         destination.parent.mkdir(exist_ok=True)
         logger.warning("Garment folder %s had no garment; moved it to %s", garment_id, destination)
         folder.rename(destination)
@@ -136,8 +136,8 @@ def reset_wardrobe(db_path: Path, demo_id: int, template_dir: Path, timestamp: s
     for rework_id in db.delete_user_reworks(db_path, demo_id):   # visitors' reworks of the kept garments too
         reworks.image_path(config.REWORKS_DIR, rework_id).unlink(missing_ok=True)
     for garment_id in db.delete_demo_wardrobe(db_path, demo_id, keep):
-        shutil.rmtree(photos.GARMENTS_DIR / str(garment_id), ignore_errors=True)
-        shutil.rmtree(photos.THUMBS_DIR / str(garment_id), ignore_errors=True)
+        shutil.rmtree(config.GARMENTS_DIR / str(garment_id), ignore_errors=True)
+        shutil.rmtree(config.THUMBS_DIR / str(garment_id), ignore_errors=True)
     for look_id in look_ids:
         photos.delete_look_photos(look_id)
     db.save_preferences(db_path, demo_id, None, timestamp)
@@ -150,7 +150,7 @@ def reset_wardrobe(db_path: Path, demo_id: int, template_dir: Path, timestamp: s
             entry["demo_id"] = db.insert_garment(db_path, demo_id, Garment.model_validate(entry["garment"]))
             _set_aside_leftover_photos(entry["demo_id"], timestamp)
             # Hard links: the same photos, without using the disk twice.
-            shutil.copytree(template_dir / "garments" / str(entry["source_id"]), photos.GARMENTS_DIR / str(entry["demo_id"]), copy_function=os.link)
+            shutil.copytree(template_dir / "garments" / str(entry["source_id"]), config.GARMENTS_DIR / str(entry["demo_id"]), copy_function=os.link)
         new_ids[entry["source_id"]] = entry["demo_id"]
     template_path.write_text(json.dumps(template, ensure_ascii=False, indent=1), encoding="utf-8")
 

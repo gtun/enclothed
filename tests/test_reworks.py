@@ -24,7 +24,6 @@ def png(color="blue"):
 
 @pytest.fixture
 def db_path(tmp_path, monkeypatch):
-    monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
     path = tmp_path / "enclothed.db"
     db.init_db(path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     return path

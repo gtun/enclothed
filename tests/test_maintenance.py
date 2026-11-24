@@ -32,8 +32,6 @@ def test_keep_does_not_depend_on_input_order():
 
 @pytest.fixture
 def live_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "DB_PATH", tmp_path / "enclothed.db")
-    monkeypatch.setattr(config, "SNAPSHOTS_DIR", tmp_path / "snapshots")
     with sqlite3.connect(config.DB_PATH) as conn:
         conn.execute("CREATE TABLE t (x INTEGER)")
         conn.execute("INSERT INTO t VALUES (1)")

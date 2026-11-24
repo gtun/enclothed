@@ -17,8 +17,6 @@ def db_path(tmp_path, monkeypatch):
     so main() never touches the real data/ folder."""
     path = tmp_path / "test.db"
     monkeypatch.setattr(config, "DB_PATH", path)
-    monkeypatch.setattr(config, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(config, "INTAKE_DIR", tmp_path / "intake")
     db.init_db(path, config.SCHEMA_PATH, config.MIGRATIONS_DIR)
     for _ in range(3):
         db.insert_garment(path, 1, TEST_GARMENT.model_copy())

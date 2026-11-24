@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from enclothed import api, config, db, intake, photos, sandbox
+from enclothed import api, config, db, intake, sandbox
 from enclothed import weigh as weigh_module
 from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
@@ -114,14 +114,7 @@ def test_verdict_is_everything_but_the_outfits():
 def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
     db.init_db(path, SCHEMA_PATH, MIGRATIONS_DIR)
-    monkeypatch.setattr(api, "DB_PATH", path)
-    monkeypatch.setattr(api, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(api, "THUMBS_DIR", tmp_path / "thumbs")
-    monkeypatch.setattr(api, "INTAKE_DIR", tmp_path / "intake")
-    monkeypatch.setattr(api, "TAGGING_LOG_PATH", tmp_path / "tagging_log.jsonl")
-    monkeypatch.setattr(api, "WEIGH_LOG_PATH", tmp_path / "weigh_log.jsonl")
-    monkeypatch.setattr(photos, "GARMENTS_DIR", tmp_path / "garments")
-    monkeypatch.setattr(photos, "THUMBS_DIR", tmp_path / "thumbs")
+    monkeypatch.setattr(config, "DB_PATH", path)
     return path
 
 
