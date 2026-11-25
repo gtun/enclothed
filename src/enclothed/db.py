@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import date
 from pathlib import Path
-from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, LookMatchOut, LookTags, Outfit, User, WeighOut, WeighVerdict
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, LookMatchOut, LookTags, Outfit, Rework, User, WeighOut, WeighVerdict
 from contextlib import closing
 import json
 import logging
@@ -629,8 +629,8 @@ def select_share_tokens(db_path: Path) -> set[str]:
 REWORK_COLUMNS = "id, garment_id, instruction, source_photo, model, created_at"
 
 
-def _rework(row: tuple) -> dict:
-    return dict(zip(["id", "garment_id", "instruction", "source_photo", "model", "created_at"], row))
+def _rework(row: tuple) -> Rework:
+    return Rework(**dict(zip(["id", "garment_id", "instruction", "source_photo", "model", "created_at"], row)))
 
 
 def insert_rework(db_path: Path, user_id: int, garment_id: int, instruction: str, source_photo: str, model: str, created_at: str) -> int:
@@ -643,13 +643,13 @@ def insert_rework(db_path: Path, user_id: int, garment_id: int, instruction: str
     return cursor.lastrowid
 
 
-def select_rework(db_path: Path, user_id: int, rework_id: int) -> dict | None:
+def select_rework(db_path: Path, user_id: int, rework_id: int) -> Rework | None:
     with closing(_connect(db_path)) as conn:
         row = conn.execute(f"SELECT {REWORK_COLUMNS} FROM reworks WHERE id = ? AND user_id = ?", (rework_id, user_id)).fetchone()
     return _rework(row) if row else None
 
 
-def select_garment_reworks(db_path: Path, user_id: int, garment_id: int) -> list[dict]:
+def select_garment_reworks(db_path: Path, user_id: int, garment_id: int) -> list[Rework]:
     """One garment's reworks, newest first."""
     with closing(_connect(db_path)) as conn:
         rows = conn.execute(f"SELECT {REWORK_COLUMNS} FROM reworks WHERE garment_id = ? AND user_id = ? ORDER BY id DESC",

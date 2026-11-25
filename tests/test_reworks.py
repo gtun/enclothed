@@ -10,7 +10,7 @@ from PIL import Image
 from enclothed import config, db, photos, reworks
 from enclothed.intake import TEST_GARMENT
 from enclothed.llm import Client, UnusableResponse
-from enclothed.models import ImageUsage
+from enclothed.models import ImageUsage, Rework
 
 USAGE = ImageUsage(model="gpt-image-2.5-sunburst", text_input_tokens=87, image_input_tokens=1452, output_tokens=386)
 CLIENT = Client("openai", None)
@@ -73,12 +73,12 @@ def test_a_rework_is_saved_as_a_jpeg_with_its_row_and_log_line(db_path, tmp_path
     monkeypatch.setattr(reworks, "preview_garment", fake_preview)
     rework = run(db_path, tmp_path, garment_id)
     assert sent == [("navy", "Make it bright blue")]   # the front photo
-    assert {k: rework[k] for k in ("garment_id", "instruction", "source_photo", "model")} == {
-        "garment_id": garment_id, "instruction": "Make it bright blue", "source_photo": "front_00.jpg", "model": USAGE.model}
-    with Image.open(reworks.image_path(tmp_path / "reworks", rework["id"])) as saved:
+    assert (rework.garment_id, rework.instruction, rework.source_photo, rework.model) == (
+        garment_id, "Make it bright blue", "front_00.jpg", USAGE.model)
+    with Image.open(reworks.image_path(tmp_path / "reworks", rework.id)) as saved:
         assert saved.format == "JPEG"
     [line] = log_lines(tmp_path)
-    assert (line["user_id"], line["garment_id"], line["rework_id"], line["image_usage"]) == (1, garment_id, rework["id"], USAGE.model_dump())
+    assert (line["user_id"], line["garment_id"], line["rework_id"], line["image_usage"]) == (1, garment_id, rework.id, USAGE.model_dump())
     assert "Make it bright blue" not in json.dumps(line)   # the person's words stay in the database only
 
 
@@ -119,19 +119,21 @@ def test_an_image_that_cant_be_read_leaves_no_row(db_path, tmp_path, garment_id,
 def test_reworks_list_newest_first_and_only_the_owners(db_path, tmp_path, garment_id, monkeypatch):
     monkeypatch.setattr(reworks, "preview_garment", lambda client, photo, instruction: (png(), USAGE))
     first, second = run(db_path, tmp_path, garment_id, "blue"), run(db_path, tmp_path, garment_id, "red")
-    assert [r["id"] for r in db.select_garment_reworks(db_path, 1, garment_id)] == [second["id"], first["id"]]
+    listed = db.select_garment_reworks(db_path, 1, garment_id)
+    assert all(isinstance(r, Rework) for r in listed) and isinstance(db.select_rework(db_path, 1, first.id), Rework)
+    assert [r.id for r in listed] == [second.id, first.id]
     assert db.select_garment_reworks(db_path, 2, garment_id) == []
-    assert db.select_rework(db_path, 2, first["id"]) is None
+    assert db.select_rework(db_path, 2, first.id) is None
 
 
 def test_deleting_removes_the_row_and_the_image(db_path, tmp_path, garment_id, monkeypatch):
     monkeypatch.setattr(reworks, "preview_garment", lambda client, photo, instruction: (png(), USAGE))
     rework = run(db_path, tmp_path, garment_id)
-    assert not reworks.delete(db_path, tmp_path / "reworks", 2, rework["id"])   # someone else's
-    assert reworks.delete(db_path, tmp_path / "reworks", 1, rework["id"])
-    assert db.select_rework(db_path, 1, rework["id"]) is None
-    assert not reworks.image_path(tmp_path / "reworks", rework["id"]).exists()
-    assert not reworks.delete(db_path, tmp_path / "reworks", 1, rework["id"])
+    assert not reworks.delete(db_path, tmp_path / "reworks", 2, rework.id)   # someone else's
+    assert reworks.delete(db_path, tmp_path / "reworks", 1, rework.id)
+    assert db.select_rework(db_path, 1, rework.id) is None
+    assert not reworks.image_path(tmp_path / "reworks", rework.id).exists()
+    assert not reworks.delete(db_path, tmp_path / "reworks", 1, rework.id)
 
 
 def test_deleting_a_garment_deletes_its_reworks_and_the_next_start_removes_the_images(db_path, tmp_path, monkeypatch):
@@ -147,7 +149,7 @@ def test_deleting_a_garment_deletes_its_reworks_and_the_next_start_removes_the_i
     stray.write_bytes(b"x")
     reworks.remove_orphaned_files(db_path, tmp_path / "reworks")
     assert list((tmp_path / "reworks").iterdir()) == []
-    assert not reworks.image_path(tmp_path / "reworks", rework["id"]).exists()
+    assert not reworks.image_path(tmp_path / "reworks", rework.id).exists()
 
 
 def test_cleaning_up_with_no_folder_yet_is_fine(db_path, tmp_path):
