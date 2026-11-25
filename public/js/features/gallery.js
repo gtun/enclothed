@@ -1,4 +1,4 @@
-/* The photo carousel on the garment page (arrows, keyboard, position). Going past the last photo returns to the first; there's no wrap the other way. */
+/* The photo carousel on the garment page and a share link's garment page (arrows, keyboard, position). Going past the last photo returns to the first; there's no wrap the other way. */
 "use strict";
 
 let galleryGo = null;
@@ -29,3 +29,12 @@ function wireGallery(startAt = 0){
   galleryGo = go; update();
 }
 const galleryIndex = () => { const t = document.getElementById("track"); return t ? Math.round(t.scrollLeft / Math.max(1, t.clientWidth)) : 0; };
+/* The arrow keys move the photos, except while typing or picking in a field, or when a dialog is in front of them
+   (core/overlay.js makes everything under a dialog inert). */
+addEventListener("keydown", e => {
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  const track = document.getElementById("track");
+  if (!galleryGo || !track || track.closest("[inert]") || e.target.closest?.("input,textarea,select,[role=combobox]")) return;
+  e.preventDefault();
+  galleryGo(e.key === "ArrowRight" ? 1 : -1);
+});

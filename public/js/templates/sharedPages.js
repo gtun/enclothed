@@ -1,11 +1,10 @@
 /* TEMPLATE: the pages a share link shows (share.html): a garment, an outfit, and the expired-link page.
    They show only what the server put in the share (shares.py), and nothing that would edit, rate or ask the AI.
-   Garment rows reuse FIELDS and displayValue from garmentPage.js, so they read the same as in the app. */
+   Garment rows reuse FIELDS and displayValue from garmentFields.js, so they read the same as in the app. */
 "use strict";
 
 /* The garment details a share shows, in the garment page's order. Empty ones are left out. */
 const SHARED_FIELDS = ["category", "subcategory", "brand", "primary_color", "secondary_colors", "accent_colors", "fabric_type", "materials", "country_of_origin"];
-const hasValue = v => Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined && v !== "";
 
 function sharedGarmentPage(g, backToOutfit){
   const rows = FIELDS.filter(f => SHARED_FIELDS.includes(f.key) && hasValue(g[f.key]))
@@ -49,3 +48,5 @@ function sharedOutfitPage(o){
 const sharedFooter = expiresAt => `<p class="sharefoot">Shared from enclothed · this link stops working ${esc(whenLong(expiresAt))}</p>`;
 
 const sharedGone = () => `<div class="state"><h1>This link has expired</h1><p>Shared links work for a few days. Ask whoever sent it for a new one.</p></div>`;
+
+const sharedLoadError = message => `<div class="state"><h1>Couldn't load this page</h1><p>${esc(message)}</p><p>Try refreshing in a moment.</p></div>`;

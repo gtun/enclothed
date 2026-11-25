@@ -1,4 +1,4 @@
-/* Page routing (#wardrobe, #outfits, #garment-N, #outfit-N, #results, #usage, #shared, #weighed, #weigh-N, #looks, #look-N), click handling, Day/Evening, and start-up. Loaded last. */
+/* Page routing (#wardrobe, #outfits, #garment-N, #outfit-N, #results, #usage, #shared, #weighed, #weigh-N, #looks, #look-N), click handling, and start-up. Loaded last. */
 "use strict";
 
 const app = document.getElementById("app");
@@ -135,22 +135,7 @@ app.addEventListener("input", e => {
 });
 addEventListener("keydown", e => {
   if (e.key === "Escape" && e.target.closest(".notecheck")){ e.target.closest(".notecheck").querySelector('[data-nc="no"]').click(); return; }
-  if (!galleryGo || anyOverlayOpen() || e.target.closest("input,textarea,[role=combobox]")) return;   // a dialog is in front of the photos
-  if (e.key === "ArrowRight"){ e.preventDefault(); galleryGo(1); }
-  if (e.key === "ArrowLeft"){ e.preventDefault(); galleryGo(-1); }
 });
-
-/* ================= Day / Evening ================= */
-function paintTheme(){
-  const t = document.documentElement.getAttribute("data-theme");
-  document.querySelectorAll("[data-t]").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === t));
-}
-document.querySelectorAll("[data-t]").forEach(b => b.addEventListener("click", () => {
-  document.documentElement.setAttribute("data-theme", b.dataset.t);
-  try { localStorage.setItem("enclothed-theme", b.dataset.t); } catch (e) {}
-  paintTheme();
-}));
-paintTheme();
 
 /* ================= start ================= */
 (async function start(){

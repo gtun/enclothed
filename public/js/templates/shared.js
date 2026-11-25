@@ -47,3 +47,5 @@ function palette(o){
 }
 const palBar = (o, cls="") => `<div class="pal ${cls}" role="img" aria-label="Palette: ${esc(palette(o).map(s => colorName(s.c)).join(", "))}">${palette(o).map(s => `<i style="flex:${s.n};background:${hex(s.c)}" title="${esc(colorName(s.c))}"></i>`).join("")}</div>`;
 const vPal = o => `<span class="vpal" aria-hidden="true">${palette(o).map(s => `<i style="flex:${s.n};background:${hex(s.c)}"></i>`).join("")}</span>`;
+/* The language dropdown's choices, in the app (features/language.js) and on share links (share.js). */
+const languageOptions = languages => languages.map(l => `<option value="${esc(l.value)}">${esc(l.label)}</option>`).join("");

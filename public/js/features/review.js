@@ -64,7 +64,6 @@ async function acceptReview(){
     review.busy = false; review.error = e.message; renderReview();
   }
 }
-const hasValue = v => Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined && v !== "";
 async function discardReview(){
   if (review.mode === "mend"){   // nothing on the server to delete, and the AI's answers stay in mendAnswers
     closeReview();
