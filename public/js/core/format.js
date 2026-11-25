@@ -43,6 +43,8 @@ const warmthShort = label => label.split(/[,，、]/)[0];   // "light, 18–25°
 const levelLabel = (list, v) => (list.find(l => l.value === v) || {}).label || "";
 const choiceLabel = (list, v) => (list.find(l => l.value === v) || {}).label || v;
 const unique = arr => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+/* Whether a garment field has anything in it: not null, empty text or an empty list. */
+const hasValue = v => Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined && v !== "";
 const SET_ICON = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="1.5" y="4.5" width="8" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="6.5" y="1.5" width="8" height="10" rx="1.5" fill="var(--surface)" stroke="currentColor" stroke-width="1.4"/></svg>`;
 /* Rework's seam ripper, drawn like the hanger logo: one round-capped stroke, tilted to read as a tool. */
 const REWORK_ICON = `<svg class="rwicon" viewBox="0 0 32 32" width="16" height="16" aria-hidden="true"><g transform="rotate(45 16 17)"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><rect x="12.4" y="19.5" width="7.2" height="10" rx="3.6"/><path d="M16 19.5V14"/><path d="M13.4 4.5V11.4A2.6 2.6 0 0 0 18.6 11.4V9.8"/></g><circle cx="18.6" cy="8.1" r="2.2" fill="currentColor"/></g></svg>`;

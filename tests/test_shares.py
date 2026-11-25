@@ -271,6 +271,31 @@ def test_the_shared_page_has_no_wardrobe_account_ai_or_help_controls():
         assert not re.search(r"[\"'`]/api/", code), f"{src} calls the signed-in API"
 
 
+
+def top_level_names(path):
+    """The names a front-end script declares at its top level (unindented const, let and function)."""
+    return set(re.findall(r"^(?:async\s+)?(?:function\s+|const\s+|let\s+)([A-Za-z_$][\w$]*)", path.read_text(), re.M))
+
+
+def test_the_shared_page_declares_no_name_that_only_the_app_also_declares():
+    """The scripts share in one global scope, so a template both pages load reaches whichever page's version of a
+    name is there. A name declared on both pages, by scripts the other doesn't load, is easy to call by mistake."""
+    _, shared = share_page_scripts()
+    shared = {src.removeprefix("/s/static/") for src in shared}
+    app = {src.removeprefix("/static/") for src in re.findall(r'<script src="([^"]+)"', (PUBLIC_DIR / "index.html").read_text())}
+    app_only = set().union(*(top_level_names(PUBLIC_DIR / src) for src in app - shared))
+    share_only = set().union(*(top_level_names(PUBLIC_DIR / src) for src in shared - app))
+    assert share_only and app_only
+    assert share_only & app_only == set()
+
+
+def test_the_shared_page_does_not_load_the_app_garment_page():
+    """garmentPage.js draws edit, mend and rework buttons that call code share.html doesn't load. The share page
+    gets FIELDS and displayValue from garmentFields.js instead."""
+    _, scripts = share_page_scripts()
+    assert "/s/static/js/templates/garmentFields.js" in scripts
+    assert "/s/static/js/templates/garmentPage.js" not in scripts
+
 # --- the demo's limit ------------------------------------------------------------------
 def fill(db_path, user_id, count, expires_at="2099-01-01T00:00:00+00:00"):
     """count share rows for user_id, without photos: enough for counting."""

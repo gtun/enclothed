@@ -4,7 +4,7 @@
 
 const languagePicker = document.getElementById("language");
 function renderLanguage(profile){
-  languagePicker.innerHTML = OPT.languages.map(l => `<option value="${esc(l.value)}">${esc(l.label)}</option>`).join("");
+  languagePicker.innerHTML = languageOptions(OPT.languages);
   languagePicker.value = profile.language;
   languagePicker.dataset.saved = profile.language;
   languagePicker.hidden = false;

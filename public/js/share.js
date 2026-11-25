@@ -2,11 +2,13 @@
    An outfit share is the outfit at #, and each of its garments at #garment-N (N is its place in the share,
    not a wardrobe id). Day/Evening is the app's own setting; the language is this browser's choice for shared
    pages, starting from the language the link was made in. Changing it changes the fixed terms (colors,
-   categories...), not text the AI wrote, which stays in the language it was written in. */
+   categories...), not text the AI wrote, which stays in the language it was written in.
+   Its names start with "share" so none looks like main.js's (app, render) or language.js's: the templates both pages
+   load must not call either. */
 "use strict";
 
-const app = document.getElementById("app");
-const languagePicker = document.getElementById("language");
+const shareRoot = document.getElementById("app");
+const shareLanguage = document.getElementById("language");
 const SHARE = location.pathname.replace(/\/+$/, "");   // "/s/<token>"
 const LOCALE_SETTING = SETTINGS.locale;   // settings.js can pin a locale for dates; otherwise it follows the language
 const LANGUAGE_KEY = "enclothed-share-language";
@@ -26,13 +28,13 @@ function adoptShare(data){
   return data;
 }
 
-function render(){
+function renderShare(){
   const m = location.hash.match(/^#garment-(\d+)$/);
   let html, name;
   if (share.kind === "garment"){ const g = G[0]; html = sharedGarmentPage(g, false); name = title(g); }
   else if (m && byId[m[1]]){ const g = byId[m[1]]; html = sharedGarmentPage(g, true); name = title(g); }
   else { html = sharedOutfitPage(share.outfit); name = share.outfit.aesthetic; }
-  app.innerHTML = html + sharedFooter(share.expires_at);
+  shareRoot.innerHTML = html + sharedFooter(share.expires_at);
   document.title = `${name} · enclothed`;
   wireGallery();
 }
@@ -43,36 +45,19 @@ async function useLanguage(language){
   SETTINGS.locale = LOCALE_SETTING || language;
   document.documentElement.dataset.locale = language;
   document.documentElement.lang = language;
-  languagePicker.innerHTML = OPT.languages.map(l => `<option value="${esc(l.value)}">${esc(l.label)}</option>`).join("");
-  languagePicker.value = language;
-  languagePicker.hidden = false;
+  shareLanguage.innerHTML = languageOptions(OPT.languages);
+  shareLanguage.value = language;
+  shareLanguage.hidden = false;
 }
-languagePicker.addEventListener("change", async () => {
-  const before = document.documentElement.dataset.locale, language = languagePicker.value;
-  languagePicker.disabled = true;
-  try { await useLanguage(language); store.set(LANGUAGE_KEY, language); render(); }
-  catch (e) { languagePicker.value = before; }
-  finally { languagePicker.disabled = false; }
+shareLanguage.addEventListener("change", async () => {
+  const before = document.documentElement.dataset.locale, language = shareLanguage.value;
+  shareLanguage.disabled = true;
+  try { await useLanguage(language); store.set(LANGUAGE_KEY, language); renderShare(); }
+  catch (e) { shareLanguage.value = before; }
+  finally { shareLanguage.disabled = false; }
 });
 
-addEventListener("hashchange", () => { if (share){ render(); scrollTo(0, 0); } });
-addEventListener("keydown", e => {
-  if (!galleryGo) return;
-  if (e.key === "ArrowRight"){ e.preventDefault(); galleryGo(1); }
-  if (e.key === "ArrowLeft"){ e.preventDefault(); galleryGo(-1); }
-});
-
-/* ================= Day / Evening (as in main.js) ================= */
-function paintTheme(){
-  const t = document.documentElement.getAttribute("data-theme");
-  document.querySelectorAll("[data-t]").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === t));
-}
-document.querySelectorAll("[data-t]").forEach(b => b.addEventListener("click", () => {
-  document.documentElement.setAttribute("data-theme", b.dataset.t);
-  try { localStorage.setItem("enclothed-theme", b.dataset.t); } catch (e) {}
-  paintTheme();
-}));
-paintTheme();
+addEventListener("hashchange", () => { if (share){ renderShare(); scrollTo(0, 0); } });
 
 /* ================= start ================= */
 (async function start(){
@@ -82,10 +67,10 @@ paintTheme();
     try { await useLanguage(chosen || data.language); }
     catch (e) { if (!chosen) throw e; await useLanguage(data.language); }   // a saved choice the server no longer offers
     share = adoptShare(data);
-    render();
+    renderShare();
   } catch (e) {
-    app.innerHTML = e.status === 404 ? sharedGone()
-      : `<div class="state"><h1>Couldn't load this page</h1><p>${esc(e.message)}</p><p>Try refreshing in a moment.</p></div>`;
+    shareRoot.innerHTML = e.status === 404 ? sharedGone()
+      : sharedLoadError(e.message);
     document.title = "enclothed";
   }
 })();
