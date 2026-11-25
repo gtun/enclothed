@@ -307,7 +307,7 @@ def tag_garment(client: Client, photo_paths: list[Path], prompt_message: str | N
     if preferences:
         content.append({"type": "text", "text": f"The owner's preferences, to use only when judging hem:\n<preferences>\n{preferences}\n</preferences>"})
 
-    # TaggingReply, not TaggingResult: see the note above TaggedGarment in models.py
+    # TaggingReply, not TaggingResult: see the note above TaggedGarment in models/ai.py
     reply = _parse(client, "tag", tag_system_prompt(language), content, TaggingReply, config.TAG_TOKEN_CAP)
     usage = reply.usage
     if reply.parsed is None:

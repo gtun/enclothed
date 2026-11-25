@@ -209,7 +209,8 @@ src/enclothed/
   insights.py      "Ask your wardrobe"    sandbox.py   read-only query copy
   auth.py          Cloudflare Access sign-in and acting as another user
   db.py            SQLite access          schema.sql   base schema
-  models.py        Pydantic models        fabrics.py   the fixed fabric list
+  models/          Pydantic models, by layer: terms, garment, ai, records, api
+  fabrics.py       the fixed fabric list
   i18n.py, locales/  translations         demo.py      the demo wardrobe
   photos.py        orientation, resizing, thumbnails
 migrations/        numbered SQL migrations, applied on start-up
