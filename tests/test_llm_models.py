@@ -7,14 +7,12 @@ from enclothed import config, llm
 
 
 class Recorder(llm.Client):
-    """A client whose messages.parse and messages.create remember the model they were asked for, then stop the call."""
+    """A client whose messages.create remembers the model it was asked for, then stops the call."""
     def __init__(self):
         super().__init__("anthropic", self)
         self.models = []
         recorder = self
         class Messages:
-            def parse(self, **kwargs):
-                recorder.models.append(kwargs["model"]); raise StopCall
             def create(self, **kwargs):
                 recorder.models.append(kwargs["model"]); raise StopCall
         self.messages = Messages()

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import logging
 from typing import Any
-from pydantic import ValidationError, create_model
+from pydantic import TypeAdapter, ValidationError, create_model
 
 logger = logging.getLogger(__name__)
 
@@ -169,16 +169,37 @@ def _parse[T](client: Client, feature: str, system: str, content: str | list[dic
     if client.provider == "openai":
         return _parse_openai(client, feature, model, system, content, output_format, token_cap)
     with _service_errors():
-        response = client.sdk.messages.parse(
+        response = client.sdk.messages.create(
             model=model,
             max_tokens=anthropic_token_cap(model, token_cap),
             system=system,
             messages=[{"role": "user", "content": content}],
-            output_format=output_format,
+            output_config={"format": _anthropic_output_format(output_format)},
         )
     usage = _usage(model, response.usage)
     logger.debug("%s tokens: in=%s out=%s cache_creation=%s cache_read=%s", feature, usage.input_tokens, usage.output_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens)
-    return _Reply(response.parsed_output, usage, response.stop_reason, response.stop_reason == "max_tokens")
+    parsed = _anthropic_parsed(response, output_format)
+    return _Reply(parsed, usage, response.stop_reason, response.stop_reason == "max_tokens")
+
+
+def _anthropic_output_format(output_format: type) -> dict:
+    """The JSON schema Claude must answer in, built the way the SDK's messages.parse builds it."""
+    return {"schema": anthropic.transform_schema(TypeAdapter(output_format).json_schema()), "type": "json_schema"}
+
+
+def _anthropic_parsed[T](response: Any, output_format: type[T]) -> T | None:
+    """The reply's JSON as output_format, or None when there's none that fits. Parsed here rather than by
+    messages.parse: that raises on JSON cut off at the token cap, as when the reply runs on until it's stopped,
+    and the usage, which was billed, would be lost with it. Same as _parse_openai."""
+    for block in response.content:
+        if block.type != "text" or not block.text:
+            continue
+        try:
+            return TypeAdapter(output_format).validate_json(block.text)
+        except ValidationError as error:
+            logger.warning("Claude reply didn't match %s (stop_reason=%s): %s", getattr(output_format, "__name__", output_format),
+                           response.stop_reason, str(error)[:300])
+    return None
 
 
 def _parse_openai[T](client: Client, feature: str, model: str, system: str, content: str | list[dict], output_format: type[T], token_cap: int) -> _Reply[T]:

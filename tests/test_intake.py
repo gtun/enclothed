@@ -115,7 +115,7 @@ def tagged_reply(**garment_changes) -> TaggingReply:
 
 
 class FakeParse:
-    """Stands in for client.messages.parse and keeps what it was sent."""
+    """Stands in for client.messages.create and keeps what it was sent. The reply comes back as JSON text, as Claude sends it."""
     def __init__(self, reply=None):
         self.sent = None
         self.reply = reply if reply is not None else tagged_reply()
@@ -123,12 +123,13 @@ class FakeParse:
     def __call__(self, **kwargs):
         self.sent = kwargs
         usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": None, "cache_read_input_tokens": None})()
-        return type("Response", (), {"usage": usage, "parsed_output": self.reply, "stop_reason": "end_turn"})()
+        text = type("Text", (), {"type": "text", "text": self.reply.model_dump_json()})()
+        return type("Response", (), {"usage": usage, "content": [text], "stop_reason": "end_turn"})()
 
 
 def fake_client(reply=None):
     parse = FakeParse(reply)
-    client = llm.Client("anthropic", type("SDK", (), {"messages": type("Messages", (), {"parse": parse})()})())
+    client = llm.Client("anthropic", type("SDK", (), {"messages": type("Messages", (), {"create": parse})()})())
     return client, parse
 
 
@@ -176,7 +177,7 @@ def test_the_tagger_asks_for_the_reply_model_and_returns_a_garment(tmp_path):
 
     result, usage = llm.tag_garment(client, [photo])
 
-    assert parse.sent["output_format"] is TaggingReply
+    assert parse.sent["output_config"] == {"format": llm._anthropic_output_format(TaggingReply)}
     assert isinstance(result, TaggingResult)
     assert usage.input_tokens == 1
 
