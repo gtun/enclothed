@@ -19,10 +19,6 @@ const unchangedSinceLast = () => builder.session && sameSet(builder.pieces, buil
   && builder.count === (builder.session.last.count ?? 3) && builder.risk === (builder.session.last.risk ?? "mix")
   && builder.silhouette === (builder.session.last.silhouette ?? null);
 
-function pickButton(g){
-  const on = builder.pieces.includes(g.id);
-  return `<button type="button" class="addbtn" data-pick="${g.id}" aria-pressed="${on}" aria-label="${on ? "Remove from outfit" : "Add to outfit"}: ${esc(title(g))}" title="${on ? "Remove from outfit" : "Add to outfit"}">${on ? "−" : "+"}</button>`;
-}
 function togglePiece(id){
   id = +id;
   if (builder.pieces.includes(id)) builder.pieces = builder.pieces.filter(x => x !== id);

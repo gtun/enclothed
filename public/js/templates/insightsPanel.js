@@ -48,3 +48,4 @@ function insightMessage(m, index){
   return `<div class="ia">${renderMarkdown(m.content, insightGarmentRef, insightGarmentRow)}${insightWork(m, index)}</div>`;
 }
 const insightBusy = () => `<div class="busy"><span class="spin" aria-hidden="true"></span>Checking your wardrobe…</div>`;
+const insightError = message => `<p class="formerr" role="alert">${esc(message)}</p>`;
