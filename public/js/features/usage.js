@@ -20,7 +20,7 @@ function usageDays(calls){
     const d = byDay[localDay(new Date(c.timestamp))] ||= emptyUsageDay();
     d.calls++; d.total += c.cost_usd || 0; d[c.kind] += c.cost_usd || 0;
   });
-  const days = [], today = localDay(Date.now());
+  const days = [], today = localDay();
   for (let i = 0; ; i++){
     const day = localDay(new Date(first.getFullYear(), first.getMonth(), first.getDate() + i));
     days.push({day, ...emptyUsageDay(), ...byDay[day]});
