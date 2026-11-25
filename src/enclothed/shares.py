@@ -123,7 +123,7 @@ def load(db_path: Path, token: str, now: datetime) -> dict | None:
     share = db.select_share(db_path, token, _iso(now))
     if share is None:
         return None
-    return {**share["snapshot"], "expires_at": share["expires_at"]}
+    return {**share.snapshot, "expires_at": share.expires_at}
 
 
 def photo(db_path: Path, shares_dir: Path, token: str, garment: int, filename: str, small: bool, now: datetime) -> Path | None:
@@ -151,10 +151,10 @@ def extend(db_path: Path, user_id: int, token: str, now: datetime) -> str | None
     share = db.select_user_share(db_path, token, user_id, _iso(now))
     if share is None:
         return None
-    limit = responses.max_share_expiry(share["created_at"])
-    if share["expires_at"] >= limit:
+    limit = responses.max_share_expiry(share.created_at)
+    if share.expires_at >= limit:
         raise ShareAtMaxLifetime
-    expires_at = max(share["expires_at"], min(_iso(now + timedelta(days=SHARE_LIFETIME_DAYS)), limit))
+    expires_at = max(share.expires_at, min(_iso(now + timedelta(days=SHARE_LIFETIME_DAYS)), limit))
     if not db.update_share_expiry(db_path, token, user_id, expires_at, _iso(now)):
         return None   # it expired or was revoked in between
     logger.info("Extended a share, link expires %s", expires_at)

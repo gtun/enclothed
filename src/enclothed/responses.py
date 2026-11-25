@@ -6,8 +6,8 @@ from typing import get_args
 from enclothed.models import (
     CATEGORY_ORDER, Category, Color, FIELD_CATEGORIES, FabricWeight, Fit, Hem, Shape, Sheen, Sleeve, Statement, RiskTier, Recommendation, Closeness, SUBCATEGORIES, COLOR_HEX, FABRIC_WEIGHT_LABELS,
     FIT_LABELS, HEM_LABELS, SHAPE_LABELS, SHEEN_LABELS, SLEEVE_LABELS, STATEMENT_LABELS, RISK_TIER_LABELS, RECOMMENDATION_LABELS, CLOSENESS_LABELS, FORMALITY_LABELS, WARMTH_LABELS,
-    ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, LookOut, OptionsOut,
-    OutfitGarmentOut, OutfitOut, Rework, ReworkOut, SetOut, ShareOut, blank_fields,
+    ChoiceOption, ColorOption, DEFAULT_LANGUAGE, Garment, GarmentOut, LANGUAGE_NAMES, Language, LevelOption, Look, LookOut, OptionsOut,
+    OutfitGarmentOut, OutfitOut, Rework, ReworkOut, SavedOutfit, SetOut, Share, ShareOut, Weigh, WeighOut, blank_fields,
 )
 from enclothed.config import SHARE_MAX_LIFETIME_DAYS
 from enclothed.fabrics import FABRIC_TYPES
@@ -26,16 +26,12 @@ def list_garments(db_path: Path, user_id: int) -> list[GarmentOut]:
 def _wardrobe_by_id(db_path: Path, user_id: int) -> dict[int, GarmentOut]:
     return {garment.id: garment for garment in list_garments(db_path, user_id)}
 
-def _to_outfit_out(outfit: dict, wardrobe: dict[int, GarmentOut]) -> OutfitOut:
+def _to_outfit_out(outfit: SavedOutfit, wardrobe: dict[int, GarmentOut]) -> OutfitOut:
     garments = [
-        OutfitGarmentOut(
-            garment=wardrobe[entry["garment_id"]],
-            styling_advice=entry["styling_advice"],
-            is_anchor=entry["is_anchor"],
-        )
-        for entry in outfit["garments"]
+        OutfitGarmentOut(garment=wardrobe[entry.garment_id], styling_advice=entry.styling_advice, is_anchor=entry.is_anchor)
+        for entry in outfit.garments
     ]
-    return OutfitOut(**{**outfit, "garments": garments})
+    return OutfitOut(**outfit.model_dump(exclude={"garments"}), garments=garments)
 
 def get_outfit(db_path: Path, user_id: int, outfit_id: int) -> OutfitOut | None:
     outfit = db.select_outfit(db_path, user_id, outfit_id)
@@ -53,8 +49,8 @@ def list_outfits(db_path: Path, user_id: int) -> list[OutfitOut]:
     wardrobe = _wardrobe_by_id(db_path, user_id)
     return [_to_outfit_out(outfit, wardrobe) for outfit in outfits]
 
-def to_look_out(look: dict) -> LookOut:
-    return LookOut(**look, photos=get_look_photos(look["id"]))
+def to_look_out(look: Look) -> LookOut:
+    return LookOut(**look.model_dump(), photos=get_look_photos(look.id))
 
 def get_look(db_path: Path, user_id: int, look_id: int) -> LookOut | None:
     look = db.select_look(db_path, user_id, look_id)
@@ -71,13 +67,12 @@ def max_share_expiry(created_at: str) -> str:
     shares.py, which imports this module, so the list and extend share one definition."""
     return (datetime.fromisoformat(created_at) + timedelta(days=SHARE_MAX_LIFETIME_DAYS)).isoformat(timespec="seconds")
 
-def _to_share_out(share: dict) -> ShareOut:
+def _to_share_out(share: Share) -> ShareOut:
     """Only what the list shows from a snapshot: enough for a label."""
-    snapshot = share["snapshot"]
-    outfit, garment = snapshot.get("outfit") or {}, snapshot.get("garment") or {}
-    return ShareOut(token=share["token"], path=f"/s/{share['token']}", kind=share["kind"],
-                    created_at=share["created_at"], expires_at=share["expires_at"],
-                    max_expires_at=max_share_expiry(share["created_at"]),
+    outfit, garment = share.snapshot.get("outfit") or {}, share.snapshot.get("garment") or {}
+    return ShareOut(token=share.token, path=f"/s/{share.token}", kind=share.kind,
+                    created_at=share.created_at, expires_at=share.expires_at,
+                    max_expires_at=max_share_expiry(share.created_at),
                     aesthetic=outfit.get("aesthetic"), brand=garment.get("brand"), subcategory=garment.get("subcategory"))
 
 def list_shares(db_path: Path, user_id: int, now: str) -> list[ShareOut]:
@@ -128,6 +123,14 @@ def get_options(language: Language = DEFAULT_LANGUAGE) -> OptionsOut:
 def to_rework_out(rework: Rework) -> ReworkOut:
     return ReworkOut(id=rework.id, garment_id=rework.garment_id, instruction=rework.instruction,
                      url=f"/reworks/{rework.id}", created_at=rework.created_at)
+
+
+def to_weigh_out(weigh: Weigh) -> WeighOut:
+    return WeighOut(**weigh.model_dump())
+
+
+def list_weighs(db_path: Path, user_id: int) -> list[WeighOut]:
+    return [to_weigh_out(weigh) for weigh in db.select_weighs(db_path, user_id)]
 
 
 def list_reworks(db_path: Path, user_id: int, garment_id: int) -> list[ReworkOut]:

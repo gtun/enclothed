@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import get_args
 
 from enclothed import config, db, photos, reworks
-from enclothed.models import Category, Garment, Outfit, OutfitGarment, User
+from enclothed.models import Category, Garment, Outfit, OutfitGarment, SavedOutfit, User
 from enclothed.usage import read_calls
 
 logger = logging.getLogger(__name__)
@@ -35,10 +35,10 @@ def last_reset_time(now: datetime) -> datetime:
 
 
 # --- choosing what goes in the template -------------------------------------------------
-def _pick_outfits(outfits: list[dict], garments: dict[int, Garment], limit: int) -> list[dict]:
+def _pick_outfits(outfits: list[SavedOutfit], garments: dict[int, Garment], limit: int) -> list[SavedOutfit]:
     """Outfits made only of usable garments, liked ones first, then newest. Disliked ones stay out."""
-    usable = [o for o in outfits if o["liked"] != 0 and all(g["garment_id"] in garments for g in o["garments"])]
-    return sorted(usable, key=lambda o: (o["liked"] == 1, o["id"]), reverse=True)[:limit]
+    usable = [o for o in outfits if o.liked is not False and all(g.garment_id in garments for g in o.garments)]
+    return sorted(usable, key=lambda o: (o.liked is True, o.id), reverse=True)[:limit]
 
 
 def _top_up_category(chosen: set[int], garments: dict[int, Garment], category: str, target: int) -> None:
@@ -57,11 +57,11 @@ def _top_up_category(chosen: set[int], garments: dict[int, Garment], category: s
         chosen.add(pick.id)
 
 
-def choose_sample(garments: list[Garment], outfits: list[dict], per_category: int, max_outfits: int) -> tuple[list[Garment], list[dict]]:
+def choose_sample(garments: list[Garment], outfits: list[SavedOutfit], per_category: int, max_outfits: int) -> tuple[list[Garment], list[SavedOutfit]]:
     """A mix across categories that includes every garment in the chosen outfits, and whole sets."""
     by_id = {g.id: g for g in garments}
     picked_outfits = _pick_outfits(outfits, by_id, max_outfits)
-    chosen = {entry["garment_id"] for outfit in picked_outfits for entry in outfit["garments"]}
+    chosen = {entry.garment_id for outfit in picked_outfits for entry in outfit.garments}
     for category in get_args(Category):
         _top_up_category(chosen, by_id, category, per_category)
     sets = {by_id[i].set_id for i in chosen} - {None}
@@ -88,14 +88,8 @@ def build_template(db_path: Path, owner_id: int, template_dir: Path, per_categor
     template = {
         "garments": [{"source_id": g.id, "garment": g.model_dump(mode="json", exclude=PRIVATE_FIELDS)} for g in sample],
         "sets": [{"name": set_names.get(set_id), "garment_ids": ids} for set_id, ids in sets.items()],
-        "outfits": [{
-            "aesthetic": o["aesthetic"],
-            "explanation": o["explanation"],
-            "missing": o["missing"],
-            "liked": o["liked"],
-            "risk_tier": o.get("risk_tier"),
-            "garments": o["garments"],
-        } for o in outfits],
+        "outfits": [o.model_dump(mode="json", include={"aesthetic", "explanation", "missing", "liked", "risk_tier", "garments"})
+                    for o in outfits],
     }
 
     shutil.rmtree(template_dir, ignore_errors=True)

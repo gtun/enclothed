@@ -297,14 +297,14 @@ def weigh_garment(body: WeighIn, user: CurrentUser, provider: ChosenProvider) ->
                 _saved_preferences(user), user.language)
     except weigh.DraftGone:
         raise HTTPException(status_code=404, detail="That garment is no longer waiting. Photograph it again.")
-    return WeighCreatedOut(weigh=saved, candidate=responses.get_garment(config.DB_PATH, user.id, garment_id),
+    return WeighCreatedOut(weigh=responses.to_weigh_out(saved), candidate=responses.get_garment(config.DB_PATH, user.id, garment_id),
                            outfits=responses.get_outfits(config.DB_PATH, user.id, outfit_ids))
 
 
 @app.get("/api/weighs")
 def list_weighs(user: CurrentUser) -> list[WeighOut]:
     """Verdicts for garments still being weighed. The garments and outfits come with the usual lists."""
-    return db.select_weighs(config.DB_PATH, user.id)
+    return responses.list_weighs(config.DB_PATH, user.id)
 
 
 @app.post("/api/weighs/{garment_id}/buy")
@@ -363,12 +363,12 @@ def recreate_look(look_id: int, user: CurrentUser, provider: ChosenProvider) -> 
     look = db.select_look(config.DB_PATH, user.id, look_id)
     if look is None:
         raise HTTPException(status_code=404, detail=f"Look {look_id} not found")
-    if look["recreations"]:
+    if look.recreations:
         raise HTTPException(status_code=409, detail="This look already has its recreations.")
     _require_demo_tokens(user)
     client = _llm_client(provider)
     with _ai_errors(user, config.MIMIC_LOG_PATH, MATCH_FAILED):
-        _, outfit_ids = mimic.recreate(config.DB_PATH, user.id, look_id, mimic.look_tags(look), look["note"], client, config.MIMIC_LOG_PATH,
+        _, outfit_ids = mimic.recreate(config.DB_PATH, user.id, look_id, mimic.look_tags(look), look.note, client, config.MIMIC_LOG_PATH,
                                        _saved_preferences(user), user.language)
     return MimicCreatedOut(look=responses.get_look(config.DB_PATH, user.id, look_id),
                            outfits=responses.get_outfits(config.DB_PATH, user.id, outfit_ids))

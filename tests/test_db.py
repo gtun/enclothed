@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from enclothed.db import insert_user, select_user, update_user, select_preferences, save_preferences, init_db, insert_garment, insert_outfits, select_garment, DB_DEFAULT_FIELDS, select_all_sets, insert_set, update_garment, set_outfit_liked, select_owned_garments, select_all_garments, select_outfit, select_all_outfits, insert_share, select_user_shares, delete_share, update_share_expiry
-from enclothed.models import Garment, Outfit
+from enclothed.models import Garment, Outfit, SavedOutfit, Share
 from enclothed.config import SCHEMA_PATH, MIGRATIONS_DIR
 from enclothed.intake import TEST_GARMENT
 
@@ -495,14 +495,15 @@ def add_wears(db_path, outfit_id, count):
 
 
 def test_wear_count_is_zero_without_wears(db_path):
-    assert select_outfit(db_path, 1, outfit_with_garments(db_path, 2))["wear_count"] == 0
+    outfit = select_outfit(db_path, 1, outfit_with_garments(db_path, 2))
+    assert isinstance(outfit, SavedOutfit) and outfit.wear_count == 0 and outfit.wears == []
 
 
 def test_wear_count_is_not_multiplied_by_garments(db_path):
     outfit_id = outfit_with_garments(db_path, 4)
     add_wears(db_path, outfit_id, 2)
-    assert select_outfit(db_path, 1, outfit_id)["wear_count"] == 2
-    assert select_all_outfits(db_path, 1)[0]["wear_count"] == 2
+    assert select_outfit(db_path, 1, outfit_id).wear_count == 2
+    assert select_all_outfits(db_path, 1)[0].wear_count == 2
 
 
 # --- users ---------------------------------------------------------------------------
@@ -738,9 +739,9 @@ def test_user_shares_lists_only_live_shares_newest_first(db_path):
     _share(db_path, "older", 1, "2026-11-17T09:00:00+00:00", "2026-11-20T09:00:00+00:00")
     _share(db_path, "newer", 1, "2026-11-18T09:00:00+00:00", "2026-11-21T09:00:00+00:00")
     shares = select_user_shares(db_path, 1, NOW)
-    assert [s["token"] for s in shares] == ["newer", "older"]
-    assert shares[0] == {"token": "newer", "kind": "garment", "created_at": "2026-11-18T09:00:00+00:00",
-                         "expires_at": "2026-11-21T09:00:00+00:00", "snapshot": {"brand": "newer"}}
+    assert [s.token for s in shares] == ["newer", "older"]
+    assert shares[0] == Share(token="newer", kind="garment", created_at="2026-11-18T09:00:00+00:00",
+                              expires_at="2026-11-21T09:00:00+00:00", snapshot={"brand": "newer"})
 
 def test_user_shares_leaves_out_expired_shares_not_yet_purged(db_path):
     _share(db_path, "expired", 1, "2026-11-14T09:00:00+00:00", "2026-11-17T09:00:00+00:00")
@@ -751,8 +752,8 @@ def test_user_shares_leaves_out_other_users_shares(db_path):
     kim = insert_user(db_path, "kim", "kim@example.com")
     _share(db_path, "mine", 1, "2026-11-18T09:00:00+00:00", "2026-11-21T09:00:00+00:00")
     _share(db_path, "kims", kim, "2026-11-18T10:00:00+00:00", "2026-11-21T10:00:00+00:00")
-    assert [s["token"] for s in select_user_shares(db_path, 1, NOW)] == ["mine"]
-    assert [s["token"] for s in select_user_shares(db_path, kim, NOW)] == ["kims"]
+    assert [s.token for s in select_user_shares(db_path, 1, NOW)] == ["mine"]
+    assert [s.token for s in select_user_shares(db_path, kim, NOW)] == ["kims"]
 
 def test_delete_share_deletes_only_your_own_live_share(db_path):
     kim = insert_user(db_path, "kim", "kim@example.com")
@@ -774,7 +775,7 @@ def test_update_share_expiry_changes_only_your_own_live_share(db_path):
     assert not update_share_expiry(db_path, "mine", kim, later, NOW)
     assert not update_share_expiry(db_path, "expired", 1, later, NOW)
     assert update_share_expiry(db_path, "mine", 1, later, NOW)
-    assert [s["expires_at"] for s in select_user_shares(db_path, 1, NOW)] == [later]
+    assert [s.expires_at for s in select_user_shares(db_path, 1, NOW)] == [later]
 
 
 def test_reworks_migration_adds_an_empty_reworks_table(tmp_path):
