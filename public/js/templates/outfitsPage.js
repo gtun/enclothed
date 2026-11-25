@@ -1,9 +1,6 @@
 /* TEMPLATE: the outfits page (heading, stats, filters, outfits grouped by request). */
 "use strict";
 
-let req = "all";
-/* Who made the outfits shown ("all", "ai" or "own"), and whether to show only outfits you've worn. */
-let osrc = "all", wornOnly = false;
 const OUTFIT_SOURCES = [["all", "All"], ["ai", "Suggested by AI"], ["own", "Put together myself"]];
 function outfits(){
   const mimicBtn = `<button type="button" class="btn" data-mimic-look title="Uses AI (spends tokens)">Mimic a look</button>`;
@@ -11,7 +8,7 @@ function outfits(){
   const kept = o => visible(o) && passesFilters(o) && (!wornOnly || o.wear_count > 0);   // everything but the source
   const groups = [...REQUESTS].reverse().map(r => ({...r, shown: r.items.filter(o => kept(o) && (osrc === "all" || o.source === osrc))})).filter(r => r.shown.length);
   const nDisliked = SHOWN.filter(o => o.liked === false).length;
-  if (req !== "all" && !groups.some(r => r.key === req)) req = "all";
+  settleRequest(groups);
   const shownTotal = groups.reduce((n, r) => n + r.shown.length, 0);
   const btn = (k, label, n, full) => `<button type="button" data-req="${k}" aria-pressed="${req===k}" title="${esc(full||label)}">${esc(label)} <span>${n}</span></button>`;
   const toggle = nDisliked ? `<span class="sep" aria-hidden="true"></span><button type="button" data-toggle-disliked aria-pressed="${showDisliked}">${showDisliked ? "Showing" : "Show"} disliked <span>${nDisliked}</span></button>` : "";

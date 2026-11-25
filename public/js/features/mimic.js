@@ -4,6 +4,7 @@
 "use strict";
 
 let mimicBusy = null;            // the look being matched right now, if any
+let lookConfirm = false;         // true while "Delete look" waits for its second click (templates/lookPages.js)
 const mimicTried = new Set();    // looks matched in this visit that came back with nothing
 const currentLook = () => { const m = location.hash.match(/^#look-(\d+)$/); return m ? lookById[m[1]] : null; };
 

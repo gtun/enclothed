@@ -1,7 +1,6 @@
 /* TEMPLATE: weigh ("should I buy this?"): one garment's verdict page (#weigh-N) and the list of everything being weighed (#weighed). */
 "use strict";
 
-let weighConfirm = false;   // true while "Pass" waits for its second click
 const recommendationLabel = r => choiceLabel(OPT.recommendations || [], r);
 const verdictBadge = r => `<span class="verdict verdict-${esc(r)}">${esc(recommendationLabel(r))}</span>`;
 /* The four checks, in the order the AI answered them. For already_own, "yes" is the bad answer. */

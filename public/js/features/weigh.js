@@ -3,6 +3,7 @@
 "use strict";
 
 let weighBusy = false;
+let weighConfirm = false;   // true while "Pass" waits for its second click (templates/weighPages.js)
 const currentCandidate = () => { const m = location.hash.match(/^#weigh-(\d+)$/); return m ? byId[m[1]] : null; };
 
 /* After the review dialog's "Weigh it": the server saves the candidate, its verdict and outfits together. */

@@ -1,8 +1,6 @@
 /* TEMPLATE: the wardrobe page (heading, stats, filters, one rail per category). */
 "use strict";
 
-let cat = "all", scope = "any";
-let wview = store.get("enclothed-wardrobe-view", "grid");   // "grid", "large" or "list"
 function wardrobe(){
   if (!OWNED.length) return `<div class="state"><h1>Your wardrobe is empty</h1><p>Photograph a garment to add it.</p><p><button type="button" class="btn primary" data-add-garment>+ Add garment</button> ${disownedLink("disowned-garments", "Disowned", DISOWNED.length)}</p></div>`;
   const inScope = g => scope === "any" || (scope === "sets" && g.set_id) || (scope === "unstyled" && !outfitsOf[g.id]);
