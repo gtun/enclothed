@@ -700,6 +700,15 @@ class ReworkIn(BaseModel):
     """What to change in a garment's photo, in the person's own words."""
     instruction: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
 
+class Rework(BaseModel):
+    """A saved rework, as the database holds it. ReworkOut is what the API sends: no model or source photo, and a url."""
+    id: int
+    garment_id: int
+    instruction: str
+    source_photo: str   # the garment photo it was made from, by file name
+    model: str          # the image model that made it
+    created_at: str
+
 class ReworkOut(BaseModel):
     """An edited image of one of a garment's photos. It's a preview, never one of the garment's photos."""
     id: int

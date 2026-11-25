@@ -13,7 +13,7 @@ from PIL import Image
 
 from enclothed import config, db, photos
 from enclothed.llm import Client, UnusableResponse, preview_garment
-from enclothed.models import ImageUsage
+from enclothed.models import ImageUsage, Rework
 from enclothed.usage import write_entry
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def log_call(log_path: Path, user_id: int, garment_id: int, usage: ImageUsage | 
 
 
 def rework_garment(db_path: Path, reworks_dir: Path, log_path: Path, user_id: int, garment_id: int, instruction: str,
-                   client: Client) -> dict:
+                   client: Client) -> Rework:
     """Edit the garment's front photo by the instruction, save the result, and return its row. The caller has
     checked that the garment is this user's. ServiceError and UnusableResponse pass through, the latter logged."""
     paths = photos.get_photo_paths(garment_id)
