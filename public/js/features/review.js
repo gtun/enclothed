@@ -116,3 +116,11 @@ async function startMend(g){
     if (!review.open) refresh();
   }
 }
+
+/* The garment page's Mend button, or Review mend once answers are kept. */
+function handleMendClick(e){
+  if (!e.target.closest("[data-mend]")) return false;
+  const g = currentGarment();
+  if (g) startMend(g);
+  return true;
+}

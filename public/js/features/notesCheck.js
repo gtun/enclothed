@@ -74,3 +74,8 @@ function handleNotesCheckClick(e){
   }
   return true;
 }
+
+/* Escape in the prompt answers "No". */
+addEventListener("keydown", e => {
+  if (e.key === "Escape" && e.target.closest(".notecheck")) e.target.closest(".notecheck").querySelector('[data-nc="no"]').click();
+});

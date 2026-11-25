@@ -11,3 +11,12 @@ async function rate(o, value){
   } catch (e) { toast(e.message, true); }
   refresh();
 }
+
+/* Like and Dislike, on a card (which names its outfit) or on an outfit's page. */
+function handleRateClick(e){
+  const r = e.target.closest("[data-rate]");
+  if (!r) return false;
+  const id = r.dataset.rateId || (location.hash.match(/^#outfit-(\d+)$/) || [])[1];
+  if (id && outById[id]) rate(outById[id], r.dataset.rate === "true");
+  return true;
+}

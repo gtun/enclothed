@@ -155,3 +155,13 @@ function materialsEditor(host, g){
   function focusLast(pi){ const els = host.querySelectorAll(`[data-p="${pi}"][data-k="fiber"]`); (els[els.length - 1] || host.querySelector(`[data-p="${pi}"]`))?.focus(); }
   host.querySelector("input")?.focus();
 }
+
+/* A click on an editable value opens its editor. On text that can hold links (notes), following a link or selecting
+   text doesn't. */
+function handleEditClick(e){
+  const ed = e.target.closest("[data-edit]");
+  if (!ed) return false;
+  const onText = ed.tagName !== "BUTTON";
+  if (onText && (e.target.closest("a") || String(getSelection()))) return true;
+  openEditor(ed.dataset.edit); return true;
+}
