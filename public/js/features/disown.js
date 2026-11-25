@@ -50,3 +50,12 @@ async function disownClick(e){
     toast(err.message, true);
   }
 }
+
+/* The garment page's "I no longer own this" and "Add this to my wardrobe again". */
+function handleDisownClick(e){
+  const button = e.target.closest("[data-disown],[data-reown]");
+  if (!button) return false;
+  const g = currentGarment();
+  if (g) button.hasAttribute("data-disown") ? openDisown(g) : reown(g);
+  return true;
+}

@@ -1,4 +1,5 @@
-/* Page routing (#wardrobe, #outfits, #garment-N, #outfit-N, #results, #usage, #shared, #weighed, #weigh-N, #looks, #look-N), click handling, and start-up. Loaded last. */
+/* Page routing, the app's clicks, and start-up. Loaded last. Each page is one row of ROUTES; its text is in
+   templates/navigation.js. Each feature handles its own clicks (CLICK_HANDLERS). */
 "use strict";
 
 const app = document.getElementById("app");
@@ -7,68 +8,78 @@ let current = null;
 let pageFound = true;   // false on "not found" pages, which skip the first-visit help
 const stack = [location.hash || "#wardrobe"];
 function currentGarment(){ const m = location.hash.match(/^#garment-(\d+)$/); return m ? byId[m[1]] : null; }
+
+/* A page about one garment, outfit or look, or the page for one that isn't there. */
+const itemPage = (view, item, draw) => item ? {html: draw(item), title: pageTitle(view, item), found: true}
+                                            : {html: NOT_FOUND_PAGES[view](), title: pageTitle(), found: false};
+const listPage = (view, draw) => ({html: draw(), title: pageTitle(view), found: true});
+
+/* Every page, by its address (the hash, without #). view names it for help topics and the "← Back" wording, section
+   is the top-bar item it lights up, and page(match) draws it: {html, title, found}, plus view when it shows a
+   different page than the address names. gallery wires the photo carousel; enter runs when the page is opened;
+   keepScroll comes back to where you were. The last row catches every other address. */
+const ROUTES = [
+  {path: /^garment-(\d+)$/, view: "garment", section: "wardrobe", gallery: true, enter: () => reworkPageShown(currentGarment()),
+   page: m => itemPage("garment", byId[m[1]], garmentPage)},
+  {path: /^outfit-(\d+)$/, view: "outfit", section: "outfits", page: m => itemPage("outfit", outById[m[1]], outfitPage)},
+  {path: /^weigh-(\d+)$/, view: "weigh", section: "wardrobe", page: m => {
+    const g = byId[m[1]];
+    if (g && !isCandidate(g)) return {html: garmentPage(g), title: pageTitle(), found: false, view: "garment"};   // bought since: an old link shows it in the wardrobe
+    return itemPage("weigh", g, weighPage);
+  }},
+  {path: /^look-(\d+)$/, view: "look", section: "outfits", page: m => itemPage("look", lookById[m[1]], lookPage)},
+  {path: /^looks$/, view: "looks", section: "outfits", page: () => listPage("looks", looksPage)},
+  {path: /^weighed$/, view: "weighed", section: "wardrobe", page: () => listPage("weighed", weighedPage)},
+  {path: /^outfits$/, view: "outfits", section: "outfits", keepScroll: true, page: () => listPage("outfits", outfits)},
+  {path: /^results$/, view: "results", section: "outfits", page: () => {
+    const found = !!builder.session?.ids.length;   // before drawing, as the page may change the session
+    return {...listPage("results", resultsPage), found};
+  }},
+  {path: /^disowned-garments$/, view: "disowned-garments", section: "wardrobe", page: () => listPage("disowned-garments", disownedGarments)},
+  {path: /^disowned-outfits$/, view: "disowned-outfits", section: "outfits", page: () => listPage("disowned-outfits", disownedOutfits)},
+  {path: /^style$/, view: "style", section: "style", page: () => listPage("style", stylePage)},
+  {path: /^usage$/, view: "usage", section: "usage", enter: loadUsage, page: () => listPage("usage", usagePage)},
+  {path: /^shared$/, view: "shared", section: "shared", enter: loadSharedLinks, page: () => listPage("shared", sharedLinksPage)},
+  {path: /^/, view: "wardrobe", section: "wardrobe", keepScroll: true, page: () => listPage("wardrobe", wardrobe)},
+];
+const routeFor = hash => ROUTES.find(r => r.path.test(hash.replace(/^#/, "")));
+const routeByView = view => ROUTES.find(r => r.view === view);
+const SECTIONS = ["wardrobe", "outfits", "style", "usage", "shared"];   // the top bar: #nav-wardrobe and so on
+
 function render(){
-  const h = location.hash.slice(1);
-  let m, view = "wardrobe", html;
-  pageFound = true;
-  if ((m = h.match(/^garment-(\d+)$/))){
-    const g = byId[m[1]];
-    view = "garment"; pageFound = !!g;
-    html = g ? garmentPage(g) : `<div class="state"><h1>Garment not found</h1><p><a href="#wardrobe">Back to the wardrobe</a></p></div>`;
-    document.title = g ? `${title(g)} · enclothed` : "enclothed";
-  } else if ((m = h.match(/^outfit-(\d+)$/))){
-    const o = outById[m[1]];
-    view = "outfit"; pageFound = !!o;
-    html = o ? outfitPage(o) : `<div class="state"><h1>Outfit not found</h1><p><a href="#outfits">Back to outfits</a></p></div>`;
-    document.title = o ? `${o.aesthetic} · enclothed` : "enclothed";
-  } else if ((m = h.match(/^weigh-(\d+)$/))){
-    const g = byId[m[1]];
-    view = "weigh"; pageFound = !!g && isCandidate(g);
-    html = pageFound ? weighPage(g) : g ? garmentPage(g) : `<div class="state"><h1>Not found</h1><p><a href="#weighed">Back to Weighing</a></p></div>`;
-    document.title = pageFound ? `Weighing ${title(g)} · enclothed` : "enclothed";
-    if (g && !pageFound) view = "garment";   // bought since: an old link shows it in the wardrobe
-  } else if ((m = h.match(/^look-(\d+)$/))){
-    const l = lookById[m[1]];
-    view = "look"; pageFound = !!l;
-    html = l ? lookPage(l) : `<div class="state"><h1>Look not found</h1><p><a href="#looks">Back to Looks</a></p></div>`;
-    document.title = l ? `${l.title} · enclothed` : "enclothed";
-  } else if (h === "looks"){ view = "looks"; html = looksPage(); document.title = "Looks · enclothed"; }
-  else if (h === "weighed"){ view = "weighed"; html = weighedPage(); document.title = "Weighing · enclothed"; }
-  else if (h === "outfits"){ view = "outfits"; html = outfits(); document.title = "Outfits · enclothed"; }
-  else if (h === "results"){ view = "results"; pageFound = !!builder.session?.ids.length; html = resultsPage(); document.title = "New suggestions · enclothed"; }
-  else if (h === "disowned-garments"){ view = "disowned-garments"; html = disownedGarments(); document.title = "Disowned garments · enclothed"; }
-  else if (h === "disowned-outfits"){ view = "disowned-outfits"; html = disownedOutfits(); document.title = "Disowned outfits · enclothed"; }
-  else if (h === "style"){ view = "style"; html = stylePage(); document.title = "Your style · enclothed"; }
-  else if (h === "usage"){ view = "usage"; html = usagePage(); document.title = "Usage · enclothed"; }
-  else if (h === "shared"){ view = "shared"; html = sharedLinksPage(); document.title = "Shared links · enclothed"; }
-  else { html = wardrobe(); document.title = "enclothed"; }
-  app.innerHTML = html;
-  const section = (view === "outfit" || view === "outfits" || view === "results" || view === "disowned-outfits" || view === "look" || view === "looks") ? "outfits" : view === "style" || view === "usage" || view === "shared" ? view : "wardrobe";
-  for (const k of ["wardrobe", "outfits", "style", "usage", "shared"]){ const n = document.getElementById("nav-" + k);
-    if (k === section) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current"); }
+  const asked = routeFor(location.hash);
+  const page = asked.page(location.hash.slice(1).match(asked.path));
+  const view = page.view || asked.view;
+  pageFound = page.found;
+  document.title = page.title;
+  app.innerHTML = page.html;
+  const section = routeByView(view).section;
+  for (const k of SECTIONS){
+    const n = document.getElementById("nav-" + k);
+    if (k === section) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current");
+  }
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;
   const bk = app.querySelector("[data-back]");
-  if (bk && prev){ const pm = prev.match(/^#(garment|outfit)-/);
-    bk.textContent = pm ? `← Back to ${pm[1]}` : prev.startsWith("#weigh-") ? "← Back to the verdict" : prev === "#weighed" ? "← Weighing" : prev.startsWith("#look-") ? "← Back to the look" : prev === "#looks" ? "← Looks" : prev === "#results" ? "← New suggestions" : prev === "#outfits" ? "← Outfits" : prev === "#disowned-garments" ? "← Disowned garments" : prev === "#disowned-outfits" ? "← Disowned outfits" : "← Wardrobe"; }
+  if (bk && prev) bk.textContent = backLabel(routeFor(prev).view);
   return view;
 }
 function route(){
   closeHelp();
-  if (current === "wardrobe" || current === "outfits") scrollMem[current] = scrollY;
+  if (routeByView(current)?.keepScroll) scrollMem[current] = scrollY;
   weighConfirm = false; lookConfirm = false;
   const view = render();
   current = view;
-  if (view === "garment"){ wireGallery(); reworkPageShown(currentGarment()); }
-  if (view === "usage") loadUsage();
-  if (view === "shared") loadSharedLinks();
-  scrollTo(0, (view === "wardrobe" || view === "outfits") ? (scrollMem[view] || 0) : 0);
+  const page = routeByView(view);
+  if (page.gallery) wireGallery();
+  page.enter?.();
+  scrollTo(0, page.keepScroll ? (scrollMem[view] || 0) : 0);
   if (pageFound) showHelpOnce(view);
 }
 /* Re-draw the current page after a change, keeping scroll and photo position. */
 function refresh(){
   const y = scrollY, gi = galleryIndex();
   const view = render();
-  if (view === "garment") wireGallery(gi);
+  if (routeByView(view).gallery) wireGallery(gi);
   scrollTo(0, y);
 }
 addEventListener("hashchange", () => {
@@ -76,66 +87,22 @@ addEventListener("hashchange", () => {
   if (stack.length > 1 && stack[stack.length - 2] === h) stack.pop(); else if (stack[stack.length - 1] !== h) stack.push(h);
   route();
 });
-app.addEventListener("click", e => {
-  const f = e.target.closest("[data-cat],[data-scope],[data-req],[data-toggle-disliked],[data-osrc],[data-toggle-worn]");
-  if (f){
-    if (f.dataset.cat) cat = f.dataset.cat;
-    if (f.dataset.scope) scope = f.dataset.scope;
-    if (f.dataset.req) req = f.dataset.req;
-    if (f.hasAttribute("data-toggle-disliked")){ showDisliked = !showDisliked; store.set("enclothed-show-disliked", showDisliked); }
-    if (f.dataset.osrc){ osrc = f.dataset.osrc; req = "all"; }
-    if (f.hasAttribute("data-toggle-worn")) wornOnly = !wornOnly;
-    refresh(); return;
-  }
-  if (e.target.closest("[data-ofilt-toggle]")){ filtersOpen = !filtersOpen; refresh(); if (filtersOpen) document.getElementById("of-q")?.focus(); return; }
-  const wv = e.target.closest("[data-wview]");
-  if (wv){ wview = wv.dataset.wview; store.set("enclothed-wardrobe-view", wview); refresh(); return; }
-  if (handleStyleClick(e)) return;
-  if (handleUsageClick(e)) return;
-  if (handleSharedLinksClick(e)) return;
-  if (handleReworkClick(e)) return;
-  const of = e.target.closest("[data-ofilt-f],[data-ofilt-w],[data-ofilt-clear]");
-  if (of){
-    const toggle = (list, v) => list.includes(v) ? list.filter(x => x !== v) : [...list, v];
-    if (of.dataset.ofiltF) ofilt.formality = toggle(ofilt.formality, +of.dataset.ofiltF);
-    else if (of.dataset.ofiltW) ofilt.warmth = toggle(ofilt.warmth, +of.dataset.ofiltW);
-    else ofilt = {q: "", from: "", to: "", formality: [], warmth: []};
-    refresh(); return;
-  }
-  const ed = e.target.closest("[data-edit]");
-  if (ed){
-    const onText = ed.tagName !== "BUTTON";   // notes: a link is followed, and text can be selected, without opening the editor
-    if (onText && (e.target.closest("a") || String(getSelection()))) return;
-    openEditor(ed.dataset.edit); return;
-  }
-  if (e.target.closest("[data-mend]")){ const g = currentGarment(); if (g) startMend(g); return; }
-  if (e.target.closest("[data-disown]")){ const g = currentGarment(); if (g) openDisown(g); return; }
-  if (e.target.closest("[data-reown]")){ const g = currentGarment(); if (g) reown(g); return; }
-  if (handleNotesCheckClick(e)) return;
-  if (handleBuilderClick(e)) return;
-  if (handleWeighClick(e)) return;
-  if (handleMimicClick(e)) return;
-  const r = e.target.closest("[data-rate]");
-  if (r){ const id = r.dataset.rateId || (location.hash.match(/^#outfit-(\d+)$/) || [])[1]; if (id && outById[id]) rate(outById[id], r.dataset.rate === "true"); return; }
+
+/* "← Back": the previous page if there is one in this tab, or the page the button names. */
+function handleBackClick(e){
   const b = e.target.closest("[data-back]");
-  if (b){ if (stack.length > 1) history.back(); else location.hash = b.dataset.back; }
-});
-/* Typing in a filter redraws the page, so put the cursor back where it was. */
-let filterTimer = null;
-app.addEventListener("input", e => {
-  const el = e.target.closest("[data-ofilt]"); if (!el) return;
-  ofilt[el.dataset.ofilt] = el.value;
-  clearTimeout(filterTimer);
-  filterTimer = setTimeout(() => {
-    const id = el.id, start = el.selectionStart, end = el.selectionEnd;
-    refresh();
-    const again = document.getElementById(id);
-    if (again){ again.focus(); try { again.setSelectionRange(start, end); } catch (err) {} }
-  }, el.type === "date" ? 0 : 200);
-});
-addEventListener("keydown", e => {
-  if (e.key === "Escape" && e.target.closest(".notecheck")){ e.target.closest(".notecheck").querySelector('[data-nc="no"]').click(); return; }
-});
+  if (!b) return false;
+  if (stack.length > 1) history.back(); else location.hash = b.dataset.back;
+  return true;
+}
+/* Each takes the click and returns true if it was theirs; the first one that does, wins. The order only matters
+   where one button could match two, so keep new ones near the feature they belong with. */
+const CLICK_HANDLERS = [
+  handleWardrobeFilterClick, handleOutfitFilterClick, handleStyleClick, handleUsageClick, handleSharedLinksClick,
+  handleReworkClick, handleEditClick, handleMendClick, handleDisownClick, handleNotesCheckClick, handleBuilderClick,
+  handleWeighClick, handleMimicClick, handleRateClick, handleBackClick,
+];
+app.addEventListener("click", e => { CLICK_HANDLERS.some(handle => handle(e)); });
 
 /* ================= start ================= */
 (async function start(){
@@ -165,6 +132,6 @@ addEventListener("keydown", e => {
     route();
   } catch (e) {
     if (e.status === 401 || e.status === 403){ app.innerHTML = accessPage(e.status); hideSections(); return; }
-    app.innerHTML = `<div class="state"><h1>Couldn't load your wardrobe</h1><p>${esc(e.message)}</p><p>Check that the server is running (<code>uv run fastapi dev src/enclothed/api.py</code>), then refresh.</p></div>`;
+    app.innerHTML = loadFailedPage(e.message);
   }
 })();
