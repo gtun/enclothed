@@ -1,6 +1,7 @@
 /* Hovering or keyboard-focusing a garment named in AI prose (garmentRefs in templates/shared.js) shows its main photo;
    an outfit link shows a strip of its pieces, and clicking it opens them in the outfit builder.
-   On a phone the tap simply follows the link. One floating box, reused; it never takes the pointer. */
+   On a phone the tap simply follows the link. One floating box, reused; it never takes the pointer.
+   What it shows is in templates/popups.js. */
 "use strict";
 
 let peekBox = null;
@@ -9,9 +10,7 @@ function showPeek(link){
   const g = byId[link.dataset.gref]; if (!outfit && !g) return;
   if (!peekBox){ peekBox = Object.assign(document.createElement("div"), {className: "peek", hidden: true}); peekBox.setAttribute("role", "tooltip"); document.body.append(peekBox); }
   peekBox.classList.toggle("outfit", !!outfit);
-  peekBox.innerHTML = outfit
-    ? `<div class="peekrow">${outfit.map(p => `<div class="peekph">${ph(p, thumb(p), true)}</div>`).join("")}</div><span>Open in the outfit builder</span>`
-    : `<div class="peekph">${ph(g, thumb(g), true)}</div><span>${esc(title(g))}${SHOW_IDS ? ` <small>#${g.id}</small>` : ""}</span>`;
+  peekBox.innerHTML = outfit ? peekOutfit(outfit) : peekGarment(g);
   peekBox.hidden = false;
   // Below the link, or above when there's no room; kept inside the window.
   const r = link.getBoundingClientRect(), w = peekBox.offsetWidth, h = peekBox.offsetHeight;

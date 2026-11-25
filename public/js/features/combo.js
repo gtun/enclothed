@@ -1,4 +1,4 @@
-/* The type-to-filter dropdown used for editing and for adding pieces. */
+/* The type-to-filter dropdown used for editing and for adding pieces. Its markup is in templates/combo.js. */
 "use strict";
 
 /* ================= combobox =================
@@ -10,8 +10,7 @@ let comboSeq = 0;
 function combo(host, {options, current, free = false, placeholder = "Type to filter…", onPick, onCancel, keepOpen = false, autofocus = true, collapsed = false, scope = host}){
   const id = "cb" + (++comboSeq);
   if (!keepOpen) host.style.minHeight = `${host.getBoundingClientRect().height}px`;   // the row keeps its height, so nothing below it moves
-  host.innerHTML = `<div class="cb${collapsed ? " inline" : ""}"><input type="text" role="combobox" aria-expanded="true" aria-controls="${id}" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="${esc(placeholder)}">
-    <span class="caret" aria-hidden="true">▾</span><div class="pop"><ul role="listbox" id="${id}"></ul><div class="hintline"></div></div></div>`;
+  host.innerHTML = comboBox(id, collapsed, placeholder);
   const wrap = host.querySelector(".cb"), input = wrap.querySelector("input"), pop = wrap.querySelector(".pop"), list = wrap.querySelector("ul"), hint = wrap.querySelector(".hintline");
   const curOpt = options.find(o => o.value === current);
   input.value = curOpt ? curOpt.label : (free && current ? String(current) : "");
@@ -23,20 +22,17 @@ function combo(host, {options, current, free = false, placeholder = "Type to fil
     const q = typed ? norm(input.value) : "";
     shown = q ? options.filter(o => norm(o.label).includes(q) || norm(o.value ?? "").includes(q)) : options.slice();
     const exact = free && q && options.some(o => norm(o.label) === q);
-    let html = shown.map((o, i) => `<li role="option" id="${id}-${i}" data-i="${i}" aria-selected="${i === active}" class="${o.value === current ? "cur" : ""}">${o.hex ? `<span class="chip" style="background:${o.hex}"></span>` : ""}${esc(o.label)}</li>`).join("");
-    if (free && q && !exact) html = `<li role="option" id="${id}-free" data-free="1" class="free" aria-selected="${active === shown.length}">Use <b>“${esc(input.value.trim())}”</b></li>` + html;
-    if (!html) html = `<li class="nomatch" aria-disabled="true">No match. Clear the box to see every option.</li>`;
-    list.innerHTML = html;
+    list.innerHTML = comboList(id, shown, active, current, free && q && !exact ? input.value.trim() : null);
     const el = active >= 0 ? list.querySelector(`[aria-selected="true"]`) : null;
     if (el){ input.setAttribute("aria-activedescendant", el.id); el.scrollIntoView({block:"nearest"}); } else input.removeAttribute("aria-activedescendant");
     wrap.classList.remove("invalid"); hint.classList.remove("err");
-    hint.textContent = keepOpen ? (free ? "Enter to add · Esc when done" : "Pick to add · Esc when done") : free ? "Enter to save · Esc to cancel" : "Pick from the list · Esc to cancel";
+    hint.textContent = comboHint(keepOpen, free);
   }
   const freeRowCount = () => (list.querySelector("[data-free]") ? 1 : 0);
   function pickIndex(i){ if (done) return; done = !keepOpen; const v = shown[i].value; if (keepOpen){ input.value = ""; typed = false; active = -1; if (collapsed) opened = false; render(); } onPick(v); }
   function pickFree(){ if (done) return; const v = input.value.trim(); done = !keepOpen; onPick(v === "" ? null : v); if (keepOpen){ input.value = ""; typed = false; render(); input.focus(); } }
   function cancel(){ if (done) return; done = true; onCancel && onCancel(); }
-  function reject(){ wrap.classList.add("invalid"); hint.classList.add("err"); hint.textContent = "Not one of the options. Pick one from the list."; }
+  function reject(){ wrap.classList.add("invalid"); hint.classList.add("err"); hint.textContent = COMBO_REJECT; }
   function commitTyped(){
     const q = norm(input.value);
     if (!q && keepOpen) return dismiss();

@@ -12,7 +12,7 @@ function drawInsights(){
   const log = document.getElementById("insights-log");
   log.innerHTML = (insights.messages.length || insights.busy ? insights.messages.map(insightMessage).join("") : insightEmpty())
     + (insights.busy ? insightBusy() : "")
-    + (insights.error ? `<p class="formerr" role="alert">${esc(insights.error)}</p>` : "");
+    + (insights.error ? insightError(insights.error) : "");
   document.getElementById("insights-send").disabled = insights.busy;
   const fresh = insightsRoot.querySelector("[data-i-new]");
   fresh.hidden = !insights.messages.length;

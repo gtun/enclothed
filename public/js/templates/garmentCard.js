@@ -18,3 +18,9 @@ function gCard(g){
       <span class="row">${gone ? `<span>Disowned ${esc(whenDay(g.disowned_on))}</span>` : `<span class="scales"><span>F${pips(g.formality||0,4)}</span><span>W${pips(g.warmth||0,5)}</span></span><span>${wearsAndOutfits(g, n)}</span>`}</span>
     </div></a>${gone ? "" : `<span class="addlayer">${g.photos.length ? reworkCardButton(g) : ""}${pickButton(g)}</span>`}</div>`;
 }
+
+/* The + or − on a card or row that adds the garment to the outfit builder (features/builder.js), or takes it out. */
+function pickButton(g){
+  const on = builder.pieces.includes(g.id);
+  return `<button type="button" class="addbtn" data-pick="${g.id}" aria-pressed="${on}" aria-label="${on ? "Remove from outfit" : "Add to outfit"}: ${esc(title(g))}" title="${on ? "Remove from outfit" : "Add to outfit"}">${on ? "−" : "+"}</button>`;
+}

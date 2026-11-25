@@ -1,5 +1,6 @@
 /* Logging wears: the "wore it" date picker that the wear buttons open, and removing a wear logged by mistake.
-   The buttons are in templates/outfitCard.js (wearButton) and the outfit page lists each wear. */
+   The buttons are in templates/outfitCard.js (wearButton), the picker in templates/popups.js, and the outfit page
+   lists each wear. */
 "use strict";
 
 let wearPop = null;
@@ -11,8 +12,7 @@ function openWearPop(button, outfitId){
   wearPop.setAttribute("role", "dialog");
   wearPop.setAttribute("aria-label", "Log a wear");
   wearPop.dataset.outfit = outfitId;
-  wearPop.innerHTML = `<label for="wear-day">Wore it on</label><input id="wear-day" class="txt" type="date" value="${today}" max="${today}" required>
-    <div class="row"><button type="button" class="btn primary" data-wear-save>Log wear</button><button type="button" class="btn quiet" data-wear-cancel>Cancel</button></div>`;
+  wearPop.innerHTML = wearForm(today);
   document.body.append(wearPop);
   // Under the button, or above it when there's no room; kept inside the window.
   const r = button.getBoundingClientRect(), w = wearPop.offsetWidth, h = wearPop.offsetHeight;

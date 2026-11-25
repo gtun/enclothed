@@ -1,4 +1,5 @@
-/* Inline editing on the garment page: opening the right editor and saving changes. */
+/* Inline editing on the garment page: opening the right editor and saving changes. The editors' markup is in
+   templates/fieldEditors.js. */
 "use strict";
 
 let saving = false;
@@ -44,7 +45,7 @@ function openEditor(field){
       onPick: v => {
         if (v === g.category) return redraw();
         const sub = editRoot().querySelector('[data-field="subcategory"]');
-        host.innerHTML = `<div class="ontrack"><span class="cchip">${esc(categoryName(v))}</span><span class="hintline">pick a subcategory to save</span></div>`;
+        host.innerHTML = categoryPicked(v);
         subcategoryEditor(sub, g, v);
       }});
   } else if (field === "subcategory"){
@@ -85,9 +86,7 @@ function multiEditor(host, g, field, options, free){
   const isColor = field !== "style_tags";
   /* The editor floats over the row, which stays in place (hidden) so nothing below it moves. */
   host.querySelector(".ev").style.visibility = "hidden";
-  host.insertAdjacentHTML("beforeend", `<div class="multi float"><div class="have">${values.map((v, i) => `<span class="pill">${isColor ? `<span class="chip" style="background:${hex(v)}"></span>` : ""}${esc(isColor ? colorName(v) : v)}<button type="button" data-rm="${i}" aria-label="Remove ${esc(isColor ? colorName(v) : v)}">×</button></span>`).join("") || `<span class="empty">None yet</span>`}</div>
-    <div class="btns"><button type="button" class="btn done-btn">Done</button><span class="hintline">${review.open ? "" : "Changes save as you go"}</span></div>
-    <div class="adder"></div></div>`);
+  host.insertAdjacentHTML("beforeend", multiEditorBox(values, isColor, review.open));
   host.querySelector(".have").addEventListener("click", e => {
     const b = e.target.closest("[data-rm]"); if (!b) return;
     const removed = values[+b.dataset.rm], next = values.filter((_, i) => i !== +b.dataset.rm);
@@ -108,8 +107,7 @@ function multiEditor(host, g, field, options, free){
 }
 function textEditor(host, g, field){
   const rows = {notes: 3, styling_notes: 7, label_text: 5}[field];
-  host.innerHTML = `<textarea class="txt" rows="${rows}" spellcheck="${field !== "label_text"}">${esc(g[field] || "")}</textarea>
-    <div class="btns" style="margin-top:8px"><button type="button" class="btn primary" data-act="save">Save</button><button type="button" class="btn quiet" data-act="cancel">Cancel</button><span class="hintline">Ctrl+Enter to save · Esc to cancel</span></div>`;
+  host.innerHTML = textEditorBox(g[field] || "", rows, field !== "label_text");
   const ta = host.querySelector("textarea");
   const blank = field === "styling_notes" ? "" : null;   // styling notes are text in the DB, never null
   const commit = () => { const v = ta.value.trim() || blank; if (v === (g[field] || blank)) return redraw(); save(g, {[field]: v}); };
@@ -126,22 +124,7 @@ function materialsEditor(host, g){
   const fibers = unique(G.flatMap(x => x.materials.flatMap(m => m.fibers.map(f => f.fiber))));
   const partNames = unique(G.flatMap(x => x.materials.map(m => m.part)));
   const listId = "fibers-" + g.id, partId = "parts-" + g.id;
-  function draw(){
-    host.innerHTML = `<div class="mats">
-      <datalist id="${listId}">${fibers.map(f => `<option value="${esc(f)}">`).join("")}</datalist>
-      <datalist id="${partId}">${partNames.map(f => `<option value="${esc(f)}">`).join("")}</datalist>
-      ${parts.map((m, pi) => { const sum = m.fibers.reduce((n, f) => n + (+f.percent || 0), 0); return `<div class="mpart">
-        <div class="top"><input class="txt" list="${partId}" data-p="${pi}" data-k="part" value="${esc(m.part || "")}" placeholder="Part (optional, e.g. shell, lining)" aria-label="Part name">
-          ${parts.length > 1 ? `<button type="button" class="x" data-rmpart="${pi}" aria-label="Remove this part">×</button>` : ""}</div>
-        ${m.fibers.map((f, fi) => `<div class="frow"><input class="txt" list="${listId}" data-p="${pi}" data-f="${fi}" data-k="fiber" value="${esc(f.fiber)}" placeholder="Fiber" aria-label="Fiber">
-          <span class="pct"><input class="num" type="number" min="1" max="100" step="1" data-p="${pi}" data-f="${fi}" data-k="percent" value="${f.percent}" aria-label="Percent"></span>
-          <button type="button" class="x" data-rmfiber="${pi}:${fi}" aria-label="Remove this fiber">×</button></div>`).join("")}
-        <div class="btns"><button type="button" class="btn quiet" data-addfiber="${pi}">+ Fiber</button><span class="msum${sum === 100 ? "" : " off"}">total ${sum}%</span></div>
-      </div>`; }).join("")}
-      <div class="btns"><button type="button" class="btn quiet" data-addpart>+ Part</button></div>
-      <div class="btns"><button type="button" class="btn primary" data-act="save">Save materials</button><button type="button" class="btn quiet" data-act="cancel">Cancel</button><span class="hintline" id="materr"></span></div>
-    </div>`;
-  }
+  const draw = () => { host.innerHTML = materialsEditorBox(parts, fibers, partNames, listId, partId); };
   draw();
   host.addEventListener("input", e => {
     const el = e.target; if (!el.dataset.k) return;
@@ -149,8 +132,8 @@ function materialsEditor(host, g){
     if (el.dataset.k === "part") m.part = el.value;
     else if (el.dataset.k === "fiber") m.fibers[+el.dataset.f].fiber = el.value;
     else if (el.dataset.k === "percent"){ m.fibers[+el.dataset.f].percent = el.value === "" ? "" : +el.value;
-      const sum = m.fibers.reduce((n, f) => n + (+f.percent || 0), 0);
-      const s = el.closest(".mpart").querySelector(".msum"); s.textContent = `total ${sum}%`; s.classList.toggle("off", sum !== 100); }
+      const sum = materialsSum(m);
+      const s = el.closest(".mpart").querySelector(".msum"); s.textContent = materialsSumText(sum); s.classList.toggle("off", sum !== 100); }
   });
   host.addEventListener("click", e => {
     const t = e.target.closest("button"); if (!t) return;
@@ -164,7 +147,7 @@ function materialsEditor(host, g){
       const clean = parts.map(m => ({part: (m.part || "").trim() || null, fibers: m.fibers.filter(f => String(f.fiber).trim() || f.percent !== "")
         .map(f => ({fiber: String(f.fiber).trim(), percent: f.percent === "" ? NaN : Number(f.percent)}))})).filter(m => m.fibers.length);
       const bad = clean.flatMap(m => m.fibers).find(f => !f.fiber || !Number.isInteger(f.percent) || f.percent < 1 || f.percent > 100);
-      if (bad){ err.textContent = "Each fiber needs a name and a whole-number percent from 1 to 100."; err.classList.add("err"); return; }
+      if (bad){ err.textContent = MATERIALS_ERROR; err.classList.add("err"); return; }
       save(g, {materials: clean});
     }
   });
