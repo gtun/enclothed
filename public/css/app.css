@@ -341,7 +341,6 @@ mark{background:var(--mark);color:var(--mark-ink);border-radius:2px;padding:0 2p
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .bhint{font-size:.76rem;color:var(--muted);margin:0}
 body.with-builder .wrap{margin-right:max(392px,calc((100% - 1180px)/2))}
-.mini-bar{display:none}
 .builder [data-builder-min]{display:none}  /* minimizing only matters on phones */
 
 /* results */

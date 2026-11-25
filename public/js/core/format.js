@@ -2,7 +2,12 @@
 "use strict";
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const hex = c => HEX[c] || "#999999";
+/* A theme.css variable's value on this page, such as "#999999". */
+const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+/* A color name's swatch. One the options don't list gets theme.css's --unlisted-color, read once: it's the same in Day
+   and Evening, and llmColor.js needs it as a hex value to measure. */
+let unlistedColor = null;
+const hex = c => HEX[c] || (unlistedColor ||= cssVar("--unlisted-color"));
 /* Drop punctuation that ends the sentence rather than the address, and a closing bracket with no opening one. */
 function trimUrl(url){
   for (;;){
@@ -51,11 +56,10 @@ const REWORK_ICON = `<svg class="rwicon" viewBox="0 0 32 32" width="16" height="
 const PEN = `<svg class="pen" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M11.3 2.3a1.6 1.6 0 0 1 2.3 2.3L5.4 12.8l-3 .8.8-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 /* A coat hanger: the "mark as worn" button before an outfit has any wears. */
 const WEAR_ICON = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 5.2V4.6c0-.4.2-.6.5-.8.7-.4 1-1 .9-1.6C9.2 1.5 8.6 1 8 1s-1.2.5-1.3 1.2M8 5.2 1.6 10.4c-.6.5-.3 1.4.5 1.4h11.8c.8 0 1.1-.9.5-1.4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
-/* Today as a plain local day ("2026-11-08"), the way wears are dated. */
-const todayLocal = () => { const d = new Date(); return [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n, i) => String(n).padStart(i ? 2 : 4, "0")).join("-"); };
+/* A moment as a plain local day ("2026-11-08"), the way wears and disowning are dated. Today by default. */
+const localDay = (when = Date.now()) => { const d = new Date(when); return [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n, i) => String(n).padStart(i ? 2 : 4, "0")).join("-"); };
 const THUMB_UP = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 7v7H2.5V7zM5 7l3-5c1.2 0 1.8.8 1.6 2L9.2 6.5h3.6c.9 0 1.5.8 1.3 1.6l-1.2 4.9c-.2.6-.7 1-1.3 1H5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 const THUMB_DOWN = `<svg viewBox="0 0 16 16" aria-hidden="true" style="transform:rotate(180deg)"><path d="M5 7v7H2.5V7zM5 7l3-5c1.2 0 1.8.8 1.6 2L9.2 6.5h3.6c.9 0 1.5.8 1.3 1.6l-1.2 4.9c-.2.6-.7 1-1.3 1H5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 
 const photoName = url => decodeURIComponent(url.split("/").pop()).replace(/\.\w+$/, "");
-const mainPhoto = g => g.photos.length ? g.photos[0].url : null;
 const thumb = g => g.photos.length ? g.photos[0].thumb_url : null;

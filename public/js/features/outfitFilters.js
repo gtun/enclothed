@@ -12,7 +12,6 @@ function settleRequest(groups){
 }
 const activeFilterCount = () => [ofilt.q.trim(), ofilt.from, ofilt.to].filter(Boolean).length + (ofilt.formality.length ? 1 : 0) + (ofilt.warmth.length ? 1 : 0);
 const filtersActive = () => !!(ofilt.q.trim() || ofilt.from || ofilt.to || ofilt.formality.length || ofilt.warmth.length);
-const localDay = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 function passesFilters(o){
   const q = ofilt.q.trim().toLowerCase();
   if (q && !o.prompt_message.toLowerCase().includes(q)) return false;

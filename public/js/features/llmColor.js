@@ -24,23 +24,25 @@ function wardrobeAccent(lightGarments, bg){
     .map(([name]) => hex(name))
     .find(h => saturation(h) >= 0.3 && contrastRatio(h, bg) >= 3) || null;
 }
-function themeBackground(theme){
+/* theme.css values as they are in the given theme ("light" or "dark"), whichever one is showing. */
+function themeValues(theme, names){
   const root = document.documentElement, was = root.getAttribute("data-theme");
   root.setAttribute("data-theme", theme);
-  const bg = getComputedStyle(root).getPropertyValue("--bg").trim();
+  const values = names.map(cssVar);
   root.setAttribute("data-theme", was);
-  return bg;
+  return values;
 }
+const isHex = h => /^#[0-9a-f]{6}$/i.test(h);
 function applyLlmColors(){
   let style = document.getElementById("llm-colors");
   if (!style){ style = document.createElement("style"); style.id = "llm-colors"; document.head.appendChild(style); }
   if (SETTINGS.aiButtonColor !== "wardrobe"){ style.textContent = ""; return; }
   const rule = (theme, light) => {
-    const bg = themeBackground(theme);
-    if (!/^#[0-9a-f]{6}$/i.test(bg)) return "";
+    const [bg, onLight, onDark] = themeValues(theme, ["--bg", "--on-picked-light", "--on-picked-dark"]);
+    if (![bg, onLight, onDark].every(isHex)) return "";
     const c = wardrobeAccent(light, bg);
     if (!c) return "";
-    const on = contrastRatio(c, "#ffffff") >= contrastRatio(c, "#121212") ? "#ffffff" : "#121212";
+    const on = contrastRatio(c, onLight) >= contrastRatio(c, onDark) ? onLight : onDark;
     return `:root[data-theme="${theme}"]{--llm:${c};--on-llm:${on}}`;
   };
   style.textContent = rule("light", true) + "\n" + rule("dark", false);

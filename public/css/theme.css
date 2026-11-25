@@ -65,6 +65,12 @@
      --photo color behind it, so it reads lighter in Day and darker in Evening. */
   --disowned-photo:.32;
   --on-llm:#ffffff;
+  /* when settings.js picks the AI button color from your wardrobe, its text is whichever of these reads better on it */
+  --on-picked-light:#ffffff;
+  --on-picked-dark:#121212;
+
+  /* the swatch for a color name the app doesn't list. Keep it a #rrggbb value: llmColor.js measures it. */
+  --unlisted-color:#999999;
 
   /* the usage chart, one color per type of call. Checked for color blindness; Evening has its own steps. */
   --series-tagging:#2a78d6;

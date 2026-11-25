@@ -7,7 +7,7 @@ let wearPop = null;
 function closeWearPop(){ wearPop?.remove(); wearPop = null; }
 function openWearPop(button, outfitId){
   closeWearPop();
-  const today = todayLocal();
+  const today = localDay();
   wearPop = Object.assign(document.createElement("div"), {className: "wearpop"});
   wearPop.setAttribute("role", "dialog");
   wearPop.setAttribute("aria-label", "Log a wear");
@@ -30,7 +30,7 @@ async function saveWear(){
   wearPop.querySelectorAll("button, input").forEach(el => el.disabled = true);
   try {
     replaceOutfit(await api(`/api/outfits/${id}/wears`, {method: "POST", body: {worn_on: day}}));
-    toast(day === todayLocal() ? "Logged as worn today" : `Logged as worn on ${whenDay(day)}`);
+    toast(day === localDay() ? "Logged as worn today" : `Logged as worn on ${whenDay(day)}`);
     closeWearPop();
   } catch (e) { toast(e.message, true); wearPop?.querySelectorAll("button, input").forEach(el => el.disabled = false); }
 }

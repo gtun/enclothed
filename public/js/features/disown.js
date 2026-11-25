@@ -39,7 +39,7 @@ async function disownClick(e){
   disowning = true;
   e.currentTarget.querySelectorAll("button").forEach(b => { b.disabled = true; });
   try {
-    adoptGarment(await api(`/api/garments/${g.id}`, {method: "PATCH", body: {disowned_on: localDay(Date.now())}}));
+    adoptGarment(await api(`/api/garments/${g.id}`, {method: "PATCH", body: {disowned_on: localDay()}}));
     builder.pieces = builder.pieces.filter(id => id !== g.id);
     saveBuilder(); renderBuilder();
     disowning = false; closeDisown();
