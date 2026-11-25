@@ -1,5 +1,6 @@
 # tests/test_models.py
 import re
+from pathlib import Path
 from typing import get_args
 
 import pytest
@@ -178,3 +179,30 @@ def test_other_llm_schemas_stay_well_under_the_api_limits(model):
     # TaggingResult failed at 19 and 15, so keep the rest far from there.
     optional, unions = schema_cost(model)
     assert optional <= 8 and unions <= 8
+
+
+# --- the package's layers ---------------------------------------------------------------------
+LAYERS = ["terms", "garment", "ai", "records", "api"]
+
+
+def test_each_models_file_imports_only_from_the_layers_below_it():
+    """terms, garment, ai, records, api: a file that reached up would make an import loop waiting to happen."""
+    import ast
+    import enclothed.models as package
+    folder = Path(package.__file__).parent
+    for layer in LAYERS:
+        tree = ast.parse((folder / f"{layer}.py").read_text(encoding="utf-8"))
+        used = {node.module.rsplit(".", 1)[-1] for node in ast.walk(tree)
+                if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("enclothed.models.")}
+        assert used <= set(LAYERS[:LAYERS.index(layer)]), f"models/{layer}.py imports from {used}"
+
+
+def test_every_public_name_in_the_package_is_importable_from_enclothed_models():
+    import importlib
+    import enclothed.models as package
+    for layer in LAYERS:
+        module = importlib.import_module(f"enclothed.models.{layer}")
+        for name, value in vars(module).items():
+            if not name.startswith("_") and getattr(value, "__module__", None) == module.__name__:
+                assert getattr(package, name) is value, f"{name} from models/{layer}.py isn't re-exported"
+

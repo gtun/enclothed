@@ -1,5 +1,5 @@
 """Fabrics by how they are made, not what they are made of: fibers belong in materials.
-This list is long, so it lives apart from models.py and is checked in code rather than in the
+This list is long, so it lives apart from the models package and is checked in code rather than in the
 LLM's output schema. Display names are in locales/."""
 
 FABRIC_GROUPS: dict[str, list[str]] = {
