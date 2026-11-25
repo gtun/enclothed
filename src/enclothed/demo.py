@@ -136,8 +136,7 @@ def reset_wardrobe(db_path: Path, demo_id: int, template_dir: Path, timestamp: s
     for rework_id in db.delete_user_reworks(db_path, demo_id):   # visitors' reworks of the kept garments too
         reworks.image_path(config.REWORKS_DIR, rework_id).unlink(missing_ok=True)
     for garment_id in db.delete_demo_wardrobe(db_path, demo_id, keep):
-        shutil.rmtree(config.GARMENTS_DIR / str(garment_id), ignore_errors=True)
-        shutil.rmtree(config.THUMBS_DIR / str(garment_id), ignore_errors=True)
+        photos.delete_garment_photos(garment_id)
     for look_id in look_ids:
         photos.delete_look_photos(look_id)
     db.save_preferences(db_path, demo_id, None, timestamp)

@@ -1037,3 +1037,10 @@ def test_an_unknown_rework_is_404(client, rework_ready):
     assert client.get("/reworks/999").status_code == 404
     assert client.delete("/api/reworks/999").status_code == 404
     assert client.get("/api/garments/999/reworks").status_code == 404
+
+
+def test_a_missing_garment_says_what_was_not_found(client):
+    """One check for all of these: a photo request says the photo wasn't found, the rest name the garment."""
+    assert client.get("/photos/999/front_00.jpg").json()["detail"] == "Photo not found"
+    assert client.get("/thumbs/999/front_00.jpg").json()["detail"] == "Photo not found"
+    assert client.get("/api/garments/999/reworks").json()["detail"] == "Garment 999 not found"

@@ -76,7 +76,7 @@ TEST_OUTFITS = OutfitResult.model_validate({
 })
 
 
-def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Client | None, prompt_message: str, is_test: bool, caching: bool = True, formality: int = 1, warmth: int = 1, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None, silhouette: Silhouette | None = None) -> OutfitResult:
+def get_outfits(db_path: Path, user_id: int, wardrobe: dict[int, Garment], anchors: list[int] | None, logging_path: Path, client: Client | None, prompt_message: str, is_test: bool, caching: bool = True, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, count: int = config.DEFAULT_OUTFIT_COUNT, riskiness: RiskTier | None = None, silhouette: Silhouette | None = None) -> OutfitResult:
     result, _ = generate_outfits(db_path, user_id, wardrobe, anchors, logging_path, client, prompt_message, is_test, caching, preferences, language, count, riskiness, silhouette)
     return result
 

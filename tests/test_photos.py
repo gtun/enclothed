@@ -95,3 +95,17 @@ def test_small_photos_are_sent_as_they_are(tmp_path):
     small = tmp_path / "front_00.jpg"
     Image.new("RGB", (10, 10), "red").save(small)
     assert photos.sendable_copies([small], tmp_path) == [small]
+
+
+def test_deleting_a_garments_photos_removes_its_photos_and_thumbnails_only():
+    add_photo(1)
+    add_photo(2)
+    photos.get_thumbnail(1, "front_00.jpg")
+    photos.get_thumbnail(2, "front_00.jpg")
+
+    photos.delete_garment_photos(1)
+    photos.delete_garment_photos(3)   # no folders: nothing to do
+
+    assert not (config.GARMENTS_DIR / "1").exists() and not (config.THUMBS_DIR / "1").exists()
+    assert (config.GARMENTS_DIR / "2" / "front_00.jpg").is_file() and (config.THUMBS_DIR / "2").is_dir()
+

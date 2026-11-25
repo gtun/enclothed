@@ -212,17 +212,18 @@ def mend_garment(garment_id: int, user: CurrentUser, provider: ChosenProvider) -
     return MendOut(filled=result.filled, unanswered=result.unanswered)
 
 
-# --- rework (#74): an edited copy of a garment's photo -----
-def _require_owned_garment(user: User, garment_id: int) -> None:
+def _require_garment(user: User, garment_id: int, not_found: str | None = None) -> None:
+    """A 404 unless the garment is the user's. not_found replaces the message, as for a photo."""
     if db.select_garment(config.DB_PATH, user.id, garment_id) is None:
-        raise HTTPException(status_code=404, detail=f"Garment {garment_id} not found")
+        raise HTTPException(status_code=404, detail=not_found or f"Garment {garment_id} not found")
 
 
+# --- rework (#74): an edited copy of a garment's photo -----
 @app.post("/api/garments/{garment_id}/reworks", status_code=201)
 def rework_garment(garment_id: int, body: ReworkIn, user: CurrentUser) -> ReworkOut:
     """Edit the garment's front photo by the instruction and keep the result. Always OpenAI: Claude makes no images,
     so the admin's LLM choice doesn't apply."""
-    _require_owned_garment(user, garment_id)
+    _require_garment(user, garment_id)
     if user.is_demo and demo.reworks_used(config.REWORK_LOG_PATH, user.id) >= DEMO_DAILY_REWORK_LIMIT:
         raise HTTPException(status_code=429, detail=f"The demo has used today's {DEMO_DAILY_REWORK_LIMIT} reworks. They reset overnight.")
     client = _llm_client("openai")
@@ -243,7 +244,7 @@ def rework_garment(garment_id: int, body: ReworkIn, user: CurrentUser) -> Rework
 @app.get("/api/garments/{garment_id}/reworks")
 def list_reworks(garment_id: int, user: CurrentUser) -> list[ReworkOut]:
     """The garment's reworks, newest first."""
-    _require_owned_garment(user, garment_id)
+    _require_garment(user, garment_id)
     return responses.list_reworks(config.DB_PATH, user.id, garment_id)
 
 
@@ -319,8 +320,7 @@ def discard_weighed(garment_id: int, user: CurrentUser) -> None:
     """Not buying: delete the candidate, its photos, its verdict and the outfits suggested with it."""
     if not db.delete_candidate(config.DB_PATH, user.id, garment_id):
         raise HTTPException(status_code=404, detail=f"No garment {garment_id} is being weighed")
-    shutil.rmtree(config.GARMENTS_DIR / str(garment_id), ignore_errors=True)
-    shutil.rmtree(config.THUMBS_DIR / str(garment_id), ignore_errors=True)
+    photos.delete_garment_photos(garment_id)
 
 
 # --- mimic: recreate a photographed look (#5) -------
@@ -694,20 +694,15 @@ def _photo_response(path: Path | None) -> FileResponse:
     return FileResponse(path, headers=PHOTO_CACHING)
 
 
-def _require_garment(user: User, garment_id: int) -> None:
-    if db.select_garment(config.DB_PATH, user.id, garment_id) is None:
-        raise HTTPException(status_code=404, detail="Photo not found")
-
-
 @app.get("/photos/{garment_id}/{filename}", include_in_schema=False)
 def get_photo(garment_id: int, filename: str, user: CurrentUser) -> FileResponse:
-    _require_garment(user, garment_id)
+    _require_garment(user, garment_id, "Photo not found")
     return _photo_response(photos.get_photo(garment_id, filename))
 
 
 @app.get("/thumbs/{garment_id}/{filename}", include_in_schema=False)
 def get_thumbnail(garment_id: int, filename: str, user: CurrentUser) -> FileResponse:
-    _require_garment(user, garment_id)
+    _require_garment(user, garment_id, "Photo not found")
     return _photo_response(photos.get_thumbnail(garment_id, filename))
 
 

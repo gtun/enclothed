@@ -147,6 +147,12 @@ def get_look_thumbnail(look_id: int, filename: str) -> Path | None:
     return _thumbnail(source, config.THUMBS_DIR / "looks" / str(look_id) / f"{filename}.jpg")
 
 
+def delete_garment_photos(garment_id: int) -> None:
+    """A garment's photos and their thumbnails, for a garment that's gone from the database."""
+    shutil.rmtree(config.GARMENTS_DIR / str(garment_id), ignore_errors=True)
+    shutil.rmtree(config.THUMBS_DIR / str(garment_id), ignore_errors=True)
+
+
 def delete_look_photos(look_id: int) -> None:
     shutil.rmtree(config.LOOKS_DIR / str(look_id), ignore_errors=True)
     shutil.rmtree(config.THUMBS_DIR / "looks" / str(look_id), ignore_errors=True)
