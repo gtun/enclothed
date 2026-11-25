@@ -18,7 +18,7 @@ from pathlib import Path
 from enclothed import config, db, drafts
 from enclothed.llm import Client, UnusableResponse, weigh_candidate
 from enclothed.prompts import WEIGH_INSTRUCTIONS
-from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, OutfitResult, TokenUsage, WeighOut, WeighResult
+from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, Outfit, OutfitResult, TokenUsage, Weigh, WeighResult
 from enclothed.outfit import options_text, tier_plan, validate_outfits, wardrobe_block, wardrobe_for_prompt
 from enclothed.similarity import similar_garments
 from enclothed.usage import log_failed_call, write_entry
@@ -71,7 +71,7 @@ def log_weigh(log_path: Path, user_id: int, garment_id: int, result: WeighResult
 
 def weigh_draft(db_path: Path, drafts_dir: Path, garments_dir: Path, tagging_log: Path, weigh_log: Path, user_id: int,
                 draft_id: str, garment: Garment, client: Client, preferences: str | None = None,
-                language: Language = DEFAULT_LANGUAGE, caching: bool = True) -> tuple[WeighOut, int, list[int]]:
+                language: Language = DEFAULT_LANGUAGE, caching: bool = True) -> tuple[Weigh, int, list[int]]:
     """Weigh a reviewed draft. Returns the saved verdict, the candidate's new garment ID, and the new outfit IDs."""
     if not drafts.has_draft(drafts_dir, user_id, draft_id):   # before paying for the call
         raise DraftGone(draft_id)
@@ -104,4 +104,4 @@ def weigh_draft(db_path: Path, drafts_dir: Path, garments_dir: Path, tagging_log
     verdict = result.verdict()
     db.insert_weigh(db_path, user_id, garment_id, verdict, timestamp)
     log_weigh(weigh_log, user_id, garment_id, result, usage, context, problems, timestamp)
-    return WeighOut(garment_id=garment_id, weighed_at=timestamp, verdict=verdict), garment_id, outfit_ids
+    return Weigh(garment_id=garment_id, weighed_at=timestamp, verdict=verdict), garment_id, outfit_ids

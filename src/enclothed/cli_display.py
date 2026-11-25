@@ -1,4 +1,4 @@
-from enclothed.models import CLOSENESS_LABELS, Garment, LookMatchOut, LookTags, Outfit, OutfitResult, CATEGORY_ORDER
+from enclothed.models import CLOSENESS_LABELS, Garment, LookMatch, LookTags, Outfit, OutfitResult, CATEGORY_ORDER
 import textwrap
 
 def format_garment_id_name(garment: Garment) -> str:
@@ -68,7 +68,7 @@ def format_outfit_result(outfit_result: OutfitResult, wardrobe: dict[int, Garmen
     return "\n\n".join(lines)
 
 
-def format_look(tags: LookTags, recreations: list[tuple[Outfit, list[LookMatchOut]]], wardrobe: dict[int, Garment]) -> str:
+def format_look(tags: LookTags, recreations: list[tuple[Outfit, list[LookMatch]]], wardrobe: dict[int, Garment]) -> str:
     """mimic: the look as the photos showed it, then each recreation piece by piece."""
     title = "LOOK: " + tags.title.upper() + (f" [{tags.silhouette}-line]" if tags.silhouette else "")
     lines = [f"{title} {'=' * max(3, 65 - len(title))}", textwrap.fill(tags.summary, width=80, initial_indent="  ", subsequent_indent="  ")]

@@ -499,7 +499,7 @@ def test_saved_outfits_keep_their_tier(tmp_path, monkeypatch):
     reply = OutfitResult(outfits=[outfit_of(*ids, tier=t) for t in ("safe", "stretch", "bold")])
     monkeypatch.setattr(outfit_module, "recommend_outfits", lambda client, context, language: (reply, TokenUsage(model="m", input_tokens=1, output_tokens=1)))
     outfit_module.generate_outfits(db_path, 1, wardrobe, None, tmp_path / "log.jsonl", object(), "dinner", False)
-    assert [o["risk_tier"] for o in select_all_outfits(db_path, 1)] == ["safe", "stretch", "bold"]
+    assert [o.risk_tier for o in select_all_outfits(db_path, 1)] == ["safe", "stretch", "bold"]
 
 
 # --- silhouettes ---------------------------------------------------------------------------

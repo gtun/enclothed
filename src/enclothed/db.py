@@ -1,7 +1,9 @@
 import sqlite3
 from datetime import date
 from pathlib import Path
-from enclothed.models import DEFAULT_LANGUAGE, Garment, Language, LookMatchOut, LookTags, Outfit, Rework, User, WeighOut, WeighVerdict
+from enclothed.models import (
+    DEFAULT_LANGUAGE, Garment, Language, Look, LookMatch, LookTags, Outfit, Rework, SavedOutfit, Share, User, Weigh, WeighVerdict,
+)
 from contextlib import closing
 import json
 import logging
@@ -136,11 +138,11 @@ def insert_weigh(db_path: Path, user_id: int, garment_id: int, verdict: WeighVer
                          (garment_id, user_id, weighed_at, verdict.model_dump_json()))
 
 
-def _row_to_weigh(row: sqlite3.Row) -> WeighOut:
-    return WeighOut(garment_id=row["garment_id"], weighed_at=row["weighed_at"], verdict=WeighVerdict.model_validate_json(row["verdict"]))
+def _row_to_weigh(row: sqlite3.Row) -> Weigh:
+    return Weigh(garment_id=row["garment_id"], weighed_at=row["weighed_at"], verdict=WeighVerdict.model_validate_json(row["verdict"]))
 
 
-def select_weighs(db_path: Path, user_id: int) -> list[WeighOut]:
+def select_weighs(db_path: Path, user_id: int) -> list[Weigh]:
     """Verdicts for garments still being weighed, newest first. Bought ones are left out."""
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
@@ -151,7 +153,7 @@ def select_weighs(db_path: Path, user_id: int) -> list[WeighOut]:
         return [_row_to_weigh(row) for row in rows]
 
 
-def select_weigh(db_path: Path, user_id: int, garment_id: int) -> WeighOut | None:
+def select_weigh(db_path: Path, user_id: int, garment_id: int) -> Weigh | None:
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute("SELECT garment_id, weighed_at, verdict FROM weighs WHERE garment_id = ? AND user_id = ?",
@@ -200,7 +202,7 @@ def insert_look(db_path: Path, user_id: int, tags: LookTags, note: str | None, c
             return cursor.lastrowid
 
 
-def insert_look_matches(db_path: Path, outfit_id: int, matches: list[LookMatchOut]) -> None:
+def insert_look_matches(db_path: Path, outfit_id: int, matches: list[LookMatch]) -> None:
     with closing(_connect(db_path)) as conn:
         with conn:
             conn.executemany(
@@ -209,7 +211,7 @@ def insert_look_matches(db_path: Path, outfit_id: int, matches: list[LookMatchOu
             )
 
 
-def _row_to_look(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
+def _row_to_look(conn: sqlite3.Connection, row: sqlite3.Row) -> Look:
     look = dict(row)
     look.pop("user_id")
     look["pieces"] = json.loads(look["pieces"])
@@ -220,10 +222,10 @@ def _row_to_look(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
         ).fetchall()
         recreations.append({"outfit_id": outfit_id, "matches": [dict(m) for m in matches]})
     look["recreations"] = recreations
-    return look
+    return Look.model_validate(look)
 
 
-def select_look(db_path: Path, user_id: int, look_id: int) -> dict | None:
+def select_look(db_path: Path, user_id: int, look_id: int) -> Look | None:
     """A look with its recreations (outfit IDs and matches, closest first), or None if it isn't this user's."""
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
@@ -231,7 +233,7 @@ def select_look(db_path: Path, user_id: int, look_id: int) -> dict | None:
         return _row_to_look(conn, row) if row else None
 
 
-def select_looks(db_path: Path, user_id: int) -> list[dict]:
+def select_looks(db_path: Path, user_id: int) -> list[Look]:
     """Every look of this user's, newest first."""
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
@@ -315,13 +317,13 @@ OUTFIT_SELECT = (
     "LEFT JOIN outfit_garments AS og ON og.outfit_id = o.id "
 )
 
-def _row_to_outfit(row: sqlite3.Row) -> dict:
+def _row_to_outfit(row: sqlite3.Row) -> SavedOutfit:
     outfit = dict(row)
     outfit["garments"] = json.loads(outfit["garments"])
     outfit["wears"] = json.loads(outfit["wears"])
-    return outfit
+    return SavedOutfit.model_validate(outfit)
 
-def select_outfit(db_path: Path, user_id: int, outfit_id: int) -> dict | None:
+def select_outfit(db_path: Path, user_id: int, outfit_id: int) -> SavedOutfit | None:
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
@@ -334,7 +336,7 @@ def select_outfit(db_path: Path, user_id: int, outfit_id: int) -> dict | None:
         return None
     return _row_to_outfit(row)
 
-def select_all_outfits(db_path: Path, user_id: int) -> list[dict]:
+def select_all_outfits(db_path: Path, user_id: int) -> list[SavedOutfit]:
     with closing(_connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -560,37 +562,39 @@ def insert_share(db_path: Path, token: str, user_id: int, kind: str, created_at:
             )
 
 
-def select_share(db_path: Path, token: str, now: str) -> dict | None:
-    """A share that hasn't expired: its kind, expiry and snapshot. Never who made it."""
+SHARE_COLUMNS = "token, kind, created_at, expires_at, snapshot"   # never user_id: a Share doesn't say who made it
+
+
+def _row_to_share(row: tuple) -> Share:
+    token, kind, created_at, expires_at, snapshot = row
+    return Share(token=token, kind=kind, created_at=created_at, expires_at=expires_at, snapshot=json.loads(snapshot))
+
+
+def select_share(db_path: Path, token: str, now: str) -> Share | None:
+    """A share that hasn't expired, whoever made it."""
     with closing(_connect(db_path)) as conn:
-        row = conn.execute("SELECT kind, expires_at, snapshot FROM shares WHERE token = ? AND expires_at > ?", (token, now)).fetchone()
-    if row is None:
-        return None
-    return {"kind": row[0], "expires_at": row[1], "snapshot": json.loads(row[2])}
+        row = conn.execute(f"SELECT {SHARE_COLUMNS} FROM shares WHERE token = ? AND expires_at > ?", (token, now)).fetchone()
+    return _row_to_share(row) if row else None
 
 
-def select_user_shares(db_path: Path, user_id: int, now: str) -> list[dict]:
+def select_user_shares(db_path: Path, user_id: int, now: str) -> list[Share]:
     """One user's shares that haven't expired, newest first (ties: last inserted first). Expired ones can still be in the table until
     the next purge, so the expiry check is what keeps them out."""
     with closing(_connect(db_path)) as conn:
         rows = conn.execute(
-            "SELECT token, kind, created_at, expires_at, snapshot FROM shares "
-            "WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC, rowid DESC",
+            f"SELECT {SHARE_COLUMNS} FROM shares WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC, rowid DESC",
             (user_id, now),
         ).fetchall()
-    return [{"token": r[0], "kind": r[1], "created_at": r[2], "expires_at": r[3], "snapshot": json.loads(r[4])} for r in rows]
+    return [_row_to_share(r) for r in rows]
 
 
-def select_user_share(db_path: Path, token: str, user_id: int, now: str) -> dict | None:
-    """One of this user's live shares, in the same shape as select_user_shares, or None."""
+def select_user_share(db_path: Path, token: str, user_id: int, now: str) -> Share | None:
+    """One of this user's live shares, or None."""
     with closing(_connect(db_path)) as conn:
         row = conn.execute(
-            "SELECT token, kind, created_at, expires_at, snapshot FROM shares WHERE token = ? AND user_id = ? AND expires_at > ?",
-            (token, user_id, now),
+            f"SELECT {SHARE_COLUMNS} FROM shares WHERE token = ? AND user_id = ? AND expires_at > ?", (token, user_id, now),
         ).fetchone()
-    if row is None:
-        return None
-    return {"token": row[0], "kind": row[1], "created_at": row[2], "expires_at": row[3], "snapshot": json.loads(row[4])}
+    return _row_to_share(row) if row else None
 
 
 def update_share_expiry(db_path: Path, token: str, user_id: int, expires_at: str, now: str) -> bool:

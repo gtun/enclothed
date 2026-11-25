@@ -17,7 +17,7 @@ from enclothed.auth import signed_in_user
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.intake import TEST_GARMENT
 from enclothed.llm import UnusableResponse
-from enclothed.models import Outfit, OutfitGarment, PhotoTag, TaggingResult, TokenUsage, User, WeighResult
+from enclothed.models import Outfit, OutfitGarment, PhotoTag, TaggingResult, TokenUsage, User, Weigh, WeighResult
 from enclothed.similarity import similar_garments, similar_score
 from enclothed.weigh import CANDIDATE_ID, check_similar, weigh_context, with_real_id
 
@@ -185,6 +185,8 @@ def test_weighing_saves_a_candidate_with_its_verdict_and_outfits(client, db_path
     assert body["outfits"][0]["prompt_message"].startswith("Weighing: ")
 
     assert client.get("/api/weighs").json() == [body["weigh"]]
+    [saved] = db.select_weighs(db_path, 1)
+    assert isinstance(saved, Weigh) and db.select_weigh(db_path, 1, candidate["id"]) == saved
     assert candidate["id"] not in {g.id for g in db.select_owned_garments(db_path, 1)}
 
 

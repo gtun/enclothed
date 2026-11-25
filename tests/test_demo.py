@@ -10,7 +10,7 @@ from enclothed import api, config, db, demo, main
 from enclothed import outfit as outfit_module
 from enclothed.auth import signed_in_user
 from enclothed.intake import TEST_GARMENT
-from enclothed.models import Outfit, OutfitGarment, OutfitResult, User
+from enclothed.models import Outfit, OutfitGarment, OutfitResult, SavedOutfit, User
 
 ALICE = User(id=1, username="alice", is_admin=True)
 BOB = User(id=2, username="bob", language="zh-TW")
@@ -122,7 +122,7 @@ def test_private_things_stay_out(seeded, db_path):
     demo_id = seeded["demo"].id
     assert all(g.notes is None for g in db.select_all_garments(db_path, demo_id))
     assert db.select_preferences(db_path, demo_id) is None
-    assert all(o["prompt_message"] == config.DEMO_OUTFIT_REQUEST for o in db.select_all_outfits(db_path, demo_id))
+    assert all(o.prompt_message == config.DEMO_OUTFIT_REQUEST for o in db.select_all_outfits(db_path, demo_id))
     saved = (config.DEMO_TEMPLATE_DIR / demo.TEMPLATE_FILE).read_text(encoding="utf-8")
     assert "Gift from my ex" not in saved and "dinner with my boss" not in saved
 
@@ -140,8 +140,8 @@ def test_sets_and_liked_outfits_come_across(seeded, db_path):
     demo_id = seeded["demo"].id
     assert list(db.select_all_sets(db_path, demo_id).values()) == ["Grey suit"]
     [outfit] = db.select_all_outfits(db_path, demo_id)
-    assert outfit["liked"] == 1
-    assert {g["garment_id"] for g in outfit["garments"]} <= {g.id for g in db.select_all_garments(db_path, demo_id)}
+    assert outfit.liked is True
+    assert {g.garment_id for g in outfit.garments} <= {g.id for g in db.select_all_garments(db_path, demo_id)}
 
 
 def test_a_sample_mixes_categories_and_tries_each_subcategory_first():
@@ -154,15 +154,12 @@ def test_a_sample_mixes_categories_and_tries_each_subcategory_first():
 
 def test_a_sample_skips_disliked_outfits_and_ones_with_missing_garments():
     garments = [TEST_GARMENT.model_copy(update={"id": 1})]
-    entry = lambda i: {"garment_id": i, "styling_advice": None, "is_anchor": 0}
-    outfits = [
-        {"id": 1, "liked": 0, "garments": [entry(1)]},
-        {"id": 2, "liked": None, "garments": [entry(1), entry(9)]},
-        {"id": 3, "liked": None, "garments": [entry(1)]},
-        {"id": 4, "liked": 1, "garments": [entry(1)]},
-    ]
+    def outfit(outfit_id, liked, *garment_ids):
+        return SavedOutfit(id=outfit_id, timestamp="2026-11-01T12:00:00+00:00", prompt_message="dinner", aesthetic="Clean",
+                           explanation="Works.", liked=liked, garments=[{"garment_id": i} for i in garment_ids])
+    outfits = [outfit(1, False, 1), outfit(2, None, 1, 9), outfit(3, None, 1), outfit(4, True, 1)]
     _, picked = demo.choose_sample(garments, outfits, per_category=0, max_outfits=2)
-    assert [o["id"] for o in picked] == [4, 3]
+    assert [o.id for o in picked] == [4, 3]
 
 
 def test_garments_with_no_photos_stay_out(db_path):

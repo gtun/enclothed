@@ -16,7 +16,7 @@ from enclothed.cli_display import format_look
 from enclothed.config import MIGRATIONS_DIR, SCHEMA_PATH
 from enclothed.intake import TEST_GARMENT
 from enclothed.llm import UnusableResponse
-from enclothed.models import LookPiece, LookReply, LookTags, MimicResult, TokenUsage, User, to_look_tags
+from enclothed.models import Look, LookMatch, LookPiece, LookReply, LookTags, MimicResult, Outfit, OutfitGarment, TokenUsage, User, to_look_tags
 
 USAGE = TokenUsage(model="m", input_tokens=10, output_tokens=5)
 
@@ -368,3 +368,19 @@ def test_in_another_language_the_fixed_values_stay_english():
     assert "silhouette are fixed values" in prompt
     assert "Japanese" in prompt
     assert prompts.look_tag_system_prompt("en-US") == prompts.LOOK_TAG_SYSTEM_PROMPT
+
+
+def test_a_saved_look_comes_back_as_a_look_and_matches_again_with_only_its_tags(db_path, wardrobe):
+    look_id = db.insert_look(db_path, 1, LOOK, "from a magazine", "2026-11-05T12:00:00+00:00")
+    outfit = Outfit(aesthetic="Navy", explanation="Close.", garments=[OutfitGarment(garment_id=wardrobe[0])])
+    [outfit_id] = db.insert_outfits(db_path, 1, [outfit], None, "look", "2026-11-05T12:00:00+00:00", look_id=look_id)
+    db.insert_look_matches(db_path, outfit_id, [LookMatch(piece=1, garment_id=wardrobe[0], closeness="close")])
+
+    look = db.select_look(db_path, 1, look_id)
+    assert isinstance(look, Look) and db.select_looks(db_path, 1) == [look]
+    assert (look.note, [r.outfit_id for r in look.recreations]) == ("from a magazine", [outfit_id])
+    assert look.recreations[0].matches[0] == LookMatch(piece=1, garment_id=wardrobe[0], closeness="close")
+    tags = mimic.look_tags(look)
+    assert type(tags) is LookTags and tags == LOOK   # no id, note or recreations to reach the log
+    assert db.select_look(db_path, 2, look_id) is None
+

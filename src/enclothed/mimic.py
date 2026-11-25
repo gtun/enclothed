@@ -20,7 +20,7 @@ from enclothed import config, db, photos
 from enclothed.llm import Client, UnusableResponse, match_look, tag_look
 from enclothed.prompts import MIMIC_INSTRUCTIONS
 from enclothed.models import (
-    DEFAULT_LANGUAGE, Garment, Language, LookMatchOut, LookPiece, LookTags, MimicOutfit, MimicResult, Outfit,
+    DEFAULT_LANGUAGE, Garment, Language, Look, LookMatch, LookPiece, LookTags, MimicOutfit, MimicResult, Outfit,
     OutfitGarment, TokenUsage, layer_for,
 )
 from enclothed.outfit import validate_outfit, wardrobe_block, wardrobe_for_prompt
@@ -76,9 +76,10 @@ def create_look(db_path: Path, user_id: int, photo_paths: list[Path], note: str 
     return look_id, tags
 
 
-def look_tags(look: dict) -> LookTags:
-    """A stored look (db.select_look) back as LookTags, to match it again."""
-    return LookTags.model_validate({key: look[key] for key in ("title", "summary", "silhouette", "pieces")})
+def look_tags(look: Look) -> LookTags:
+    """A stored look (db.select_look) back as just its LookTags, to match it again. Not the Look itself, which is
+    a LookTags too: its id, note and recreations would go into the log with the tags."""
+    return LookTags.model_validate(look.model_dump(include=set(LookTags.model_fields)))
 
 
 # --- step 2: the recreations -------------------------------------------------------------------
@@ -121,12 +122,12 @@ def mimic_context(owned: dict[int, Garment], tags: LookTags, lists: dict[int, li
     return context
 
 
-def check_matches(recreation: MimicOutfit, pieces: list[LookPiece]) -> tuple[list[str], list[LookMatchOut]]:
+def check_matches(recreation: MimicOutfit, pieces: list[LookPiece]) -> tuple[list[str], list[LookMatch]]:
     """One match per piece, in order. A stand-in that isn't in the outfit, or already stands in for another
     piece, becomes "none" rather than dropping the outfit; a piece the reply skipped is "none" too."""
     problems: list[str] = []
     in_outfit = {g.garment_id for g in recreation.garments}
-    given: dict[int, LookMatchOut] = {}
+    given: dict[int, LookMatch] = {}
     used: set[int] = set()
     for match in recreation.matches:
         if not 1 <= match.piece <= len(pieces):
@@ -143,30 +144,30 @@ def check_matches(recreation: MimicOutfit, pieces: list[LookPiece]) -> tuple[lis
             problems.append(f"piece {match.piece}: stand-in {garment_id} already stands in for another piece")
             garment_id = None
         if garment_id is None:
-            given[match.piece] = LookMatchOut(piece=match.piece, closeness="none", note=match.note.strip() or None)
+            given[match.piece] = LookMatch(piece=match.piece, closeness="none", note=match.note.strip() or None)
         else:
             used.add(garment_id)
-            given[match.piece] = LookMatchOut(piece=match.piece, garment_id=garment_id, closeness=match.closeness,
+            given[match.piece] = LookMatch(piece=match.piece, garment_id=garment_id, closeness=match.closeness,
                                               note=match.note.strip() or None)
     for number in range(1, len(pieces) + 1):
         if number not in given:
             problems.append(f"piece {number}: no match given")
-            given[number] = LookMatchOut(piece=number, closeness="none")
+            given[number] = LookMatch(piece=number, closeness="none")
     return problems, [given[number] for number in sorted(given)]
 
 
-def missing_text(matches: list[LookMatchOut], pieces: list[LookPiece]) -> str | None:
+def missing_text(matches: list[LookMatch], pieces: list[LookPiece]) -> str | None:
     """The look's pieces nothing owned stands in for, as the photos showed them. Shown as "To finish the look"."""
     unmatched = [pieces[m.piece - 1].description.strip() for m in matches if m.garment_id is None]
     return " ".join(text if text.endswith((".", "。", "!", "?")) else text + "." for text in unmatched if text) or None
 
 
 def check_recreations(result: MimicResult, pieces: list[LookPiece], owned: dict[int, Garment]
-                      ) -> tuple[list[str], list[tuple[Outfit, list[LookMatchOut]]]]:
+                      ) -> tuple[list[str], list[tuple[Outfit, list[LookMatch]]]]:
     """The recreations worth saving, closest first, each as an outfit plus its matches. An outfit that breaks
     the usual outfit rules (unknown garment, no shoes...) is dropped; bad matches are fixed up, not dropped."""
     problems: list[str] = []
-    kept: list[tuple[Outfit, list[LookMatchOut]]] = []
+    kept: list[tuple[Outfit, list[LookMatch]]] = []
     if len(result.outfits) > config.MIMIC_MAX_OUTFITS:
         problems.append(f"{len(result.outfits)} recreations returned; kept the first {config.MIMIC_MAX_OUTFITS}")
     for number, recreation in enumerate(result.outfits[:config.MIMIC_MAX_OUTFITS], start=1):
@@ -198,7 +199,7 @@ def offline_result(tags: LookTags, owned: dict[int, Garment]) -> MimicResult:
 
 def recreate(db_path: Path, user_id: int, look_id: int | None, tags: LookTags, note: str | None, client: Client | None,
              log_path: Path, preferences: str | None = None, language: Language = DEFAULT_LANGUAGE, caching: bool = True,
-             is_test: bool = False) -> tuple[list[tuple[Outfit, list[LookMatchOut]]], list[int]]:
+             is_test: bool = False) -> tuple[list[tuple[Outfit, list[LookMatch]]], list[int]]:
     """Match the look against the owned wardrobe and save the valid recreations (unless testing).
     Returns the recreations and their new outfit IDs, in the same order."""
     owned = {g.id: g for g in db.select_owned_garments(db_path, user_id)}
