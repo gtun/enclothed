@@ -160,8 +160,8 @@ def test_no_prompts_or_wardrobe_text_in_the_response(logged, as_user, path):
 # --- failed calls ------------------------------------------
 def refused_client():
     usage = SimpleNamespace(input_tokens=500, output_tokens=0, cache_creation_input_tokens=0, cache_read_input_tokens=0)
-    response = SimpleNamespace(parsed_output=None, stop_reason="refusal", usage=usage, content=[])
-    return Client("anthropic", SimpleNamespace(messages=SimpleNamespace(parse=lambda **kwargs: response)))
+    response = SimpleNamespace(stop_reason="refusal", usage=usage, content=[])
+    return Client("anthropic", SimpleNamespace(messages=SimpleNamespace(create=lambda **kwargs: response)))
 
 
 @pytest.mark.parametrize("call", [

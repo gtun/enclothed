@@ -170,13 +170,14 @@ class FakeParse:
         self.sent = kwargs
         usage = type("Usage", (), {"input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": None, "cache_read_input_tokens": None})()
         # hem answered; every other blank asked about comes back "unknown", as the prompt tells Claude to do
-        fields = kwargs["output_format"].model_fields
-        parsed = kwargs["output_format"](**{f: "hip" if f == "hem" else "unknown" for f in fields}) if self.parsed else None
-        return type("Response", (), {"usage": usage, "parsed_output": parsed, "stop_reason": "end_turn"})()
+        fields = kwargs["output_config"]["format"]["schema"]["properties"]
+        answer = json.dumps({f: "hip" if f == "hem" else "unknown" for f in fields}) if self.parsed else ""
+        text = type("Text", (), {"type": "text", "text": answer})()
+        return type("Response", (), {"usage": usage, "content": [text], "stop_reason": "end_turn"})()
 
 
 def fake_client(parse):
-    return llm.Client("anthropic", type("SDK", (), {"messages": type("Messages", (), {"parse": parse})()})())
+    return llm.Client("anthropic", type("SDK", (), {"messages": type("Messages", (), {"create": parse})()})())
 
 
 def test_the_output_schema_has_only_the_blank_fields(tmp_path):
@@ -186,7 +187,7 @@ def test_the_output_schema_has_only_the_blank_fields(tmp_path):
 
     answers, _ = llm.fill_blanks(fake_client(parse), [photo], {"category": "top"}, ["hem", "fit"], preferences="I'm tall")
 
-    assert set(parse.sent["output_format"].model_fields) == {"hem", "fit"}
+    assert set(parse.sent["output_config"]["format"]["schema"]["properties"]) == {"hem", "fit"}
     assert answers == {"hem": "hip"}
     text = " ".join(block["text"] for block in parse.sent["messages"][0]["content"] if block["type"] == "text")
     assert "Fill in only these blank fields: hem, fit" in text

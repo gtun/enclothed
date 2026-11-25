@@ -19,8 +19,13 @@ def usage(**counts):
                               "cache_read_input_tokens": None, **counts})
 
 
-def sdk(parse=None, create=None):
-    return SimpleNamespace(messages=SimpleNamespace(parse=parse, create=create))
+def sdk(create=None):
+    return SimpleNamespace(messages=SimpleNamespace(create=create))
+
+
+def claude_reply(text, stop_reason="end_turn", **counts):
+    """A Claude message whose answer is text: the JSON a structured call asked for, or not."""
+    return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], stop_reason=stop_reason, usage=usage(**counts))
 
 
 # --- make_client ----------------------------------------------------------------------------
@@ -52,7 +57,7 @@ def refused(**kwargs):
 
 def test_an_sdk_error_becomes_a_service_error_with_its_name_and_request_id():
     with pytest.raises(llm.ServiceError) as raised:
-        llm.improve_preferences(llm.Client("anthropic", sdk(parse=refused)), "I like navy")
+        llm.improve_preferences(llm.Client("anthropic", sdk(create=refused)), "I like navy")
     assert raised.value.message == "Schema is too complex."
     assert raised.value.kind == "BadRequestError"
     assert raised.value.request_id == "req_123"
@@ -69,19 +74,41 @@ def test_errors_that_arent_the_sdks_pass_through():
     def broken(**kwargs):
         raise ValueError("not the API")
     with pytest.raises(ValueError):
-        llm.improve_preferences(llm.Client("anthropic", sdk(parse=broken)), "I like navy")
+        llm.improve_preferences(llm.Client("anthropic", sdk(create=broken)), "I like navy")
 
 
 # --- structured calls -----------------------------------------------------------------------
 
 def test_a_structured_call_reports_cache_tokens_and_cut_off():
-    response = SimpleNamespace(parsed_output=ImprovedPreferences(text="x"), stop_reason="max_tokens",
-                               usage=usage(cache_creation_input_tokens=7, cache_read_input_tokens=3))
-    reply = llm._parse(llm.Client("anthropic", sdk(parse=lambda **kwargs: response)), "preferences", "system", "hi",
+    response = claude_reply('{"text": "x"}', "max_tokens", cache_creation_input_tokens=7, cache_read_input_tokens=3)
+    reply = llm._parse(llm.Client("anthropic", sdk(create=lambda **kwargs: response)), "preferences", "system", "hi",
                        ImprovedPreferences, 100)
+    assert reply.parsed == ImprovedPreferences(text="x")
     assert (reply.usage.cache_creation_input_tokens, reply.usage.cache_read_input_tokens) == (7, 3)
     assert reply.usage.model == llm.model_for("anthropic", "preferences")
     assert reply.cut_off is True
+
+
+@pytest.mark.parametrize("text", [
+    '{"outfits":[{"matches":[{"note":"</br>`</br>`</br>`',   # cut off mid-string at the token cap, as on 2026-11-25
+    '{"outfits": "not a list"}',                               # whole, but not the shape asked for
+    "",
+])
+def test_a_claude_reply_that_isnt_the_json_asked_for_is_unusable_and_keeps_its_usage(text):
+    """messages.parse raised on these, so the call failed as a 500 and its billed tokens were never logged."""
+    client = llm.Client("anthropic", sdk(create=lambda **kwargs: claude_reply(text, "max_tokens", output_tokens=8192)))
+    with pytest.raises(llm.UnusableResponse) as raised:
+        llm.match_look(client, [{"type": "text", "text": "the look"}])
+    assert raised.value.usage.output_tokens == 8192
+
+
+def test_a_structured_call_asks_claude_for_the_schema_the_sdk_would():
+    sent = {}
+    def create(**kwargs):
+        sent.update(kwargs)
+        return claude_reply('{"text": "Navy"}')
+    llm.improve_preferences(llm.Client("anthropic", sdk(create=create)), "I like navy")
+    assert sent["output_config"] == {"format": {"schema": anthropic.transform_schema(ImprovedPreferences.model_json_schema()), "type": "json_schema"}}
 
 
 # --- the insights conversation --------------------------------------------------------------
@@ -364,10 +391,10 @@ def test_claude_models_that_always_think_get_room_to_think():
 def test_a_structured_call_on_opus_sends_the_cap_with_thinking_room(monkeypatch):
     monkeypatch.setitem(config.ANTHROPIC_MODELS, "preferences", "claude-opus-5-5")
     sent = {}
-    def parse(**kwargs):
+    def create(**kwargs):
         sent.update(kwargs)
-        return SimpleNamespace(parsed_output=ImprovedPreferences(text="Navy"), usage=usage(), stop_reason="end_turn")
-    llm._parse(llm.Client("anthropic", sdk(parse=parse)), "preferences", "Be brief.", "I like navy", ImprovedPreferences, 100)
+        return claude_reply('{"text": "Navy"}')
+    llm._parse(llm.Client("anthropic", sdk(create=create)), "preferences", "Be brief.", "I like navy", ImprovedPreferences, 100)
     assert sent["max_tokens"] == 100 + config.ANTHROPIC_THINKING_ALLOWANCE
 
 
